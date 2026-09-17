@@ -95,7 +95,8 @@ void SetRotation(TransformComponent& transform, const glm::quat& rotation,
     // World space with parent
     TransformComponent& parent = GetParent(transform);
     _TmpUpdateModel(parent);
-    transform.rotation_ = glm::inverse(parent.rotation_) * rotation;
+    transform.rotation_ =
+        glm::inverse(GetRotation(parent, Space::WORLD)) * rotation;
     transform.euler_angles_ = ToEuler(transform.rotation_);
   }
   transform.modified_ = true;
@@ -114,7 +115,8 @@ void SetEulerAngles(TransformComponent& transform, const glm::vec3& eulerAngles,
     // World space with parent
     TransformComponent& parent = GetParent(transform);
     _TmpUpdateModel(parent);
-    transform.rotation_ = glm::inverse(parent.rotation_) * rotation;
+    transform.rotation_ =
+        glm::inverse(GetRotation(parent, Space::WORLD)) * rotation;
     transform.euler_angles_ = ToEuler(transform.rotation_);
   }
   transform.modified_ = true;
