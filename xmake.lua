@@ -36,9 +36,7 @@ add_requires(
 	"efsw",
 	"nlohmann_json",
 	"entt",
-	"pcg-cpp",
-	"bgfx",
-	"gtest"
+	"pcg-cpp"
 )
 add_requires("imgui 1.91.8-docking", { configs = { sdl2 = true, sdl2_renderer = true, docking = true } })
 add_requires("bgfx", { configs = { tools = true } })

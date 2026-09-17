@@ -6,7 +6,7 @@ target("tests")
 
     add_files("*.cpp")
 
-    add_packages("boost", "libsdl2", "bgfx", "glm", "imgui", "libsdl2_ttf", "portaudio", "tinygltf", "nlohmann_json", "entt", "gtest")
+    add_packages("boost", "libsdl2", "bgfx", "glm", "imgui", "libsdl2_ttf", "portaudio", "tinygltf", "nlohmann_json", "entt")
     
     set_rundir("$(projectdir)")
     

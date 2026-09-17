@@ -357,14 +357,10 @@ static void ApplyPartDeform(const PCG::OperationData& base_data,
     if (data.apply_twist) {
       twist_angle = SampleRange(range->twist_angle_min, range->twist_angle_max,
                                 "twist", ctx.sampler, ctx.rng);
-      if (twist_angle)
-        twist_angle = glm::radians(*twist_angle);
     }
     if (data.apply_bend) {
       bend_angle = SampleRange(range->bend_angle_min, range->bend_angle_max,
                                "bend", ctx.sampler, ctx.rng);
-      if (bend_angle)
-        bend_angle = glm::radians(*bend_angle);
     }
     if (data.apply_noise) {
       noise_amplitude =
@@ -572,14 +568,10 @@ static void ApplyInstanceDeform(const PCG::OperationData& base_data,
       twist_angle =
           SampleRangeInstance(mdr.twist_angle_min, mdr.twist_angle_max, "twist",
                               ctx.sampler, ctx.rng);
-      if (twist_angle)
-        twist_angle = glm::radians(*twist_angle);
     }
     if (data.apply_bend) {
       bend_angle = SampleRangeInstance(mdr.bend_angle_min, mdr.bend_angle_max,
                                        "bend", ctx.sampler, ctx.rng);
-      if (bend_angle)
-        bend_angle = glm::radians(*bend_angle);
     }
   }
 
