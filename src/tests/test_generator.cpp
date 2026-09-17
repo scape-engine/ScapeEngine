@@ -507,7 +507,7 @@ void RunAllGeneratorTests() {
 }  // namespace Tests
 
 // Entry point for running tests standalone
-int main() {
+/*int main() {
   Tests::RunAllGeneratorTests();
   return 0;
-}
+}*/
