@@ -30,9 +30,7 @@ void ModelViewer::Render() {
     Init();
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
-  ImGui::Begin(
-      "Model View", nullptr,
-      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+  ImGui::Begin("Model View", nullptr, EditorFlag::standard);
 
   RenderViewport();
 

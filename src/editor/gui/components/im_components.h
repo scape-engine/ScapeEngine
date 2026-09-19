@@ -56,7 +56,7 @@ void SparklineGraph(const char* id, const float* values, int32_t count,
                     const ImVec4& color, const ImVec2& size);
 
 // Begin a child and push fitting clip rect
-void BeginClippedChild(ImVec2 size,
+void BeginClippedChild(const char* id, ImVec2 size,
                        ImVec2 position = ImGui::GetCursorScreenPos());
 
 // End child and pop clip rect

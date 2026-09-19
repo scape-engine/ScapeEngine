@@ -59,7 +59,7 @@ AssetBrowserPanel::NodeUIData AssetBrowserPanel::MakeNodeUI(
 void AssetBrowserPanel::Draw() {
   HandleInputs();  // called once per frame
 
-  if (!ImGui::Begin("Asset Browser")) {
+  if (!ImGui::Begin("Asset Browser", nullptr, EditorFlag::standard)) {
     ImGui::End();
     return;
   }

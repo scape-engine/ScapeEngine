@@ -135,8 +135,8 @@ void ModelPreview::Render() {
 
   TickGenerate();
 
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-  ImGui::Begin("Procedural Preview", nullptr);
+  // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
+  ImGui::Begin("Procedural Preview", nullptr, EditorFlag::standard);
 
   RenderToolbar(ImGui::GetWindowDrawList());
 
@@ -148,7 +148,6 @@ void ModelPreview::Render() {
   ImGui::EndChild();
 
   ImGui::End();
-  ImGui::PopStyleVar();
 
   SubmitViews();
   preview_pipeline_.Render();

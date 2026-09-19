@@ -244,8 +244,9 @@ void TryIcon(const char* icon, ImU32 color, float y_padding) {
 //=============================================================================
 void Input(std::string label, bool& value) {
   label += ":";
+  ImGui::PushID(EditorUI::Get()->GenerateId());
   if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_Resizable |
+                        ImGuiTableFlags_SizingStretchProp |
                             ImGuiTableFlags_NoBordersInBody |
                             ImGuiTableFlags_NoSavedSettings)) {
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -263,12 +264,14 @@ void Input(std::string label, bool& value) {
 
     ImGui::EndTable();
   }
+  ImGui::PopID();
 }
 
 void Input(std::string label, int32_t& value, float speed) {
   label += ":";
+  ImGui::PushID(EditorUI::Get()->GenerateId());
   if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_Resizable |
+                        ImGuiTableFlags_SizingStretchProp |
                             ImGuiTableFlags_NoBordersInBody |
                             ImGuiTableFlags_NoSavedSettings)) {
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -281,17 +284,19 @@ void Input(std::string label, int32_t& value, float speed) {
     ImGui::TableSetColumnIndex(1);
     ImGui::PushItemWidth(-1);
     std::string id = EditorUI::Get()->GenerateIdString();
-    ImGui::DragInt(id.c_str(), &value, speed, 0, 0, "%.2f");
+    ImGui::DragInt(id.c_str(), &value, speed, 0, 0, "%d");
     ImGui::PopItemWidth();
 
     ImGui::EndTable();
   }
+  ImGui::PopID();
 }
 
 void Input(std::string label, float& value, float speed) {
   label += ":";
+  ImGui::PushID(EditorUI::Get()->GenerateId());
   if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_Resizable |
+                        ImGuiTableFlags_SizingStretchProp |
                             ImGuiTableFlags_NoBordersInBody |
                             ImGuiTableFlags_NoSavedSettings)) {
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -309,15 +314,27 @@ void Input(std::string label, float& value, float speed) {
 
     ImGui::EndTable();
   }
+  ImGui::PopID();
 }
 
 void Input(std::string label, glm::vec3& value, float speed) {
   label += ":";
 
   // EVALUATE
+  const float item_spacing_x = 6.0f;
   float x_region_avail = ImGui::GetContentRegionAvail().x;
   float label_width = x_region_avail * 0.3f;
-  float components_width = x_region_avail * 0.55f;
+
+  // Width of one axis button ("X"/"Y"/"Z") with current frame padding
+  float button_width =
+      ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+
+  // Space for the three drag fields = second column minus 3 buttons minus 5
+  // gaps (button<->drag ×3, group<->group ×2)
+  float components_width = (x_region_avail - label_width) -
+                           3.0f * button_width - 5.0f * item_spacing_x -
+                           ImGui::GetStyle().ColumnsMinSpacing;
+  components_width = ImMax(components_width, 3.0f * 24.0f);
 
   ImGui::PushID(EditorUI::Get()->GenerateId());
 
@@ -461,8 +478,9 @@ void ColorPicker(std::string label, glm::vec3& value) {
                          static_cast<unsigned char>(value.g * 255.0f),
                          static_cast<unsigned char>(value.b * 255.0f), 255);
 
+  ImGui::PushID(EditorUI::Get()->GenerateId());
   if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_Resizable |
+                        ImGuiTableFlags_SizingStretchProp |
                             ImGuiTableFlags_NoBordersInBody |
                             ImGuiTableFlags_NoSavedSettings)) {
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
@@ -489,6 +507,7 @@ void ColorPicker(std::string label, glm::vec3& value) {
 
     ImGui::EndTable();
   }
+  ImGui::PopID();
 
   if (opened_for == &value) {
     ImGui::OpenPopup("Color Picker");
@@ -549,10 +568,10 @@ void SparklineGraph(const char* id, const float* values, int32_t count,
 //=============================================================================
 // CLIPPED CHILD
 //=============================================================================
-void BeginClippedChild(ImVec2 size, ImVec2 position) {
+void BeginClippedChild(const char* id, ImVec2 size, ImVec2 position) {
   ImGui::SetCursorScreenPos(position);
   ImGui::PushClipRect(position, position + size, true);
-  ImGui::BeginChild(EditorUI::Get()->GenerateId(), size);
+  ImGui::BeginChild(id, size);
 }
 
 void EndClippedChild() {

@@ -140,7 +140,7 @@ bool _BeginComponent(const std::string& identifier,
   bool currently_opened = always_opened ? true : *opened_ptr;
 
   if (currently_opened) {
-    ImGui::Dummy(ImVec2(0.0f, size.y + y_margin + 12.0f));
+    ImGui::Dummy(ImVec2(size.x, size.y + y_margin + 12.0f));
   } else {
     ImGui::Dummy(ImVec2(size.x, size.y + y_margin));
   }

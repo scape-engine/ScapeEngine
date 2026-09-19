@@ -38,8 +38,8 @@ HierarchyPanel::HierarchyPanel()
 }
 
 void HierarchyPanel::Render() {
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-  ImGui::Begin("Hierarchy", nullptr, ImGuiWindowFlags_NoCollapse);
+  // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
+  ImGui::Begin("Hierarchy", nullptr, EditorFlag::fixed);
   {
     RenderPopupMenu();
 
@@ -56,7 +56,6 @@ void HierarchyPanel::Render() {
     PerformAutoScroll();
   }
   ImGui::End();
-  ImGui::PopStyleVar();
 }
 
 void HierarchyPanel::RenderSearch(ImDrawList& draw_list) {

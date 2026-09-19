@@ -228,11 +228,12 @@ void SetupStyle() {
   style.GrabRounding = 3.0f;
   style.PopupRounding = 4.0f;
 
-  style.WindowPadding = ImVec2(8.0f, 8.0f);
-  style.FramePadding = ImVec2(12.0f, 5.0f);
-  style.CellPadding = ImVec2(6.0f, 4.0f);
-  style.ItemSpacing = ImVec2(8.0f, 6.0f);
-  style.ItemInnerSpacing = ImVec2(6.0f, 4.0f);
+  style.WindowPadding =
+      ImVec2(EditorSizes::window_padding, EditorSizes::window_padding);
+  style.FramePadding =
+      ImVec2(EditorSizes::frame_padding, EditorSizes::frame_padding);
+  style.ItemSpacing = ImVec2(4.0f, 4.0f);
+  style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
 
   style.GrabMinSize = 12.0f;
 }
@@ -241,8 +242,6 @@ void Initialize() {
   ImGuiIO& io = ImGui::GetIO();
   LoadFonts(io);
   SetupStyle();
-
-  io.FontGlobalScale = 0.9f;
 
 #ifdef IMGUI_HAS_DOCK
   ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;

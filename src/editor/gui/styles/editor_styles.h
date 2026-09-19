@@ -111,9 +111,16 @@ struct EditorSizes {
   static constexpr float s_bold_icon_size = 14.0f;
 
   // Layout
-  static constexpr float window_padding =
-      8.0f;  // Reduced from 30.0f
+  static constexpr float window_padding = 8.0f;  // Reduced from 30.0f
   static constexpr float frame_padding = 4.0f;
+};
+
+struct EditorFlag {
+  static constexpr ImGuiWindowFlags standard =
+      ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+  static constexpr ImGuiWindowFlags fixed = ImGuiWindowFlags_NoResize |
+                                            ImGuiWindowFlags_AlwaysAutoResize |
+                                            ImGuiWindowFlags_NoTitleBar;
 };
 
 #endif  // EDITOR_STYLES_H

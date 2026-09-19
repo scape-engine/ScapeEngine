@@ -127,7 +127,6 @@ void EditorUI::Run() {
                                             event.window.data2);
               ImGui::GetIO().DisplaySize =
                   ImVec2((float)event.window.data1, (float)event.window.data2);
-              built_layout_ = false;
             }
             break;
 
@@ -305,43 +304,44 @@ void EditorUI::DockSpace() {
 
 void EditorUI::RenderUI() {
   ImGuiIO& io = ImGui::GetIO();
-  io.IniFilename = nullptr;
 
   DockSpace();
 
   // ——— Build layout ———
   if (!built_layout_) {
+    if (ImGui::DockBuilderGetNode(dock_id_) == nullptr ||
+        ImGui::DockBuilderGetNode(dock_id_)->IsEmpty()) {
 
-    ImGui::DockBuilderRemoveNode(dock_id_);
-    ImGui::DockBuilderAddNode(dock_id_, ImGuiDockNodeFlags_None);
-    ImGui::DockBuilderSetNodeSize(dock_id_, ImGui::GetIO().DisplaySize);
+      ImGui::DockBuilderRemoveNode(dock_id_);
+      ImGui::DockBuilderAddNode(dock_id_, ImGuiDockNodeFlags_None);
+      ImGui::DockBuilderSetNodeSize(dock_id_, ImGui::GetIO().DisplaySize);
 
-    // splits:
-    ImGuiID left = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Left, 0.20f,
-                                               nullptr, &dock_id_);
-    ImGuiID right = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Right, 0.20f,
-                                                nullptr, &dock_id_);
-    ImGuiID bottom = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Down, 0.25f,
-                                                 nullptr, &dock_id_);
-    ImGuiID top = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Up, 0.15f,
-                                              nullptr, &dock_id_);
+      ImGuiID center = dock_id_;
 
-    // docked Panels
-    ImGui::DockBuilderDockWindow("Toolbar", top);
-    ImGui::DockBuilderDockWindow("Hierarchy", left);
-    ImGui::DockBuilderDockWindow("Procedural Preview", left);
-    ImGui::DockBuilderDockWindow("Inspector", right);
-    ImGui::DockBuilderDockWindow("World", right);
-    ImGui::DockBuilderDockWindow("Terrain Editor", right);
-    ImGui::DockBuilderDockWindow("Scene", dock_id_);
-    ImGui::DockBuilderDockWindow("Model View", dock_id_);
-    ImGui::DockBuilderDockWindow("Console", bottom);
-    ImGui::DockBuilderDockWindow("Asset Browser", bottom);
-    ImGui::DockBuilderDockWindow("Camera", right);
-    ImGui::DockBuilderDockWindow("PCG Graph Editor", bottom);
-    ImGui::DockBuilderDockWindow("Asset Graph", bottom);
+      // splits:
+ImGuiID left   = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left,  0.20f, nullptr, &center);
+ImGuiID right  = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.20f, nullptr, &center);
+ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down,  0.25f, nullptr, &center);
+ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, nullptr, &center);
 
-    ImGui::DockBuilderFinish(dock_id_);
+
+      // docked Panels
+      ImGui::DockBuilderDockWindow("Toolbar", top);
+      ImGui::DockBuilderDockWindow("Hierarchy", left);
+      ImGui::DockBuilderDockWindow("Procedural Preview", left);
+      ImGui::DockBuilderDockWindow("Inspector", right);
+      ImGui::DockBuilderDockWindow("World", right);
+      ImGui::DockBuilderDockWindow("Terrain Editor", right);
+      ImGui::DockBuilderDockWindow("Scene", center);
+      ImGui::DockBuilderDockWindow("Model View", center);
+      ImGui::DockBuilderDockWindow("Console", bottom);
+      ImGui::DockBuilderDockWindow("Asset Browser", bottom);
+      ImGui::DockBuilderDockWindow("Camera", right);
+      ImGui::DockBuilderDockWindow("PCG Graph Editor", bottom);
+      ImGui::DockBuilderDockWindow("Asset Graph", bottom);
+
+      ImGui::DockBuilderFinish(dock_id_);
+    }
     built_layout_ = true;
   }
 

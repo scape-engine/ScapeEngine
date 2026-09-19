@@ -121,7 +121,7 @@ void Render() {
     // Search results
     uint32_t n_search_results = 10;
 
-    IMComponents::BeginClippedChild(ImGui::GetContentRegionAvail());
+    IMComponents::BeginClippedChild("SearchResults", ImGui::GetContentRegionAvail());
     {
       for (const auto& [name, component] : ComponentRegistry::Get()) {
 

@@ -12,8 +12,8 @@ InspectorPanel::InspectorPanel()
 }
 
 void InspectorPanel::Render() {
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-  ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoCollapse);
+  // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
+  ImGui::Begin("Inspector", nullptr, EditorFlag::fixed);
   {
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
 
@@ -48,27 +48,22 @@ void InspectorPanel::Render() {
     // Rendering preview
     bool rendering_preview = false;  // TODO: enable when preview pipeline ready
 
+    ImGui::Dummy(ImVec2(0.0f, 2.0f));
+
     // Get sizes of content and preview viewer
     ImVec2 content_size = ImGui::GetContentRegionAvail();
     ImVec2 preview_size = ImVec2(0.0f, 0.0f);
 
     // Adjust size if preview viewer is being rendered
     if (rendering_preview) {
-      preview_size =
-          ImVec2(ImGui::GetContentRegionAvail().x, preview_viewer_height_);
-      content_size.y -= preview_size.y;
-      preview_size -= ImVec2(0.0f, -EditorSizes::window_padding);
+      content_size.y -= preview_viewer_height_ + EditorSizes::window_padding;
     }
 
     // Render inspected content if available
     if (inspected_) {
 
-      // Add margin before rendering inspected
-      ImVec2 margin = ImVec2(0.0f, 2.0f);
-      ImGui::Dummy(margin);
-
       // Inspect content child
-      IMComponents::BeginClippedChild(content_size - margin);
+      IMComponents::BeginClippedChild("##InspectorContent", content_size);
       { inspected_->RenderDynamicContent(draw_list); }
       IMComponents::EndClippedChild();
 
@@ -81,7 +76,6 @@ void InspectorPanel::Render() {
     }
   }
   ImGui::End();
-  ImGui::PopStyleVar();
 }
 
 void InspectorPanel::RenderNoneInspected() {
