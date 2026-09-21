@@ -298,8 +298,8 @@ void EditorUI::DockSpace() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
                       ImVec2(EditorSizes::panel_margin, EditorSizes::panel_margin));
   ImGui::Begin(root_dock, nullptr, host_flags_);
-  // No Passthru: it paints a square WindowBg over the whole dockspace (L18209)
-  dock_flags_ = ImGuiDockNodeFlags_NoUndocking;  // fixed Blender-style areas
+
+  dock_flags_ = ImGuiDockNodeFlags_NoUndocking;
   dock_id_ = ImGui::GetID(root_dock);
   ImGui::DockSpace(dock_id_, ImVec2(0, 0), dock_flags_);
   ImGui::End();
@@ -372,23 +372,19 @@ void EditorUI::RenderUI() {
 
       // splits:
 ImGuiID left   = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left,  0.20f, nullptr, &center);
-ImGuiID right  = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.20f, nullptr, &center);
 ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down,  0.25f, nullptr, &center);
+ImGuiID right  = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.20f, nullptr, &center);
 ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, nullptr, &center);
 
 
       // docked Panels
-      ImGui::DockBuilderDockWindow("Toolbar", top);
       ImGui::DockBuilderDockWindow("Hierarchy", left);
-      // ImGui::DockBuilderDockWindow("Inspector", right);
-      // ImGui::DockBuilderDockWindow("World", right);
-      // ImGui::DockBuilderDockWindow("Terrain Editor", right);
-      ImGui::DockBuilderDockWindow("Viewport", center);
       ImGui::DockBuilderDockWindow("Properties", right);
+      ImGui::DockBuilderDockWindow("Viewport", center);
       ImGui::DockBuilderDockWindow("Model View", center);
+      ImGui::DockBuilderDockWindow("Toolbar", center);
       ImGui::DockBuilderDockWindow("Console", bottom);
       ImGui::DockBuilderDockWindow("Asset Browser", bottom);
-      // ImGui::DockBuilderDockWindow("Camera", right);
       ImGui::DockBuilderDockWindow("PCG Graph Editor", bottom);
       ImGui::DockBuilderDockWindow("Asset Graph", bottom);
       ImGui::DockBuilderDockWindow("Procedural Preview", bottom);
@@ -467,7 +463,7 @@ ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, null
   }
   if (debug_activate_picker_) {
     ImGui::DebugStartItemPicker();
-    debug_activate_picker_ = false;  // reset
+    debug_activate_picker_ = false;
   }
 
   // Push current state to pipeline for rendering

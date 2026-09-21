@@ -69,7 +69,7 @@ private:
   bool is_game_started_ = true;
   bool game_canvas_hovered_ = false;
   bool game_canvas_focused_ = false;
-  bool built_layout_ = false;  // guard for BuildDefaultLayout()
+  bool built_layout_ = false;
 
   // Id counter
   uint32_t g_id_counter_;
