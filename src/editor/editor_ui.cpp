@@ -19,17 +19,20 @@
 #include "gui/model_preview.h"
 #include "gui/model_viewer.h"
 #include "gui/pcg_graph_editor.h"
+#include "gui/terrain_editor_panel.h"
 #include "gui/search/search_popup.h"
 #include "gui/status_bar.h"
-#include "gui/terrain_editor.h"
 #include "gui/toolbar.h"
-#include "gui/world_settings.h"
-#include "imgui.h"
-#include "imgui_internal.h"
-#include "imgui_utils.h"
+#include "gui/info_panel.h"
+#include "gui/scene_panel.h"
+#include "gui/tab_container.h"
 #include "platform/platform_utils.h"
 #include "platform/window_manager.h"
 #include "resources/decorators/drop_shadows.h"
+
+#include "imgui.h"
+#include "imgui_internal.h"
+#include "imgui_utils.h"
 
 #include <backends/imgui_impl_sdl2.h>
 #include "editor/vendor/imgui/imgui_impl_bgfx.h"
@@ -58,6 +61,11 @@ EditorUI* EditorUI::Get() {
 void EditorUI::Initialize() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+
+  // Bump stale ini file
+  static constexpr const char* layout_ini = "editor_v2.ini";
+  ImGui::GetIO().IniFilename = layout_ini;
+
   EditorStyles::Initialize();
   LoadIcons();
 
@@ -82,9 +90,20 @@ void EditorUI::Initialize() {
       ImVec2(WindowManager::GetDPIScale(), WindowManager::GetDPIScale());
 
   // ADD DEFAULT EDITOR WINDOWS
+  std::vector<TabEntry> property_tabs;
+  property_tabs.push_back({ICON_FA_CIRCLE_INFO,    "Project Info",   "Project Info",   std::make_unique<InfoPanel>(),          0});
+  property_tabs.push_back({ICON_FA_EARTH_AMERICAS, "Scene",          "Scene",          std::make_unique<ScenePanel>(),         1});
+  property_tabs.push_back({ICON_FA_CUBE,           "Inspector",      "Inspector",      std::make_unique<InspectorPanel>(),     2});
+  property_tabs.push_back({ICON_FA_MOUNTAIN,       "Terrain Editor", "Terrain Editor", std::make_unique<TerrainEditorPanel>(), 2});
+
+  TabContainer* properties =
+  _AddWindow<TabContainer>("Properties", std::move(property_tabs));
   _AddWindow<HierarchyPanel>();
+
+  // _AddWindow<InfoPanel>();
+  // _AddWindow<ScenePanel>();
   _AddWindow<PCGGraphEditorPanel>();
-  _AddWindow<InspectorPanel>();
+  // _AddWindow<InspectorPanel>();
   _AddWindow<ModelPreview>(&procmodel_data_);
   _AddWindow<ModelViewer>(&procmodel_data_);
   _AddWindow<AssetGraphEditor>(&procmodel_data_);
@@ -92,6 +111,10 @@ void EditorUI::Initialize() {
   // TODO: Refactor these panels to EditorBase:
   // _AddWindow<ConsolePanel>();
   // _AddWindow<AssetBrowserPanel>();
+
+  // events
+  EditorEvents::entity_selected.connect(
+    [properties](Entity) { properties->Select("Inspector"); });
 }
 
 // TODO: refactor loop, should be split into EditorUI::NewFrame() /
@@ -257,8 +280,7 @@ void EditorUI::HandleInput(Key key) {
 }
 
 void EditorUI::DockSpace() {
-  static constexpr const char* root_dock =
-      "##MainDockHost";  // Set root dock ID
+  static constexpr const char* root_dock = "##MainDockHost";
 
   ImGuiViewport* vp = ImGui::GetMainViewport();
   ImGui::SetNextWindowPos(vp->WorkPos);
@@ -267,23 +289,26 @@ void EditorUI::DockSpace() {
 
   host_flags_ = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                ImGuiWindowFlags_NoDocking |
+                ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBackground |
                 ImGuiWindowFlags_NoBringToFrontOnFocus |
                 ImGuiWindowFlags_NoFocusOnAppearing;
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
-
-  // ———— Dockspace —————
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
+                      ImVec2(EditorSizes::panel_margin, EditorSizes::panel_margin));
   ImGui::Begin(root_dock, nullptr, host_flags_);
-  dock_flags_ = ImGuiDockNodeFlags_PassthruCentralNode;
-
+  // No Passthru: it paints a square WindowBg over the whole dockspace (L18209)
+  dock_flags_ = ImGuiDockNodeFlags_NoUndocking;  // fixed Blender-style areas
   dock_id_ = ImGui::GetID(root_dock);
   ImGui::DockSpace(dock_id_, ImVec2(0, 0), dock_flags_);
   ImGui::End();
+  ImGui::PopStyleVar(3);
 
-  // ———— Menu bar —————
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
+  ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
   Panels::MenuBar(
       [this]() {
         if (is_game_started_) {
@@ -297,13 +322,40 @@ void EditorUI::DockSpace() {
       debug_highlight_ids_, debug_show_metrics_, debug_show_log_,
       debug_activate_picker_, debug_show_style_editor_);
 
-  // ———— Status bar —————
   Panels::StatusBar();
-  ImGui::PopStyleVar(3);
+  ImGui::PopStyleColor(2);
+  ImGui::PopStyleVar(2);
+}
+
+void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
+  if (!node || !node->IsVisible) return;
+  if (!node->IsLeafNode()) {
+    DrawPanelCards(node->ChildNodes[0]);
+    DrawPanelCards(node->ChildNodes[1]);
+    return;
+  }
+  if (node->IsEmpty()) return;
+
+  ImDrawList* dl = ImGui::GetBackgroundDrawList(ImGui::GetMainViewport());
+  const ImVec2 mn = node->Pos;
+  const ImVec2 mx = ImVec2(node->Pos.x + node->Size.x, node->Pos.y + node->Size.y);
+
+  dl->AddRectFilled(mn, mx, EditorColor::panel, EditorSizes::panel_radius);
+
+  if (node->TabBar && !node->IsHiddenTabBar() && !node->IsNoTabBar()) {
+    const float y = node->TabBar->BarRect.Max.y;
+    dl->AddLine(ImVec2(mn.x, y), ImVec2(mx.x, y), EditorColor::panel_stroke,
+                EditorSizes::hairline);
+  }
 }
 
 void EditorUI::RenderUI() {
   ImGuiIO& io = ImGui::GetIO();
+
+    ImGuiViewport* vp = ImGui::GetMainViewport();
+  ImGui::GetBackgroundDrawList(vp)->AddRectFilled(
+      vp->Pos, ImVec2(vp->Pos.x + vp->Size.x, vp->Pos.y + vp->Size.y),
+      EditorColor::void_bg);
 
   DockSpace();
 
@@ -328,17 +380,18 @@ ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, null
       // docked Panels
       ImGui::DockBuilderDockWindow("Toolbar", top);
       ImGui::DockBuilderDockWindow("Hierarchy", left);
-      ImGui::DockBuilderDockWindow("Procedural Preview", left);
-      ImGui::DockBuilderDockWindow("Inspector", right);
-      ImGui::DockBuilderDockWindow("World", right);
-      ImGui::DockBuilderDockWindow("Terrain Editor", right);
-      ImGui::DockBuilderDockWindow("Scene", center);
+      // ImGui::DockBuilderDockWindow("Inspector", right);
+      // ImGui::DockBuilderDockWindow("World", right);
+      // ImGui::DockBuilderDockWindow("Terrain Editor", right);
+      ImGui::DockBuilderDockWindow("Viewport", center);
+      ImGui::DockBuilderDockWindow("Properties", right);
       ImGui::DockBuilderDockWindow("Model View", center);
       ImGui::DockBuilderDockWindow("Console", bottom);
       ImGui::DockBuilderDockWindow("Asset Browser", bottom);
-      ImGui::DockBuilderDockWindow("Camera", right);
+      // ImGui::DockBuilderDockWindow("Camera", right);
       ImGui::DockBuilderDockWindow("PCG Graph Editor", bottom);
       ImGui::DockBuilderDockWindow("Asset Graph", bottom);
+      ImGui::DockBuilderDockWindow("Procedural Preview", bottom);
 
       ImGui::DockBuilderFinish(dock_id_);
     }
@@ -379,20 +432,10 @@ ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, null
   auto& world = ECS::Main();
 
   // -------- MIDDLE : SCENE --------
-  ImGui::Begin("Scene", nullptr);
+  ImGui::Begin("Viewport", nullptr);
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
                      game_canvas_focused_);
   UpdateMovement();
-  ImGui::End();
-
-  // -------- RIGHT : WORLD SETTINGS --------
-  ImGui::Begin("World", nullptr);
-  Panels::WorldSettings();
-  ImGui::End();
-
-  // -------- RIGHT : TERRAIN EDITOR --------
-  ImGui::Begin("Terrain Editor", nullptr);
-  Panels::TerrainEditor();
   ImGui::End();
 
   //--------------------------- Panels ------------------------------
@@ -444,12 +487,15 @@ ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, null
   for (auto* window : g_windows_) {
     window->Render();
   }
+
+   // -------- Card corners over all docked leaves (no per-panel edits) --------
+  DrawPanelCards(ImGui::DockBuilderGetNode(dock_id_));
 }
 
 void EditorUI::LoadIcons() {
   tab_icons_.insert({"Hierarchy", ICON_FA_SITEMAP});
   tab_icons_.insert({"Toolbar", ICON_FA_TOOLBOX});
-  tab_icons_.insert({"Scene", ICON_FA_GAMEPAD});
+  tab_icons_.insert({"Viewport", ICON_FA_GAMEPAD});
   tab_icons_.insert({"Inspector", ICON_FA_LIST});
   tab_icons_.insert({"Console", ICON_FA_TERMINAL});
   tab_icons_.insert({"Assets", ICON_FA_FOLDER_OPEN});
@@ -537,8 +583,10 @@ std::string EditorUI::GenerateIdString() {
 }
 
 template <typename T, typename... Args>
-void EditorUI::_AddWindow(Args&&... args) {
+T* EditorUI::_AddWindow(Args&&... args) {
   static_assert(std::is_base_of<WindowBase, T>::value,
                 "Only classes deriving from WindowBase can be added!");
-  g_windows_.emplace_back(new T(std::forward<Args>(args)...));
+  T* window = new T(std::forward<Args>(args)...);
+  g_windows_.emplace_back(window);
+  return window;
 }

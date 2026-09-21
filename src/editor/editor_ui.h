@@ -19,6 +19,8 @@
 
 #include "platform/input/key_map_sdl.h"
 
+struct ImGuiDockNode;
+
 /**************************************************************************
  * EditorUI
  * -------
@@ -57,8 +59,10 @@ private:
   void LoadIcons();
   void UpdateMovement();
 
+  void DrawPanelCards(ImGuiDockNode* node);
+
   template <typename T, typename... Args>
-  void _AddWindow(Args&&... args);
+  T* _AddWindow(Args&&... args);
 
   RendererBase* renderer_ = nullptr;
   bool quit_ = false;

@@ -29,6 +29,9 @@ void EndMenu();
 // Draw separator
 void Separator();
 
+// Request the popup to open
+void Open();
+
 }  // namespace PopupMenu
 
 #endif  // POPUP_MENU_H

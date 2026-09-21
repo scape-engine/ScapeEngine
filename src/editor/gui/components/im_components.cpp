@@ -12,6 +12,7 @@
 #include "editor/editor_ui.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/utils/gui_utils.h"
+#include "engine/renderer/icons/icon_loader.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 
 #include "engine/core/logger.h"
@@ -665,6 +666,143 @@ void LoadingBuffer(ImDrawList& draw_list, ImVec2 position, float radius,
   }
 
   draw_list.PathStroke(color, false, thickness);
+}
+
+void Glyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
+           const char* glyph, ImU32 color, ImFont* font) {
+  if (!font) font = ImGui::GetFont();
+  const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, glyph);
+  const ImVec2 pos = ImVec2(slot_min.x + (slot_size.x - size.x) * 0.5f,
+                            slot_min.y + (slot_size.y - size.y) * 0.5f);
+  draw_list.AddText(font, font->FontSize, pos, color, glyph);
+}
+
+bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
+                 size_t buffer_size, ImVec2 position, ImVec2 size,
+                 const char* hint) {
+  const float radius = EditorSizes::control_radius;
+  const float icon_width = size.y;
+  const ImVec2 p1 = position + size;
+  const ImVec2 split = ImVec2(position.x + icon_width, p1.y);
+
+  draw_list.AddRectFilled(position, split, EditorColor::control, radius,
+                          ImDrawFlags_RoundCornersLeft);
+  draw_list.AddRectFilled(ImVec2(split.x, position.y), p1, EditorColor::input_bg,
+                          radius, ImDrawFlags_RoundCornersRight);
+  Glyph(draw_list, position, ImVec2(icon_width, size.y), ICON_FA_MAGNIFYING_GLASS,
+        EditorColor::text_dim, EditorStyles::GetFonts().s);
+
+  ImFont* font = EditorStyles::GetFonts().s;
+  ImGui::SetCursorScreenPos(ImVec2(split.x, position.y));
+  ImGui::PushFont(font);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
+                      ImVec2(8.0f, (size.y - font->FontSize) * 0.5f));
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+  ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_TextDisabled, ImGui::ColorConvertU32ToFloat4(
+                                                   EditorColor::text_placeholder));
+  ImGui::SetNextItemWidth(size.x - icon_width);
+  const bool changed = ImGui::InputTextWithHint(id, hint, buffer,
+                                                static_cast<int>(buffer_size));
+  ImGui::PopStyleColor(4);
+  ImGui::PopStyleVar(2);
+  ImGui::PopFont();
+
+  draw_list.AddRect(position, p1, EditorColor::control_border, radius, 0, 1.0f);
+  draw_list.AddLine(ImVec2(split.x, position.y), split, EditorColor::control_border, 1.0f);
+  return changed;
+}
+
+bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
+                    ImVec2 position, float height, bool chevron) {
+  ImFont* small = EditorStyles::GetFonts().s;
+  const float pad = 8.0f;
+  const float icon_w = icon ? ImGui::CalcTextSize(icon).x : 0.0f;
+  const float chevron_w =
+      chevron ? small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f, ICON_FA_CHEVRON_DOWN).x : 0.0f;
+  const float gap = (icon && chevron) ? 6.0f : 0.0f;
+  const float width = (icon || chevron) ? pad * 2 + icon_w + gap + chevron_w : height;
+
+  ImGui::SetCursorScreenPos(position);
+  ImGui::InvisibleButton(id, ImVec2(width, height));
+  const bool hovered = ImGui::IsItemHovered();
+  const bool clicked = ImGui::IsItemClicked();
+
+  const ImVec2 p1 = position + ImVec2(width, height);
+  draw_list.AddRectFilled(position, p1,
+                          hovered ? EditorColor::control_hovered : EditorColor::control,
+                          EditorSizes::control_radius);
+  draw_list.AddRect(position, p1, EditorColor::control_border,
+                    EditorSizes::control_radius, 0, 1.0f);
+
+  float x = position.x + pad;
+  if (icon) {
+    Glyph(draw_list, ImVec2(x, position.y), ImVec2(icon_w, height), icon, EditorColor::text);
+    x += icon_w + gap;
+  }
+  if (chevron)
+    Glyph(draw_list, ImVec2(x, position.y), ImVec2(chevron_w, height),
+          ICON_FA_CHEVRON_DOWN, EditorColor::text, small);
+  return clicked;
+}
+
+bool IconDropdownButton(ImDrawList& draw_list, const char* id,
+                         const char* icon_id, ImVec2 position, float height,
+                         bool chevron) {
+  ImFont* small = EditorStyles::GetFonts().s;
+  const float pad = 8.0f;
+  const float icon_size = height - 10.0f;  // 16px at 26px controls
+  const float chevron_w =
+      chevron ? small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f,
+                                     ICON_FA_CHEVRON_DOWN).x
+              : 0.0f;
+  const float gap = chevron ? 6.0f : 0.0f;
+  const float width = pad * 2 + icon_size + gap + chevron_w;
+
+  ImGui::SetCursorScreenPos(position);
+  ImGui::InvisibleButton(id, ImVec2(width, height));
+  const bool hovered = ImGui::IsItemHovered();
+  const bool clicked = ImGui::IsItemClicked();
+
+  const ImVec2 p1 = position + ImVec2(width, height);
+  draw_list.AddRectFilled(position, p1,
+                          hovered ? EditorColor::control_hovered
+                                  : EditorColor::control,
+                          EditorSizes::control_radius);
+  draw_list.AddRect(position, p1, EditorColor::control_border,
+                    EditorSizes::control_radius, 0, 1.0f);
+
+  const ImVec2 icon_min =
+      ImVec2(position.x + pad, position.y + (height - icon_size) * 0.5f);
+  draw_list.AddImage(IconLoader::ToImGuiTexture(icon_id), icon_min,
+                     icon_min + ImVec2(icon_size, icon_size), ImVec2(0, 0),
+                     ImVec2(1, 1), EditorColor::text);
+
+  if (chevron)
+    Glyph(draw_list, ImVec2(icon_min.x + icon_size + gap, position.y),
+          ImVec2(chevron_w, height), ICON_FA_CHEVRON_DOWN, EditorColor::text,
+          small);
+  return clicked;
+}
+
+void SectionTitle(const char* title, float gap_before) {
+  if (ImGui::GetCursorPosY() > ImGui::GetStyle().WindowPadding.y + 1.0f)
+    ImGui::Dummy(ImVec2(0.0f, gap_before - ImGui::GetStyle().ItemSpacing.y));
+  ImGui::PushFont(EditorStyles::GetFonts().p_bold);
+  ImGui::TextUnformatted(title);
+  ImGui::PopFont();
+}
+
+void KeyValue(const char* key, const std::string& value, ImU32 value_color) {
+  ImGui::TextUnformatted(key);
+  ImGui::SameLine(0.0f, 0.0f);
+  ImGui::TextUnformatted(": ");
+  ImGui::SameLine(0.0f, 0.0f);
+  ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(value_color));
+  ImGui::TextUnformatted(value.c_str());
+  ImGui::PopStyleColor();
 }
 
 }  // namespace IMComponents

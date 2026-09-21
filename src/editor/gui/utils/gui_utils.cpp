@@ -5,6 +5,9 @@
 #include "platform/platform_utils.h"
 #include "platform/window_manager.h"
 
+#include <numbers>
+#include <imgui_internal.h>
+
 namespace GUIUtils {
 
 ImU32 Lighten(ImU32 color, float amount) {
@@ -40,6 +43,17 @@ ImU32 Darken(ImU32 color, float amount) {
 ImVec4 LerpColors(const ImVec4& a, const ImVec4& b, float t) {
   return ImVec4(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y),
                 a.z + t * (b.z - a.z), a.w + t * (b.w - a.w));
+}
+
+// TODO: move to the observer thread once projects get too large
+std::string FormatBytes(uint64_t bytes) {
+  const char* units[] = {"B", "KB", "MB", "GB"};
+  double value = static_cast<double>(bytes);
+  int unit = 0;
+  while (value >= 1024.0 && unit < 3) { value /= 1024.0; ++unit; }
+  char buffer[32];
+  snprintf(buffer, sizeof(buffer), unit == 0 ? "%.0f %s" : "%.1f %s", value, units[unit]);
+  return buffer;
 }
 
 float GetChildScrollValue() {
@@ -100,6 +114,39 @@ glm::vec2 KeepCursorInBounds(glm::vec4 bounds, bool& cursorMoved,
   }
 
   return updatedPos;
+}
+
+void FillCorner(ImDrawList* draw_list, ImVec2 corner, float radius,
+                    int quadrant, ImU32 color) {
+  const float a_min = std::numbers::pi_v<float> + quadrant * (std::numbers::pi_v<float> * 0.5f);
+  const ImVec2 center(
+      corner.x + ((quadrant == 0 || quadrant == 3) ? radius : -radius),
+      corner.y + ((quadrant <= 1) ? radius : -radius));
+  draw_list->PathLineTo(corner);
+  draw_list->PathArcTo(center, radius, a_min, a_min + std::numbers::pi_v<float> * 0.5f, 8);
+  draw_list->PathFillConcave(color);
+}
+
+void HideDockTabBar() {
+  ImGuiWindowClass window_class;
+  window_class.DockNodeFlagsOverrideSet = ImGuiDockNodeFlags_NoTabBar;
+  ImGui::SetNextWindowClass(&window_class);
+}
+
+void HiddenTabDockSpace(ImGuiID id, ImVec2 size) {
+  ImGui::DockSpace(id, size,
+                   ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingSplit |
+                   ImGuiDockNodeFlags_NoUndocking);
+}
+
+void HostDockSpace(ImGuiID id, ImVec2 size) {
+  ImGui::DockSpace(id, size,
+                   ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingSplit |
+                   ImGuiDockNodeFlags_NoUndocking | ImGuiDockNodeFlags_NoDockingOverMe);
+}
+
+void DockNextWindowInto(ImGuiID dock_id) {
+  ImGui::SetNextWindowDockID(dock_id, ImGuiCond_Always);
 }
 
 std::string WindowTitle(const char* title) {

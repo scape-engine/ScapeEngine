@@ -8,9 +8,11 @@
 
 struct Project {
   std::filesystem::path path_;
-
   struct Config {
     std::string name = "Unnamed Project";
+    std::string author;
+    std::string tags;
+    std::string version;
   } config;
 };
 
@@ -32,7 +34,13 @@ public:
   // Resolve path relative to project root
   std::filesystem::path AbsolutePath(const std::filesystem::path& path);
 
+  const Project::Config& Config() const { return project_.config; }
+
   std::string ProjectName() const;
+
+  // Total size of files under the project root (computed once, cached)
+  uint64_t SizeOnDisk();
+  void InvalidateSize() { size_cached_ = false; }
 
 private:
   // Ensure project configuration exists
@@ -41,6 +49,9 @@ private:
   Project project_;
   ProjectObserver observer_;
   ProjectAssets assets_;
+
+  uint64_t size_bytes_ = 0;
+  bool size_cached_ = false;
 };
 
 #endif  // PROJECT_MANAGER_H

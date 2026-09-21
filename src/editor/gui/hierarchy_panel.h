@@ -29,6 +29,10 @@ struct HierarchyItem {
   std::vector<HierarchyItem> children;
   bool expanded;
 
+  // Placeholders for the row toggles (wired later)
+  bool visible = true;     // eye
+  bool renderable = true;  // camera
+
   bool operator==(const HierarchyItem& other) const {
     return entity.Id() == other.entity.Id();
   }
@@ -47,12 +51,34 @@ public:
 
 private:
   // Rendering
-  void RenderSearch(ImDrawList& draw_list);
+  void RenderHeader(ImDrawList& draw_list); 
+ void RenderSearch(ImDrawList& draw_list, ImVec2 position, ImVec2 size);
+ void RenderActions(ImDrawList& draw_list, ImVec2 position, float height);
   void RenderHierarchy(ImDrawList& draw_list);
+  void RenderRootHeader(ImDrawList& draw_list);
   void RenderItem(ImDrawList& draw_list, HierarchyItem& item,
                   uint32_t indentation);
+  bool RenderItemIcons(ImDrawList& draw_list, HierarchyItem& item,
+                       const ImVec2& rect_min, const ImVec2& rect_max);
   void RenderDraggedItem();
   void RenderPopupMenu();
+
+  // Row helpers
+  // Draw glyph centered in a slot of width slot_width starting at slot_min
+  void DrawGlyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
+               const char* glyph, ImU32 color, ImFont* font = nullptr);
+
+  // Draw chevron in caret slot; returns true if the slot was clicked
+  bool DrawChevron(ImDrawList& draw_list, ImVec2 slot_min, bool expanded, bool interactive,
+                   ImU32 color);
+
+  // Entity presentation
+  const char* EntityIcon(const HierarchyItem& item) const;
+  const char* EntityDataIcon(const HierarchyItem& item) const;
+
+  // Search filtering
+  bool MatchesSearch(const HierarchyItem& item) const;
+  bool Searching() const { return search_buffer[0] != '\0'; }
 
   // Hierarchy building
   void BuildSceneHierarchy();
@@ -67,9 +93,24 @@ private:
 
   void OnEntityChanged(entt::registry&, entt::entity);
 
+  // Layout (px)
+  static constexpr float header_height_ = 42.0f;
+  static constexpr float header_pad_x_ = 10.0f;
+  static constexpr float search_height_ = 26.0f;
+  static constexpr float search_width_ratio_ = 0.58f; 
+  static constexpr float content_gap_ = 6.0f;     
+  static constexpr float row_height_ = 24.0f;
+  static constexpr float row_pad_x_ = 6.0f; 
+  static constexpr float caret_slot_ = 24.0f;
+  static constexpr float icon_slot_ = 24.0f;
+  static constexpr float indent_ = 24.0f;
+  static constexpr float text_gap_ = 4.0f;
+  static constexpr float header_gap_ = 6.0f;
+
   // Data
   char search_buffer[256];
   bool popup_menu_used;
+  bool root_expanded_ = true;
 
   std::vector<HierarchyItem> current_hierarchy;
   std::unordered_map<uint32_t, HierarchyItem*> selected_items;

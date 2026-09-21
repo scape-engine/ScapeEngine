@@ -70,13 +70,28 @@ bool ProjectManager::EnsureConfig() {
     }
   }
 
-  // Read config
   std::ifstream config_file(config_path);
+  if (!config_file.is_open()) {
+    Logger::getInstance().Log(LogLevel::Error,
+                              "Failed to open project configuration: " +
+                                  config_path.string());
+    return false;
+  }
+
+  // Read config
   std::string line;
   while (std::getline(config_file, line)) {
-    if (line.rfind("name=", 0) == 0)
-      project_.config.name = line.substr(5);
+    const size_t eq = line.find('=');
+    if (eq == std::string::npos) continue;
+    const std::string key = line.substr(0, eq);
+    const std::string value = line.substr(eq + 1);
+    auto& cfg = project_.config;
+    if (key == "name")         cfg.name = value;
+    else if (key == "author")  cfg.author = value;
+    else if (key == "tags")    cfg.tags = value;
+    else if (key == "version") cfg.version = value;
   }
+  InvalidateSize();
 
   return true;
 }
@@ -85,4 +100,16 @@ bool ProjectManager::EnsureConfig() {
 // folder name should be handled separetely
 std::string ProjectManager::ProjectName() const {
   return project_.config.name;
+}
+
+uint64_t ProjectManager::SizeOnDisk() {
+  if (size_cached_) return size_bytes_;
+  size_bytes_ = 0;
+  std::error_code ec;
+  for (const auto& entry : std::filesystem::recursive_directory_iterator(
+           project_.path_, std::filesystem::directory_options::skip_permission_denied, ec)) {
+    if (entry.is_regular_file(ec)) size_bytes_ += entry.file_size(ec);
+  }
+  size_cached_ = true;
+  return size_bytes_;
 }

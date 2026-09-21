@@ -12,6 +12,8 @@ ImVec4 _text_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 ImVec4 _hover_color = ImVec4(0.1f, 0.1f, 0.15f, 1.0f);
 ImU32 _outline_color = EditorColor::selection;
 
+bool _open_requested = false;
+
 void _Space() {
   ImGui::Dummy(ImVec2(0.0f, 0.1f));
 }
@@ -25,6 +27,10 @@ bool Begin() {
   ImGui::PushStyleColor(ImGuiCol_Border, _outline_color);
 
   std::string id = EditorUI::Get()->GenerateIdString();
+   if (_open_requested) {
+    ImGui::OpenPopup(id.c_str());
+    _open_requested = false;
+  }
   return ImGui::BeginPopupContextWindow(id.c_str(),
                                         ImGuiPopupFlags_MouseButtonRight);
 }
@@ -60,5 +66,9 @@ void EndMenu() {
 void Separator() {
   _Space();
   ImGui::Separator();
+}
+
+void Open() {
+  _open_requested = true;
 }
 }  // namespace PopupMenu

@@ -8,7 +8,7 @@
 namespace Panels {
 
 inline void WorldSettings() {
-  ImGui::BeginChild("WorldSettings", ImVec2(0, 0), true);
+  ImGui::BeginChild("WorldSettings", ImVec2(0, 0), false);
 
   // Get global skybox
   Skybox* skybox = Runtime::BuildGlobalResources().skybox;

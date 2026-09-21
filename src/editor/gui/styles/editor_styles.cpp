@@ -2,6 +2,15 @@
 
 #include "platform/paths.h"
 
+namespace {
+inline ImVec4 C(ImU32 c) { return ImGui::ColorConvertU32ToFloat4(c); }
+inline ImVec4 C(ImU32 c, float alpha) {
+  ImVec4 v = ImGui::ColorConvertU32ToFloat4(c);
+  v.w = alpha;
+  return v;
+}
+}  // namespace
+
 namespace EditorStyles {
 
 static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
@@ -104,152 +113,122 @@ void LoadFonts(ImGuiIO& io) {
 void SetupStyle() {
   ImGuiStyle& style = ImGui::GetStyle();
   ImVec4* colors = style.Colors;
+  using EC = EditorColor;
 
-  // === Core Layout (Strictly Neutral Greys) ===
-  // Primary Shade: #181818
-  // Auxiliary Shade: #212121
-  // Void/Borders: #0F0F0F
+  // === Surfaces ===
+  colors[ImGuiCol_WindowBg]  = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_ChildBg]   = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_PopupBg]   = C(EC::panel, 0.98f);
+  colors[ImGuiCol_MenuBarBg] = C(EC::panel);
 
-  colors[ImGuiCol_WindowBg] =
-      ImVec4(0.094f, 0.094f, 0.094f, 1.00f);  // #181818 (Primary)
-  colors[ImGuiCol_ChildBg] = ImVec4(0.094f, 0.094f, 0.094f, 1.00f);  // #181818
-  colors[ImGuiCol_PopupBg] =
-      ImVec4(0.129f, 0.129f, 0.129f, 0.98f);  // #212121 (Auxiliary)
-  colors[ImGuiCol_MenuBarBg] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F (Void)
+  // === Text ===
+  colors[ImGuiCol_Text]           = C(EC::text);
+  colors[ImGuiCol_TextDisabled]   = C(EC::text_disabled);
+  colors[ImGuiCol_TextSelectedBg] = C(EC::accent_deep);
 
-  // === Text & Icons ===
-  colors[ImGuiCol_Text] = ImVec4(0.850f, 0.850f, 0.850f, 1.00f);  // #D9D9D9
-  colors[ImGuiCol_TextDisabled] =
-      ImVec4(0.400f, 0.400f, 0.400f, 1.00f);  // #666666
+  // === Borders (1px control outline via FrameBorderSize) ===
+  colors[ImGuiCol_Border]       = C(EC::void_bg);
+  colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
 
-  // === Borders (Recessed trick: borders are darker than panels) ===
-  colors[ImGuiCol_Border] = ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
-  colors[ImGuiCol_BorderShadow] = ImVec4(0.000f, 0.000f, 0.000f, 0.00f);
+  // === Headers (tree rows, selectables, collapsing headers) ===
+  colors[ImGuiCol_Header]        = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_HeaderHovered] = C(EC::hover_overlay);
+  colors[ImGuiCol_HeaderActive]  = C(EC::orange_row);
 
-  // === Headers (Trees, Inspectors, Expanders) ===
-  colors[ImGuiCol_Header] = ImVec4(0.129f, 0.129f, 0.129f, 1.00f);  // #212121
-  colors[ImGuiCol_HeaderHovered] =
-      ImVec4(0.165f, 0.165f, 0.165f, 1.00f);  // #2A2A2A
-  colors[ImGuiCol_HeaderActive] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74 (Slate Blue Accent)
+  // === Inputs ===
+  colors[ImGuiCol_FrameBg]        = C(EC::input_bg);
+  colors[ImGuiCol_FrameBgHovered] = C(EC::control);
+  colors[ImGuiCol_FrameBgActive]  = C(EC::control);
 
-  // === Frames / Inputs / Buttons (Auxiliary #212121) ===
-  colors[ImGuiCol_FrameBg] = ImVec4(0.129f, 0.129f, 0.129f, 1.00f);  // #212121
-  colors[ImGuiCol_FrameBgHovered] =
-      ImVec4(0.165f, 0.165f, 0.165f, 1.00f);  // #2A2A2A
-  colors[ImGuiCol_FrameBgActive] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);                        // #4D5C74
-  colors[ImGuiCol_Button] = ImVec4(0.129f, 0.129f, 0.129f, 1.00f);  // #212121
-  colors[ImGuiCol_ButtonHovered] =
-      ImVec4(0.165f, 0.165f, 0.165f, 1.00f);  // #2A2A2A
-  colors[ImGuiCol_ButtonActive] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Buttons ===
+  colors[ImGuiCol_Button]        = C(EC::control);
+  colors[ImGuiCol_ButtonHovered] = C(EC::control_hovered);
+  colors[ImGuiCol_ButtonActive]  = C(EC::accent);
 
-  // === Tabs ===
-  colors[ImGuiCol_Tab] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F (Void)
-  colors[ImGuiCol_TabHovered] =
-      ImVec4(0.129f, 0.129f, 0.129f, 1.00f);  // #212121
-  colors[ImGuiCol_TabActive] =
-      ImVec4(0.094f, 0.094f, 0.094f, 1.00f);  // #181818 (Primary)
-  colors[ImGuiCol_TabUnfocused] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
-  colors[ImGuiCol_TabUnfocusedActive] =
-      ImVec4(0.094f, 0.094f, 0.094f, 1.00f);  // #181818
-  style.Colors[ImGuiCol_TabSelectedOverline] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Tabs (no accent overline in mockup) ===
+  colors[ImGuiCol_Tab]                       = C(EC::void_bg);
+  colors[ImGuiCol_TabHovered]                = C(EC::control_hovered);
+  colors[ImGuiCol_TabSelected]               = C(EC::control_selected);
+  colors[ImGuiCol_TabSelectedOverline]       = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_TabDimmed]                 = C(EC::void_bg);
+  colors[ImGuiCol_TabDimmedSelected]         = C(EC::control_selected);
+  colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4(0, 0, 0, 0);
 
-  // === Title Bar ===
-  colors[ImGuiCol_TitleBg] = ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
-  colors[ImGuiCol_TitleBgActive] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
-  colors[ImGuiCol_TitleBgCollapsed] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
+  // === Title bars (docked tab-bar strip + floating windows) ===
+  colors[ImGuiCol_TitleBg]          = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_TitleBgActive]    = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0, 0, 0, 0);
 
-  // === Separator ===
-  colors[ImGuiCol_Separator] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
-  colors[ImGuiCol_SeparatorHovered] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
-  colors[ImGuiCol_SeparatorActive] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Separators (dock gaps are painted by the host; these are in-panel) ===
+  colors[ImGuiCol_Separator]        = C(EC::void_bg);
+  colors[ImGuiCol_SeparatorHovered] = C(EC::accent, 0.6f);
+  colors[ImGuiCol_SeparatorActive]  = C(EC::accent);
 
-  // === Scroller ===
-  colors[ImGuiCol_ScrollbarBg] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
-  colors[ImGuiCol_ScrollbarGrab] =
-      ImVec4(0.129f, 0.129f, 0.129f, 1.00f);  // #212121
-  colors[ImGuiCol_ScrollbarGrabHovered] =
-      ImVec4(0.165f, 0.165f, 0.165f, 1.00f);  // #2A2A2A
-  colors[ImGuiCol_ScrollbarGrabActive] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Scrollbars ===
+  colors[ImGuiCol_ScrollbarBg]          = C(EC::strip);
+  colors[ImGuiCol_ScrollbarGrab]        = C(EC::control);
+  colors[ImGuiCol_ScrollbarGrabHovered] = C(EC::control_border);
+  colors[ImGuiCol_ScrollbarGrabActive]  = C(EC::accent);
 
-  // === Plot Lines (Used for sliders/curves) ===
-  colors[ImGuiCol_PlotLines] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Widgets ===
+  colors[ImGuiCol_CheckMark]        = C(EC::accent);
+  colors[ImGuiCol_SliderGrab]       = C(EC::accent);
+  colors[ImGuiCol_SliderGrabActive] = C(EC::accent_hover);
+  colors[ImGuiCol_PlotLines]        = C(EC::accent);
+  colors[ImGuiCol_PlotHistogram]    = C(EC::accent);
+  colors[ImGuiCol_DragDropTarget]   = C(EC::accent_border);
+  colors[ImGuiCol_NavCursor]        = C(EC::accent_border);
+  colors[ImGuiCol_NavWindowingHighlight] = C(EC::accent);
+  colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.5f);
 
-  // === Slider ===
-  colors[ImGuiCol_SliderGrab] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
-  colors[ImGuiCol_SliderGrabActive] = ImVec4(
-      0.369f, 0.439f, 0.545f, 1.00f);  // #5E708B (Slightly brighter on click)
+  // === Tables ===
+  colors[ImGuiCol_TableHeaderBg]     = C(EC::strip);
+  colors[ImGuiCol_TableBorderStrong] = C(EC::control_border);
+  colors[ImGuiCol_TableBorderLight]  = C(EC::panel_stroke);
+  colors[ImGuiCol_TableRowBg]        = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_TableRowBgAlt]     = C(EC::hover_overlay);
 
-  // === Nav ===
-  colors[ImGuiCol_NavWindowingHighlight] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
-  colors[ImGuiCol_NavHighlight] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Resize / docking ===
+  colors[ImGuiCol_ResizeGrip]        = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_ResizeGripHovered] = C(EC::accent);
+  colors[ImGuiCol_ResizeGripActive]  = C(EC::accent);
+  colors[ImGuiCol_DockingPreview]    = C(EC::accent, 0.40f);
+  colors[ImGuiCol_DockingEmptyBg]   = ImVec4(0, 0, 0, 0);
 
-  // === Grip ===
-  colors[ImGuiCol_ResizeGrip] = ImVec4(0.129f, 0.129f, 0.129f, 0.00f);
-  colors[ImGuiCol_ResizeGripHovered] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
-  colors[ImGuiCol_ResizeGripActive] =
-      ImVec4(0.302f, 0.361f, 0.455f, 1.00f);  // #4D5C74
+  // === Style vars ===
+  style.FrameBorderSize  = 1.0f;   // control outline (#424242)
+  style.WindowBorderSize = 0.0f;
+  style.ChildBorderSize  = 0.0f;
+  style.PopupBorderSize  = 1.0f;
+  style.TabBorderSize    = 0.0f;
 
-  // === Docking ===
-  colors[ImGuiCol_DockingPreview] =
-      ImVec4(0.302f, 0.361f, 0.455f, 0.40f);  // #4D5C74 with alpha
-  colors[ImGuiCol_DockingEmptyBg] =
-      ImVec4(0.059f, 0.059f, 0.059f, 1.00f);  // #0F0F0F
+  style.WindowRounding    = EditorSizes::panel_radius;    // floating windows / popups
+  style.ChildRounding     = EditorSizes::control_radius;
+  style.FrameRounding     = EditorSizes::control_radius;
+  style.PopupRounding     = EditorSizes::control_radius;
+  style.TabRounding       = EditorSizes::control_radius;
+  style.GrabRounding      = EditorSizes::control_radius;
+  style.ScrollbarRounding = EditorSizes::control_radius;
 
-  // === Style Tuning ===
-  style.FrameBorderSize = 0.0f;
-  style.WindowBorderSize = 1.0f;  // Thin border separating panels
-  style.PopupBorderSize = 1.0f;
-  style.TabBorderSize = 0.0f;
-  style.ChildBorderSize = 0.0f;
+  style.WindowPadding    = ImVec2(EditorSizes::window_padding, EditorSizes::window_padding);
+  style.FramePadding     = ImVec2(5.0f, 2.0f);
+  style.ItemSpacing      = ImVec2(EditorSizes::item_spacing, EditorSizes::item_spacing);
+  style.ItemInnerSpacing = ImVec2(EditorSizes::inner_spacing, EditorSizes::inner_spacing);
+  style.CellPadding      = ImVec2(5.0f, 2.0f);
+  style.ScrollbarSize    = 10.0f;
+  style.GrabMinSize      = 10.0f;
 
-  style.WindowRounding = 0.0f;
-  style.FrameRounding = 3.0f;
-  style.ScrollbarRounding = 3.0f;
-  style.TabRounding = 2.0f;
-  style.GrabRounding = 3.0f;
-  style.PopupRounding = 4.0f;
-
-  style.WindowPadding =
-      ImVec2(EditorSizes::window_padding, EditorSizes::window_padding);
-  style.FramePadding =
-      ImVec2(EditorSizes::frame_padding, EditorSizes::frame_padding);
-  style.ItemSpacing = ImVec2(4.0f, 4.0f);
-  style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
-
-  style.GrabMinSize = 12.0f;
+#ifdef IMGUI_HAS_DOCK
+  style.DockingSeparatorSize    = EditorSizes::panel_gap;  // 10px void gap between cards
+  style.WindowMenuButtonPosition = ImGuiDir_None;
+  style.TabBarOverlineSize       = 0.0f;                   // mockup has no overline
+#endif
 }
 
 void Initialize() {
   ImGuiIO& io = ImGui::GetIO();
   LoadFonts(io);
   SetupStyle();
-
-#ifdef IMGUI_HAS_DOCK
-  ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
-
-  ImGuiStyle& style = ImGui::GetStyle();
-  style.TabBarOverlineSize =
-      2.0f;  // Replicates Godot's top-blue accent on selected tabs
-#endif
 }
 
 }  // namespace EditorStyles

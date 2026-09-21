@@ -13,11 +13,10 @@ InspectorPanel::InspectorPanel()
 
 void InspectorPanel::Render() {
   // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
+  GUIUtils::HideDockTabBar();
   ImGui::Begin("Inspector", nullptr, EditorFlag::fixed);
   {
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
-
-    IMComponents::Headline("Inspector", ICON_FA_LAYER_GROUP);
 
     // Drive inspector from EditorState selection
     auto& state = Runtime::State();
