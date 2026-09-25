@@ -14,18 +14,18 @@
 #include "gui/file_explorer.h"
 #include "gui/game_canvas.h"
 #include "gui/hierarchy_panel.h"
+#include "gui/info_panel.h"
 #include "gui/inspector_panel.h"
 #include "gui/menu_bar.h"
 #include "gui/model_preview.h"
 #include "gui/model_viewer.h"
 #include "gui/pcg_graph_editor.h"
-#include "gui/terrain_editor_panel.h"
+#include "gui/scene_panel.h"
 #include "gui/search/search_popup.h"
 #include "gui/status_bar.h"
-#include "gui/toolbar.h"
-#include "gui/info_panel.h"
-#include "gui/scene_panel.h"
 #include "gui/tab_container.h"
+#include "gui/terrain_editor_panel.h"
+#include "gui/toolbar.h"
 #include "platform/platform_utils.h"
 #include "platform/window_manager.h"
 #include "resources/decorators/drop_shadows.h"
@@ -91,13 +91,17 @@ void EditorUI::Initialize() {
 
   // ADD DEFAULT EDITOR WINDOWS
   std::vector<TabEntry> property_tabs;
-  property_tabs.push_back({ICON_FA_CIRCLE_INFO,    "Project Info",   "Project Info",   std::make_unique<InfoPanel>(),          0});
-  property_tabs.push_back({ICON_FA_EARTH_AMERICAS, "Scene",          "Scene",          std::make_unique<ScenePanel>(),         1});
-  property_tabs.push_back({ICON_FA_CUBE,           "Inspector",      "Inspector",      std::make_unique<InspectorPanel>(),     2});
-  property_tabs.push_back({ICON_FA_MOUNTAIN,       "Terrain Editor", "Terrain Editor", std::make_unique<TerrainEditorPanel>(), 2});
+  property_tabs.push_back({ICON_FA_CIRCLE_INFO, "Project Info", "Project Info",
+                           std::make_unique<InfoPanel>(), 0});
+  property_tabs.push_back({ICON_FA_EARTH_AMERICAS, "Scene", "Scene",
+                           std::make_unique<ScenePanel>(), 1});
+  property_tabs.push_back({ICON_FA_CUBE, "Inspector", "Inspector",
+                           std::make_unique<InspectorPanel>(), 2});
+  property_tabs.push_back({ICON_FA_MOUNTAIN, "Terrain Editor", "Terrain Editor",
+                           std::make_unique<TerrainEditorPanel>(), 2});
 
   TabContainer* properties =
-  _AddWindow<TabContainer>("Properties", std::move(property_tabs));
+      _AddWindow<TabContainer>("Properties", std::move(property_tabs));
   _AddWindow<HierarchyPanel>();
 
   // _AddWindow<InfoPanel>();
@@ -114,7 +118,7 @@ void EditorUI::Initialize() {
 
   // events
   EditorEvents::entity_selected.connect(
-    [properties](Entity) { properties->Select("Inspector"); });
+      [properties](Entity) { properties->Select("Inspector"); });
 }
 
 // TODO: refactor loop, should be split into EditorUI::NewFrame() /
@@ -295,8 +299,9 @@ void EditorUI::DockSpace() {
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
-                      ImVec2(EditorSizes::panel_margin, EditorSizes::panel_margin));
+  ImGui::PushStyleVar(
+      ImGuiStyleVar_WindowPadding,
+      ImVec2(EditorSizes::panel_margin, EditorSizes::panel_margin));
   ImGui::Begin(root_dock, nullptr, host_flags_);
 
   dock_flags_ = ImGuiDockNodeFlags_NoUndocking;
@@ -307,8 +312,10 @@ void EditorUI::DockSpace() {
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
-  ImGui::PushStyleColor(ImGuiCol_MenuBarBg, ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg,
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
+  ImGui::PushStyleColor(ImGuiCol_MenuBarBg,
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
   Panels::MenuBar(
       [this]() {
         if (is_game_started_) {
@@ -328,17 +335,20 @@ void EditorUI::DockSpace() {
 }
 
 void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
-  if (!node || !node->IsVisible) return;
+  if (!node || !node->IsVisible)
+    return;
   if (!node->IsLeafNode()) {
     DrawPanelCards(node->ChildNodes[0]);
     DrawPanelCards(node->ChildNodes[1]);
     return;
   }
-  if (node->IsEmpty()) return;
+  if (node->IsEmpty())
+    return;
 
   ImDrawList* dl = ImGui::GetBackgroundDrawList(ImGui::GetMainViewport());
   const ImVec2 mn = node->Pos;
-  const ImVec2 mx = ImVec2(node->Pos.x + node->Size.x, node->Pos.y + node->Size.y);
+  const ImVec2 mx =
+      ImVec2(node->Pos.x + node->Size.x, node->Pos.y + node->Size.y);
 
   dl->AddRectFilled(mn, mx, EditorColor::panel, EditorSizes::panel_radius);
 
@@ -352,7 +362,7 @@ void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
 void EditorUI::RenderUI() {
   ImGuiIO& io = ImGui::GetIO();
 
-    ImGuiViewport* vp = ImGui::GetMainViewport();
+  ImGuiViewport* vp = ImGui::GetMainViewport();
   ImGui::GetBackgroundDrawList(vp)->AddRectFilled(
       vp->Pos, ImVec2(vp->Pos.x + vp->Size.x, vp->Pos.y + vp->Size.y),
       EditorColor::void_bg);
@@ -371,11 +381,14 @@ void EditorUI::RenderUI() {
       ImGuiID center = dock_id_;
 
       // splits:
-ImGuiID left   = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left,  0.20f, nullptr, &center);
-ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down,  0.25f, nullptr, &center);
-ImGuiID right  = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.20f, nullptr, &center);
-ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, nullptr, &center);
-
+      ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.20f,
+                                                 nullptr, &center);
+      ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.25f,
+                                                   nullptr, &center);
+      ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.20f,
+                                                  nullptr, &center);
+      ImGuiID top = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up, 0.15f,
+                                                nullptr, &center);
 
       // docked Panels
       ImGui::DockBuilderDockWindow("Hierarchy", left);
@@ -484,7 +497,7 @@ ImGuiID top    = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up,    0.15f, null
     window->Render();
   }
 
-   // -------- Card corners over all docked leaves (no per-panel edits) --------
+  // -------- Card corners over all docked leaves (no per-panel edits) --------
   DrawPanelCards(ImGui::DockBuilderGetNode(dock_id_));
 }
 
