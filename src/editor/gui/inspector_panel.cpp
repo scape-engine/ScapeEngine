@@ -1,5 +1,5 @@
 #include "inspector_panel.h"
-
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "editor/gui/hierarchy_panel.h"
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/runtime/runtime.h"
@@ -13,23 +13,21 @@ InspectorPanel::InspectorPanel()
 
 void InspectorPanel::Render() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-  ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoCollapse);
+
+  // Added Icon to match DockBuilder exactly
+  ImGui::Begin(ICON_FA_LIST " Inspector", nullptr, ImGuiWindowFlags_NoCollapse);
   {
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
 
     IMComponents::Headline("Inspector", ICON_FA_LAYER_GROUP);
 
-    // Drive inspector from EditorState selection
     auto& state = Runtime::State();
     auto& world = ECS::Main();
     Entity selection = state.selected_entity;
 
     if (selection != entt::null && world.Reg().valid(selection)) {
-      // Only re-inspect if selection changed
       if (selection != last_inspected_entity_) {
         last_inspected_entity_ = selection;
-
-        // Keep the HierarchyItem alive
         HierarchyItem item{EntityContainer(selection)};
         Inspect<EntityInspectable>(item);
       }
@@ -40,19 +38,15 @@ void InspectorPanel::Render() {
       }
     }
 
-    // Render inspected static content if available
     if (inspected_) {
       inspected_->RenderStaticContent(draw_list);
     }
 
-    // Rendering preview
     bool rendering_preview = false;  // TODO: enable when preview pipeline ready
 
-    // Get sizes of content and preview viewer
     ImVec2 content_size = ImGui::GetContentRegionAvail();
     ImVec2 preview_size = ImVec2(0.0f, 0.0f);
 
-    // Adjust size if preview viewer is being rendered
     if (rendering_preview) {
       preview_size =
           ImVec2(ImGui::GetContentRegionAvail().x, preview_viewer_height_);
@@ -60,19 +54,14 @@ void InspectorPanel::Render() {
       preview_size -= ImVec2(0.0f, -EditorSizes::window_padding);
     }
 
-    // Render inspected content if available
     if (inspected_) {
-
-      // Add margin before rendering inspected
       ImVec2 margin = ImVec2(0.0f, 2.0f);
       ImGui::Dummy(margin);
 
-      // Inspect content child
       IMComponents::BeginClippedChild(content_size - margin);
       { inspected_->RenderDynamicContent(draw_list); }
       IMComponents::EndClippedChild();
 
-      // If available, render preview viewer
       if (rendering_preview)
         RenderPreviewViewer(draw_list, preview_size);
 
@@ -85,9 +74,29 @@ void InspectorPanel::Render() {
 }
 
 void InspectorPanel::RenderNoneInspected() {
+  // UX Improvement: Center the empty state vertically & horizontally with an
+  // icon
+  ImVec2 avail = ImGui::GetContentRegionAvail();
+  ImGui::SetCursorPosY(ImGui::GetCursorPosY() +
+                       (avail.y * 0.35f));  // Push down 35%
+
+  // Icon
+  ImGui::PushFont(EditorStyles::GetFonts().h1);
+  float icon_width = ImGui::CalcTextSize(ICON_FA_BOX_OPEN).x;
+  ImGui::SetCursorPosX((ImGui::GetWindowWidth() - icon_width) * 0.5f);
+  ImGui::TextDisabled(ICON_FA_BOX_OPEN);
+  ImGui::PopFont();
+
+  // Title
+  float title_width = ImGui::CalcTextSize("Nothing selected").x;
+  ImGui::SetCursorPosX((ImGui::GetWindowWidth() - title_width) * 0.5f);
   IMComponents::Label("Nothing selected", EditorStyles::GetFonts().h3_bold);
-  IMComponents::Label("Select an entity or asset to inspect and edit it.",
-                      EditorStyles::GetFonts().h4,
+
+  // Subtitle
+  const char* sub = "Select an entity or asset to inspect and edit it.";
+  float sub_width = ImGui::CalcTextSize(sub).x;
+  ImGui::SetCursorPosX((ImGui::GetWindowWidth() - sub_width) * 0.5f);
+  IMComponents::Label(sub, EditorStyles::GetFonts().h4,
                       IM_COL32(210, 210, 255, 255));
 }
 

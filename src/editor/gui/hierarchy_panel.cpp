@@ -6,12 +6,13 @@
 
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/gui/inspector_panel.h"
+#include "editor/gui/utils/gui_utils.h"
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 
 enum DropType { NO_DROP, DROP_ITEM, MOVE_ITEM_UP, MOVE_ITEM_DOWN };
 
 //=============================================================================
-// HIERARCHY PANEL
-// includes:
+// Hierarchy Panel
 //=============================================================================
 HierarchyPanel::HierarchyPanel()
     : search_buffer(""),
@@ -26,9 +27,9 @@ HierarchyPanel::HierarchyPanel()
       camera_target(nullptr),
       hierarchy_dirty_(true) {
 
-  /* TODO: setup drag rect here */
+  // TODO: Setup drag rect here
 
-  // Subscribe to transform creation/destruction
+  // Subscribe To Transform Creation/Destruction
   auto& reg = ECS::Main().Reg();
 
   on_create_connection_ = reg.on_construct<TransformComponent>()
@@ -38,18 +39,20 @@ HierarchyPanel::HierarchyPanel()
 }
 
 void HierarchyPanel::Render() {
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-  ImGui::Begin("Hierarchy", nullptr, ImGuiWindowFlags_NoCollapse);
+  // UE5 Outliners Have Zero Window Padding So Rows Span Edge-To-Edge
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  ImGui::Begin(ICON_FA_SITEMAP " Hierarchy");
   {
     RenderPopupMenu();
 
-    // Get draw list
+    // Get Draw List
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
 
-    // Header
-    IMComponents::Headline("Hierarchy", ICON_FA_SITEMAP);
-
     RenderSearch(draw_list);
+
+    // Add Small Padding Before The Actual Hierarchy List Starts
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f);
+
     RenderHierarchy(draw_list);
     RenderDraggedItem();
 
@@ -60,302 +63,289 @@ void HierarchyPanel::Render() {
 }
 
 void HierarchyPanel::RenderSearch(ImDrawList& draw_list) {
+  ImVec2 pos = ImGui::GetCursorScreenPos();
+  ImVec2 avail = ImGui::GetContentRegionAvail();
+  float bar_height = 42.0f;
 
-  ImGui::PushFont(EditorStyles::GetFonts().h4);
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 8.0f));
-  ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+  // Use theme's darkest background (Void / TitleBg)
+  ImU32 bar_bg = ImGui::GetColorU32(ImGuiCol_MenuBarBg);
+  ImU32 border_col = ImGui::GetColorU32(ImGuiCol_Border);
 
-  // TODO: Implement search filtering
-  if (ImGui::InputTextWithHint(
-          "##Search", "Search...", search_buffer, IM_ARRAYSIZE(search_buffer),
-          ImGuiInputTextFlags_EnterReturnsTrue)) { /* Implement search
-                                                      filtering */
+  draw_list.AddRectFilled(pos, ImVec2(pos.x + avail.x, pos.y + bar_height),
+                          bar_bg);
+  draw_list.AddLine(ImVec2(pos.x, pos.y + bar_height),
+                    ImVec2(pos.x + avail.x, pos.y + bar_height), border_col,
+                    2.0f);
+
+  // Store the exact starting Y position so both elements anchor perfectly
+  float start_y = ImGui::GetCursorPosY() + 8.0f;
+  ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 8.0f, start_y));
+
+  // Use Theme Accent for the "+ Add" button
+  ImGui::PushStyleColor(ImGuiCol_Button,
+                        ImGui::GetStyle().Colors[ImGuiCol_HeaderActive]);
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+
+  if (ImGui::Button(ICON_FA_PLUS " Add", ImVec2(60, 26.0f))) {
+    ImGui::OpenPopup("HierarchyContextMenu");
   }
 
-  // TODO: adjust button position and make it work
-  if (ImGui::Button(ICON_FA_PLUS)) {
-    // TODO: button should display RenderPopupMenu when clicked
-  }
-
-  ImGui::PopFont();
-  ImGui::PopItemWidth();
   ImGui::PopStyleVar();
-  ImGui::Dummy(ImVec2(0.0f, 5.0f));
+  ImGui::PopStyleColor();
+
+  // 8px horizontal gap between button and search bar
+  ImGui::SameLine(0, 8.0f);
+
+  // Force the search bar to anchor to the exact same top Y coordinate
+  ImGui::SetCursorPosY(start_y);
+
+  // Search Bar
+  ImGui::PushFont(EditorStyles::GetFonts().p);
+
+  // MATHEMATICAL ALIGNMENT:
+  // Force the InputText to be exactly 26px tall so it perfectly matches the
+  // button
+  float font_size = ImGui::GetFontSize();
+  float padding_y = (26.0f - font_size) * 0.5f;
+
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, padding_y));
+  ImGui::PushStyleColor(
+      ImGuiCol_FrameBg,
+      ImGui::GetStyle().Colors[ImGuiCol_WindowBg]);  // Match primary bg
+
+  ImGui::PushItemWidth(avail.x - 60 - 24.0f);
+
+  if (ImGui::InputTextWithHint(
+          "##Search", ICON_FA_MAGNIFYING_GLASS " Search...", search_buffer,
+          IM_ARRAYSIZE(search_buffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
+    // TODO: Implement search filtering
+  }
+
+  ImGui::PopItemWidth();
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar(2);
+  ImGui::PopFont();
+
+  // Reset the cursor so the rest of the hierarchy draws below the bar
+  ImGui::SetCursorPosY(start_y + 26.0f + 8.0f);
 }
 
 void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
-
-  // Rebuild hierarchy if dirty
+  // Rebuild Hierarchy If Dirty
   if (hierarchy_dirty_) {
     BuildSceneHierarchy();
     hierarchy_dirty_ = false;
   }
 
-  // Push font
-  ImGui::PushFont(EditorStyles::GetFonts().p_bold);
+  // Push Font (UE5 Uses Standard Fonts For Lists)
+  ImGui::PushFont(EditorStyles::GetFonts().p);
 
-  // Render hierarchy
+  // Render Hierarchy
   for (auto& item : current_hierarchy) {
     RenderItem(draw_list, item, 0);
   }
 
-  // Update camera movement
+  // Update Camera Movement
   UpdateCameraMovement();
 
-  // Pop font
+  // Pop Font
   ImGui::PopFont();
 }
 
 void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
                                 uint32_t indentation) {
-  // GET FOREGROUND DRAW LIST
+  // Get Foreground Draw List
   ImDrawList* foreground_draw_list = ImGui::GetForegroundDrawList();
 
-  // PROPERTIES
-  const float indentation_offset = 30.0f;
-  const ImVec2 text_padding = ImVec2(10.0f, 4.0f);
+  // Properties
+  const float indentation_offset = 16.0f;  // UE5 uses tighter indentation
+  const float item_height = 22.0f;         // Dense row height
 
-  // EVALUATE
+  // Evaluate Data
   ImGuiIO& io = ImGui::GetIO();
-
   uint32_t item_id = item.entity.Id();
 
   const bool selected = selected_items.count(item_id) > 0;
   const bool has_children = item.children.size() > 0;
-  const float item_height = ImGui::GetFontSize();
-  const float text_offset = indentation * indentation_offset;
 
+  // Capture Cursor Position For Full-Width Backgrounds
+  const ImVec2 window_pos = ImGui::GetWindowPos();
   const ImVec2 cursor_position = ImGui::GetCursorScreenPos();
   const ImVec2 content_region = ImGui::GetContentRegionAvail();
   const ImVec2 mouse_position = ImGui::GetMousePos();
 
-  const ImVec2 rect_min = ImVec2(cursor_position.x, cursor_position.y);
-  const ImVec2 rect_max =
-      ImVec2(cursor_position.x + content_region.x,
-             cursor_position.y + item_height + text_padding.y * 2);
+  // Highlight Rectangle Spans The Entire Width Of The Window
+  const ImVec2 rect_min = ImVec2(window_pos.x, cursor_position.y);
+  const ImVec2 rect_max = ImVec2(window_pos.x + ImGui::GetWindowWidth(),
+                                 cursor_position.y + item_height);
   const ImVec2 final_size = rect_max - rect_min;
 
   const bool hovered =
       ImGui::IsMouseHoveringRect(rect_min, rect_max) && !popup_menu_used;
   const bool clicked = hovered && ImGui::IsMouseClicked(0);
   const bool double_clicked = hovered && ImGui::IsMouseDoubleClicked(0);
-  const bool wheel_clicked = hovered && ImGui::IsMouseClicked(2);
   const bool dragging_this = hovered && ImGui::IsMouseDragging(0);
 
   if (hovered)
     last_hovered = &item;
 
-  // CHECK FOR DROP TYPE ON THIS ITEM IF SOME ITEM IS CURRENTLY BEING DRAGGED
+  // Check For Drop Type
   DropType drop_type = NO_DROP;
   if (hovered && dragging_hierarchy) {
-    // Mouse in the top quarter of item element (-> move item up)
-    if (mouse_position.y < rect_min.y + final_size.y * 0.25f) {
+    if (mouse_position.y < rect_min.y + final_size.y * 0.25f)
       drop_type = MOVE_ITEM_UP;
-    }
-    // Mouse in the bottom quarter of item element (-> move item down)
-    else if (mouse_position.y > rect_max.y - final_size.y * 0.25f) {
+    else if (mouse_position.y > rect_max.y - final_size.y * 0.25f)
       drop_type = MOVE_ITEM_DOWN;
-    }
-    // Mouse in the middle of item element (-> drop item)
-    else {
+    else
       drop_type = DROP_ITEM;
+  }
+
+  // Check For Moving Item Display
+  ImU32 move_line_color = ImGui::GetColorU32(ImGuiCol_HeaderActive);
+  const float move_line_thickness = 2.0f;
+  if (drop_type == MOVE_ITEM_UP) {
+    foreground_draw_list->AddLine(rect_min, ImVec2(rect_max.x, rect_min.y),
+                                  move_line_color, move_line_thickness);
+  } else if (drop_type == MOVE_ITEM_DOWN) {
+    foreground_draw_list->AddLine(ImVec2(rect_min.x, rect_max.y), rect_max,
+                                  move_line_color, move_line_thickness);
+  }
+
+  // Evaluate Color
+  ImU32 bg_color = IM_COL32(0, 0, 0, 0);
+
+  ImU32 accent_col = ImGui::GetColorU32(ImGuiCol_HeaderActive);
+  ImU32 hover_col = ImGui::GetColorU32(ImGuiCol_HeaderHovered);
+  ImU32 unfocused_col = GUIUtils::Darken(accent_col, 0.4f);
+  ImU32 drop_col = GUIUtils::Darken(accent_col, 0.2f);
+
+  if (selected) {
+    bg_color = GUIUtils::WindowFocused() ? accent_col : unfocused_col;
+  } else if (drop_type == DROP_ITEM) {
+    bg_color = drop_col;
+  } else if (hovered) {
+    bg_color = hover_col;
+  }
+
+  // Draw Item Background
+  if (bg_color != IM_COL32(0, 0, 0, 0)) {
+    draw_list.AddRectFilled(rect_min, rect_max, bg_color);
+  }
+
+  // Evaluate Content Positions
+  float start_x = window_pos.x + 8.0f + (indentation * indentation_offset);
+  float text_y =
+      cursor_position.y + (item_height - ImGui::GetFontSize()) * 0.5f;
+  ImVec2 caret_pos = ImVec2(start_x, text_y);
+
+  // Draw Caret
+  bool caret_hovered = false;
+
+  if (has_children) {
+    // Caret Hitbox
+    ImVec2 caret_hitbox_min = ImVec2(caret_pos.x - 4.0f, rect_min.y);
+    ImVec2 caret_hitbox_max = ImVec2(caret_pos.x + 16.0f, rect_max.y);
+
+    caret_hovered =
+        ImGui::IsMouseHoveringRect(caret_hitbox_min, caret_hitbox_max);
+    bool caret_clicked = caret_hovered && ImGui::IsMouseClicked(0);
+
+    if (caret_clicked) {
+      item.expanded = !item.expanded;
     }
+
+    const char* icon =
+        item.expanded ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT;
+    ImU32 caret_color = caret_hovered ? IM_COL32(255, 255, 255, 255)
+                                      : IM_COL32(180, 180, 180, 255);
+    draw_list.AddText(caret_pos, caret_color, icon);
   }
 
-  // CHECK FOR MOVING ITEM DISPLAY
-  ImU32 move_line_color = EditorColor::selection;
-  const float move_line_thickness = 1.0f;
-  const float move_line_offset = 2.0f;
-  switch (drop_type) {
-    case MOVE_ITEM_UP:
-      foreground_draw_list->AddLine(
-          ImVec2(rect_min.x, rect_min.y - move_line_offset),
-          ImVec2(rect_max.x, rect_min.y - move_line_offset), move_line_color,
-          move_line_thickness);
-      break;
-    case MOVE_ITEM_DOWN:
-      foreground_draw_list->AddLine(
-          ImVec2(rect_min.x, rect_max.y + move_line_offset),
-          ImVec2(rect_max.x, rect_max.y + move_line_offset), move_line_color,
-          move_line_thickness);
-      break;
-  }
+  // Draw Entity Icon And Text
+  ImVec2 icon_pos = ImVec2(caret_pos.x + 18.0f, text_y);
+  draw_list.AddText(icon_pos, IM_COL32(180, 180, 180, 255), ICON_FA_CUBE);
 
-  // EVALUATE COLOR
+  ImVec2 text_pos = ImVec2(icon_pos.x + 22.0f, text_y);
+  ImU32 text_color = selected ? IM_COL32_WHITE : IM_COL32(220, 220, 220, 255);
+  draw_list.AddText(text_pos, text_color, item.entity.Name().c_str());
 
-  // Base: Standard background color
-  ImU32 color = EditorColor::background;
-  // Priority #3: Color when item is hovered
-  if (hovered)
-    color = GUIUtils::Lighten(EditorColor::background, 0.38f);
-  // Priority #2: Color when item is selected
-  if (selected)
-    color = GUIUtils::WindowFocused() ? EditorColor::selection
-                                      : EditorColor::selection_inactive;
-  // Priority #1: Color when item is being dropped
-  if (drop_type == DROP_ITEM)
-    color = GUIUtils::Darken(EditorColor::selection, 0.5f);
-
-  // DRAW ITEM BACKGROUND
-  draw_list.AddRectFilled(rect_min, rect_max, color, 5.0f);
-
-  // CHECK FOR SELECTION
-  if (clicked) {
+  // Check For Selection
+  if (clicked && !caret_hovered) {
     auto select = [this](HierarchyItem& _item) -> void {
-      // Item already selected
       if (selected_items.find(_item.entity.Id()) != selected_items.end())
         return;
-
-      // Select item
       selected_items[_item.entity.Id()] = &_item;
-
-      // Update selection
       Runtime::State().SelectEntity(_item.entity.Handle());
-
-      // InspectorPanel::Inspect<EntityInspectable>(_item);
     };
 
-    // Handle current items selection
     if (io.KeyCtrl) {
-      // Item not selected yet, add to selected items
-      if (selected_items.find(item_id) == selected_items.end()) {
+      if (selected_items.find(item_id) == selected_items.end())
         select(item);
-      }
-      // Item already selected, remove from selected items
-      else {
+      else
         selected_items.erase(item_id);
-      }
-    }
-    // Select all between latest selection and this item
-    else if (io.KeyShift) {
-      // Make sure last selected is set to prevent memory errors
+    } else if (io.KeyShift) {
       if (!last_selected)
         last_selected = &item;
-
-      // Find multiselect start and end elements
       auto start = std::find(current_hierarchy.begin(), current_hierarchy.end(),
                              *last_selected);
       auto end =
           std::find(current_hierarchy.begin(), current_hierarchy.end(), item);
-
-      // Select all items between start and end
       if (start != current_hierarchy.end() && end != current_hierarchy.end()) {
         if (start <= end) {
-          for (auto i = start; i != end; ++i) {
+          for (auto i = start; i != end; ++i)
             select(*i);
-          }
           select(*end);
         } else {
-          for (auto i = start; i != end; --i) {
+          for (auto i = start; i != end; --i)
             select(*i);
-          }
           select(*end);
         }
       }
-    }
-
-    // Only select this item
-    else {
-      // If there's multiple selected items, only select this item if it's not
-      // among the multiple selected ones
+    } else {
       if (selected_items.size() > 1) {
         if (selected_items.find(item_id) == selected_items.end()) {
           selected_items.clear();
           select(item);
         }
-      }
-      // Not multiple selected items, just select this item
-      else {
+      } else {
         selected_items.clear();
         select(item);
       }
     }
-
-    // Cache last selected item
     last_selected = &item;
   }
 
-  // CHECK FOR DOUBLE CLICK (-> move to entity)
-  if (double_clicked)
+  // Double Click / Focus
+  if (double_clicked ||
+      (selected && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F)))
     SetCameraTarget(&item.entity.Transform());
 
-  // CHECK FOR CTRL F KEYPRESS WHEN SELECTED (-> move to entity)
-  if (selected && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F))
-    SetCameraTarget(&item.entity.Transform());
+  // Advance Cursor (Invisible Button To Capture Drags Safely)
+  ImGui::SetCursorScreenPos(rect_min);
+  ImGui::InvisibleButton(("##row_" + std::to_string(item_id)).c_str(),
+                         ImVec2(content_region.x, item_height));
 
-  // EVALUATE ITEM TEXT POSITION
-  ImVec2 text_pos = ImVec2(rect_min.x + text_padding.x + text_offset,
-                           rect_min.y + text_padding.y);
-
-  // DRAW ITEM CARET CIRCLE
-  if (has_children) {
-    // Circle geometry
-    float circle_radius = 9.0f;
-    ImVec2 circle_position = ImVec2(text_pos.x + circle_radius + 1.5f,
-                                    text_pos.y + circle_radius * 0.5f + 1.5f);
-
-    // Fetch circle interactions
-    float circle_distance = (mouse_position.x - circle_position.x) *
-                                (mouse_position.x - circle_position.x) +
-                            (mouse_position.y - circle_position.y) *
-                                (mouse_position.y - circle_position.y);
-
-    bool circle_hovered = circle_distance <= (circle_radius * circle_radius);
-    bool circle_clicked = ImGui::IsMouseClicked(0) && circle_hovered;
-
-    // Check for circle click or mouse wheel click (-> expand)
-    if (circle_clicked || wheel_clicked)
-      item.expanded = !item.expanded;
-
-    // Evaluate color
-    ImU32 circle_color = circle_hovered && drop_type == NO_DROP
-                             ? (selected ? GUIUtils::Darken(color, 0.25f)
-                                         : EditorColor::element_active)
-                             : color;
-
-    // Draw circle
-    draw_list.AddCircleFilled(circle_position, circle_radius, circle_color);
-  }
-
-  // EVALUATE ICON
-  const char* icon = has_children ? (item.expanded ? " " ICON_FA_CARET_DOWN
-                                                   : " " ICON_FA_CARET_RIGHT)
-                                  : "";
-
-  // DRAW TEXT
-  std::string text_value = std::string(icon) + "   " + item.entity.Name();
-  draw_list.AddText(text_pos, EditorColor::text, text_value.c_str());
-
-  // ADVANCE CURSOR
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
-  ImGui::Dummy(ImVec2(content_region.x, final_size.y - 3.0f));
-  ImGui::PopStyleVar();
-
-  // CHECK FOR BEGINNING TO DRAG THIS ITEM
+  // Drag And Drop Logic
   if (dragging_this && !dragging_hierarchy) {
     dragging_hierarchy = true;
-    // TODO: update drag rect action here
-    // TODO: handle drag rect transition here
   }
 
-  // CHECK FOR ENDING DRAG ON THIS ITEM (-> DROPPING HERE)
   if (dragging_hierarchy && !ImGui::IsMouseDown(0) && drop_type != NO_DROP) {
     switch (drop_type) {
       case DROP_ITEM:
-        // TODO: Drop dragged item here action
-        // for (auto [id, sel] : selected_items)
-        //   ECS::Main().SetParent(sel->entity.Handle(), item.entity.Handle());
+        // TODO: Handle parent drop
         break;
       case MOVE_ITEM_UP:
-        // TODO: Moved item up action
+        // TODO: Handle ordering
         break;
       case MOVE_ITEM_DOWN:
-        // TODO: Moved item down action
+        // TODO: Handle ordering
         break;
     }
   }
 
-  // RENDER CHILDREN
+  // Render Children
   if (has_children && item.expanded) {
     for (auto& child : item.children) {
       RenderItem(draw_list, child, indentation + 1);
@@ -364,41 +354,41 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
 }
 
 void HierarchyPanel::RenderDraggedItem() {
-  // Don't proceed if no item is being dragged
+  // Don't Proceed If No Item Is Being Dragged
   if (!dragging_hierarchy)
     return;
 
-  // If not dragging anymore, stop
+  // If Not Dragging Anymore, Stop
   if (!ImGui::IsMouseDown(0)) {
     dragging_hierarchy = false;
     return;
   }
 
-  // TODO: draw drag rect here, replace code below
-
-  // ! PLACEHOLDER: Draw drag indicator at mouse position
+  // UE5 Drag Preview Pill
   ImDrawList* fg = ImGui::GetForegroundDrawList();
-  ImVec2 pos = ImGui::GetMousePos() + ImVec2(12.0f, 12.0f);
+  ImVec2 pos = ImGui::GetMousePos() + ImVec2(16.0f, 16.0f);
 
   size_t n_selected = selected_items.size();
   std::string text =
-      n_selected > 1 ? std::to_string(n_selected) + " selected"
-                     : (last_selected ? "Moving " + last_selected->entity.Name()
-                                      : "Moving");
+      n_selected > 1 ? std::to_string(n_selected) + " items"
+                     : (last_selected ? last_selected->entity.Name() : "Item");
 
-  std::string label = std::string(ICON_FA_LEFT_LONG) + "   " + text;
+  std::string label = std::string(ICON_FA_LAYER_GROUP) + "  " + text;
 
   ImVec2 text_size = ImGui::CalcTextSize(label.c_str());
-  ImVec2 padding = ImVec2(20.0f, 10.0f);
+  ImVec2 padding = ImVec2(12.0f, 6.0f);
   ImVec2 rect_min = pos;
   ImVec2 rect_max = pos + text_size + padding * 2;
 
-  fg->AddRectFilled(rect_min, rect_max, EditorColor::selection, 5.0f);
+  // Use Background Color And Darker Border For Drag Element
+  ImU32 bg_col = ImGui::GetColorU32(ImGuiCol_MenuBarBg);
+  fg->AddRectFilled(rect_min, rect_max, bg_col, 16.0f);
+  fg->AddRect(rect_min, rect_max, IM_COL32(100, 100, 100, 200), 16.0f);
   fg->AddText(pos + padding, IM_COL32(255, 255, 255, 255), label.c_str());
 }
 
 void HierarchyPanel::RenderPopupMenu() {
-  if (PopupMenu::Begin()) {
+  if (PopupMenu::Begin("HierarchyContextMenu")) {
     popup_menu_used = true;
 
     if (last_hovered) {
@@ -426,37 +416,24 @@ void HierarchyPanel::RenderPopupMenu() {
     }
 
     if (PopupMenu::Menu(ICON_FA_CUBE, "3D Primitives")) {
-      if (PopupMenu::ItemLight("Cube")) { /* TODO: Handle cube */
-      }
-      if (PopupMenu::ItemLight("Sphere")) { /* TODO: Handle sphere */
-      }
-      if (PopupMenu::ItemLight("Capsule")) { /* TODO: Handle capsule */
-      }
-      if (PopupMenu::ItemLight("Cylinder")) { /* TODO: Handle cylinder */
-      }
-      if (PopupMenu::ItemLight("Pyramid")) { /* TODO: Handle pyramid */
-      }
-      if (PopupMenu::ItemLight("Plane")) { /* TODO: Handle plane */
-      }
-
+      PopupMenu::ItemLight("Cube");
+      PopupMenu::ItemLight("Sphere");
+      PopupMenu::ItemLight("Capsule");
+      PopupMenu::ItemLight("Cylinder");
+      PopupMenu::ItemLight("Pyramid");
+      PopupMenu::ItemLight("Plane");
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_LIGHTBULB, "Light")) {
-      if (PopupMenu::ItemLight("Directional Light")) { /* TODO */
-      }
-      if (PopupMenu::ItemLight("Point Light")) { /* TODO */
-      }
-      if (PopupMenu::ItemLight("Spotlight")) { /* TODO */
-      }
-
+      PopupMenu::ItemLight("Directional Light");
+      PopupMenu::ItemLight("Point Light");
+      PopupMenu::ItemLight("Spotlight");
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_VOLUME_HIGH, "Audio")) {
-      if (PopupMenu::ItemLight("Audio Source")) { /* TODO */
-      }
-
+      PopupMenu::ItemLight("Audio Source");
       PopupMenu::EndMenu();
     }
 
@@ -466,10 +443,7 @@ void HierarchyPanel::RenderPopupMenu() {
         auto [entity, transform] = world.CreateEntity("PCG Graph");
 
         world.Add<VolumeComponent>(entity);
-        // ? MeshRendererComponent should be added later when generator produces
-        // geometry
       }
-
       PopupMenu::EndMenu();
     }
 
@@ -483,19 +457,19 @@ void HierarchyPanel::RenderPopupMenu() {
 }
 
 void HierarchyPanel::BuildSceneHierarchy() {
-  // Clear current hierarchy before rebuilding
+  // Clear Current Hierarchy Before Rebuilding
   current_hierarchy.clear();
 
-  // Get all transforms
+  // Get All Transforms
   auto transforms = ECS::Main().View<TransformComponent>();
   std::vector<std::pair<entt::entity, TransformComponent*>> transform_list;
 
-  // Fill transform list for reversed iteration
+  // Fill Transform List For Reversed Iteration
   for (auto [entity, transform] : transforms.each()) {
     transform_list.push_back({entity, &transform});
   }
 
-  // Recursively build root entities in reverse
+  // Recursively Build Root Entities In Reverse
   for (auto it = transform_list.rbegin(); it != transform_list.rend(); ++it) {
     auto& [entity, transform] = *it;
     if (Transform::HasParent(*transform))
@@ -524,14 +498,14 @@ void HierarchyPanel::UpdateCameraMovement() {
   if (!camera_moving || !camera_target)
     return;
 
-  // Get god camera transform
+  // Get God Camera Transform
   TransformComponent& camera_transform =
       std::get<0>(Runtime::GetSceneViewPipeline().GetGodCamera());
 
-  // Get target transform
+  // Get Target Transform
   TransformComponent& target_transform = *camera_target;
 
-  // Get targets
+  // Get Targets
   float distance = 5.0f + Transform::GetScale(target_transform, Space::WORLD).z;
   glm::vec3 target_position =
       Transform::GetPosition(target_transform, Space::WORLD) +
@@ -539,24 +513,24 @@ void HierarchyPanel::UpdateCameraMovement() {
 
   float duration = 0.5f;
   if (camera_movement_time < duration) {
-    // Calculate position delta
+    // Calculate Position Delta
     float t = glm::clamp(camera_movement_time / duration, 0.0f, 1.0f);
 
-    // Get smoother targets
+    // Get Smoother Targets
     glm::vec3 new_position =
         glm::mix(camera_transform.position_, target_position, t);
-    // TODO: get rotation targets
+    // TODO: Get rotation targets
 
-    // Apply new position
+    // Apply New Position
     camera_transform.position_ = new_position;
-    // TODO: apply new rotation
+    // TODO: Apply new rotation
 
-    // Add to elapsed camera movement time
+    // Add To Elapsed Camera Movement Time
     camera_movement_time += Time::Deltaf();
   } else {
-    // Stop camera movement
+    // Stop Camera Movement
     camera_transform.position_ = target_position;
-    // TODO: stop rotation
+    // TODO: Stop rotation
 
     // Reset
     camera_moving = false;
@@ -565,7 +539,7 @@ void HierarchyPanel::UpdateCameraMovement() {
 }
 
 void HierarchyPanel::PerformAutoScroll() {
-  // No item dragged -> no auto scroll
+  // No Item Dragged -> No Auto Scroll
   if (!dragging_hierarchy)
     return;
 
@@ -573,7 +547,7 @@ void HierarchyPanel::PerformAutoScroll() {
   const float max_scroll_speed = 35.0f;
   const float scroll_area = 0.15f;
 
-  // Get data
+  // Get Data
   float mouse_y = ImGui::GetMousePos().y;
   float window_y = ImGui::GetWindowPos().y;
   float window_height = ImGui::GetWindowHeight();
@@ -583,7 +557,7 @@ void HierarchyPanel::PerformAutoScroll() {
            glm::clamp((x - range[0]) / (range[1] - range[0]), 0.0f, 1.0f);
   };
 
-  // Scroll up
+  // Scroll Up
   float up_range[2] = {window_y, window_y + window_height * scroll_area};
   if (mouse_y < up_range[1]) {
     float scroll_speed = max_scroll_speed * range_factor(mouse_y, up_range);
@@ -591,7 +565,7 @@ void HierarchyPanel::PerformAutoScroll() {
     return;
   }
 
-  // Scroll down
+  // Scroll Down
   float down_range[2] = {window_y + window_height,
                          window_y + window_height * (1.0f - scroll_area)};
   if (mouse_y > down_range[1]) {

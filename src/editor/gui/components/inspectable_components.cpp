@@ -176,9 +176,25 @@ void DrawTransform(Entity entity, TransformComponent& transform) {
   if (_BeginComponent("Transform", 0, nullptr, nullptr, true)) {
     _Headline("Properties");
 
-    IMComponents::Input("Position", transform.position_);
-    IMComponents::Input("Rotation", transform.euler_angles_);
-    IMComponents::Input("Scale", transform.scale_);
+    bool changed = false;
+
+    // --- UE5 2-Column Table Layout ---
+    if (ImGui::BeginTable("TransformTable", 2,
+                          ImGuiTableFlags_SizingStretchSame |
+                              ImGuiTableFlags_BordersInnerV)) {
+      ImGui::TableSetupColumn("Labels", ImGuiTableColumnFlags_WidthFixed,
+                              80.0f);
+      ImGui::TableSetupColumn("Inputs", ImGuiTableColumnFlags_WidthStretch);
+
+      // Use the new helpers (Note: Default reset value for scale is 1.0f!)
+      changed |= IMComponents::DrawVec3Control("Position", transform.position_);
+      changed |=
+          IMComponents::DrawVec3Control("Rotation", transform.euler_angles_);
+      changed |= IMComponents::DrawVec3Control("Scale", transform.scale_, 1.0f);
+
+      ImGui::EndTable();
+    }
+    // ---------------------------------
 
     if (Transform::HasParent(transform)) {
       auto& parent = Transform::GetParent(transform);
@@ -195,10 +211,13 @@ void DrawTransform(Entity entity, TransformComponent& transform) {
                                 Transform::GetScale(transform, Space::WORLD));
     }
 
-    // Apply changes
-    Transform::SetPosition(transform, transform.position_);
-    Transform::SetEulerAngles(transform, transform.euler_angles_);
-    Transform::SetScale(transform, transform.scale_);
+    // Apply changes ONLY if the UI was actually modified this frame
+    // (Performance boost)
+    if (changed) {
+      Transform::SetPosition(transform, transform.position_);
+      Transform::SetEulerAngles(transform, transform.euler_angles_);
+      Transform::SetScale(transform, transform.scale_);
+    }
 
     _EndComponent();
   }

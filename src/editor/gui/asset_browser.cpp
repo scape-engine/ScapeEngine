@@ -59,11 +59,6 @@ AssetBrowserPanel::NodeUIData AssetBrowserPanel::MakeNodeUI(
 void AssetBrowserPanel::Draw() {
   HandleInputs();  // called once per frame
 
-  if (!ImGui::Begin("Asset Browser")) {
-    ImGui::End();
-    return;
-  }
-
   // Get draw list and position
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
   ImVec2 position = ImGui::GetCursorScreenPos();
@@ -79,8 +74,6 @@ void AssetBrowserPanel::Draw() {
   ImVec2 content_size = ImVec2(size.x - folder_size.x, size.y - nav_size.y);
 
   RenderNodes(draw_list, position, content_size);
-
-  ImGui::End();
 }
 
 // Handle user input (zooming with Ctrl + wheel)
@@ -651,8 +644,15 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
 
 // Singleton accessor for EditorUI
 void AssetBrowser() {
-  static AssetBrowserPanel panel_;  // panel instance
-  panel_.Draw();
+  // 1. Open the window with the matching icon
+  ImGui::Begin(ICON_FA_FOLDER_OPEN " Asset Browser");
+
+  // 2. Draw the actual panel
+  static AssetBrowserPanel panel;
+  panel.Draw();
+
+  // 3. End the window
+  ImGui::End();
 }
 
 }  // namespace Panels

@@ -20,6 +20,7 @@ void _MergeIcons(ImGuiIO& io, float icon_size) {
   ImFontConfig icons_config;
   icons_config.MergeMode = true;
   icons_config.PixelSnapH = true;
+  icons_config.GlyphOffset = ImVec2(0.0f, -2.0f); 
   icons_config.GlyphMinAdvanceX = icons_font_size;
 
   g_fonts.icons = io.Fonts->AddFontFromFileTTF(

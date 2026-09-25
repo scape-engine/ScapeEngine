@@ -7,12 +7,14 @@
 
 #include <imgui.h>
 
+#include "editor/gui/toolbar.h"
 #include "editor/runtime/runtime.h"
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "editor/vendor/imguizmo/ImGuizmo.h"
-#include "engine/core/types/material_data.h"
 
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
+#include "engine/core/types/material_data.h"
 #include "engine/core/view_ids.h"
 
 #include "engine/ecs/world.h"
@@ -51,8 +53,9 @@ inline float DistanceSqr(const ImVec2& delta) {
 }
 
 // Resize is deferred until the viewport has stabilized
-inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused) {
-  static TransformGizmoState gizmo_state;  // Persistent state
+inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
+                       const ToolbarCallbacks& cb) {
+  static TransformGizmoState gizmo_state;
 
   ImGui::BeginChild("GameCanvas", ImVec2(0, ImGui::GetContentRegionAvail().y),
                     true);
@@ -92,6 +95,12 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused) {
 
   auto* renderer = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
+  // === 1. CAPTURE START POS FOR OVERLAYS ===
+  // We capture this early so the toolbar can always anchor to the top of the
+  // canvas even if the game image isn't currently being drawn.
+  ImVec2 start_cursor_pos = ImGui::GetCursorPos();
+
+  // === 2. DRAW GAME OR EMPTY STATE ===
   if (isGameRunning && canvasViewportW > 0 && canvasViewportH > 0) {
 
     // render when dimensions are valid
@@ -99,9 +108,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused) {
     if (texId) {
 
       // Draw scene image
-      ImGui::Image(texId, size, ImVec2(0, 1),  // uv0
-                   ImVec2(1, 0)                // uv1
-      );
+      ImGui::Image(texId, size, ImVec2(0, 1), ImVec2(1, 0));
 
       // ImGuizmo transform manipulation
       auto& state = Runtime::State();
@@ -294,13 +301,126 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused) {
       }
 
     } else {
-      ImGui::TextColored(ImVec4(1, 0, 0, 1), "Texture ID invalid!");
+      ImGui::SetCursorPos(ImVec2(size.x * 0.5f - 65.0f, size.y * 0.5f));
+      ImGui::TextColored(ImVec4(1, 0, 0, 1),
+                         ICON_FA_TRIANGLE_EXCLAMATION " Texture ID invalid!");
     }
   } else {
-    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1), isGameRunning
-                                                        ? "Resizing viewport..."
-                                                        : "Game not started");
+    // Draw Dark Background for stopped state so the canvas isn't entirely blank
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        pos, ImVec2(pos.x + size.x, pos.y + size.y), IM_COL32(20, 20, 20, 255));
+
+    // Draw centered status text
+    ImGui::SetCursorPos(ImVec2(size.x * 0.5f - 70.0f, size.y * 0.5f));
+    if (isGameRunning) {
+      ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+                         ICON_FA_HOURGLASS_HALF " Resizing viewport...");
+    } else {
+      ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+                         ICON_FA_PLAY " Game not started");
+    }
   }
+
+  // === 3. UE5 STYLE OVERLAYS (ALWAYS DRAWN) ===
+  // These are drawn at the end so they overlay both the rendered game image
+  // AND the dark background when the game is stopped.
+  ImVec2 overlay_padding = ImVec2(15.0f, 15.0f);
+  float overlay_y = start_cursor_pos.y + overlay_padding.y;
+
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 6.0f));
+
+  // Pull dynamically from EditorStyles
+  ImVec4 bg_pill =
+      ImGui::GetStyle().Colors[ImGuiCol_PopupBg];  // The #212121 color
+  bg_pill.w = 0.90f;                               // Add slight transparency
+
+  ImVec4 bg_pill_hover = ImGui::GetStyle().Colors[ImGuiCol_HeaderHovered];
+  ImVec4 active_accent =
+      ImGui::GetStyle().Colors[ImGuiCol_HeaderActive];  // The Slate Blue
+
+  // Tools we only want visible when playing
+  if (isGameRunning) {
+    // --- Left Tools: Perspective / Lit (Individual Pills) ---
+    ImGui::SetCursorPos(
+        ImVec2(start_cursor_pos.x + overlay_padding.x, overlay_y));
+    ImGui::BeginGroup();
+
+    ImGui::PushStyleColor(ImGuiCol_Button, bg_pill);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg_pill_hover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg_pill);
+
+    if (ImGui::Button(ICON_FA_VIDEO " Perspective")) {}
+    ImGui::SameLine(0, 8.0f);  // 8px gap between pills
+    if (ImGui::Button(ICON_FA_EYE " Lit")) {}
+
+    ImGui::PopStyleColor(3);
+    ImGui::EndGroup();
+
+    // --- Right Tools: Gizmos (Connected Pill) ---
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2.0f, 0.0f));
+
+    // Calculate dimensions for the background pill
+    float btn_w = ImGui::CalcTextSize(ICON_FA_ARROW_POINTER).x + 24.0f;
+    float gizmo_width = btn_w * 4.0f;
+    ImVec2 gizmo_pos =
+        ImVec2(start_cursor_pos.x + size.x - gizmo_width - overlay_padding.x,
+               overlay_y);
+
+    // Draw background pill manually behind the buttons
+    ImVec2 screen_pos = ImVec2(pos.x + gizmo_pos.x, pos.y + gizmo_pos.y);
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        screen_pos,
+        ImVec2(screen_pos.x + gizmo_width,
+               screen_pos.y + ImGui::GetFrameHeight()),
+        ImGui::ColorConvertFloat4ToU32(bg_pill), 12.0f);
+
+    ImGui::SetCursorPos(gizmo_pos);
+    ImGui::BeginGroup();
+
+    // Override button backgrounds to be completely transparent for this group
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
+
+    // Helper lambda to draw active state easily
+    auto GizmoBtn = [&](const char* icon, ImGuizmo::OPERATION op) {
+      bool is_active = (gizmo_state.operation == op);
+      if (is_active)
+        ImGui::PushStyleColor(ImGuiCol_Text, active_accent);
+
+      if (ImGui::Button(icon, ImVec2(btn_w, 0)))
+        gizmo_state.operation = op;
+
+      if (is_active)
+        ImGui::PopStyleColor();
+    };
+
+    GizmoBtn(ICON_FA_ARROW_POINTER, ImGuizmo::BOUNDS);
+    ImGui::SameLine();
+    GizmoBtn(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT, ImGuizmo::TRANSLATE);
+    ImGui::SameLine();
+    GizmoBtn(ICON_FA_ROTATE, ImGuizmo::ROTATE);
+    ImGui::SameLine();
+    GizmoBtn(ICON_FA_MAXIMIZE, ImGuizmo::SCALE);
+
+    ImGui::EndGroup();
+    ImGui::PopStyleColor(3);  // pop transparent button colors
+    ImGui::PopStyleVar();     // pop tight item spacing
+  }
+
+  // --- Center Tools: Play / Stop (Toolbar) ---
+  // Drawn OUTSIDE the isGameRunning check so it's always persistent!
+  float toolbar_width = 200.0f;
+  ImGui::SetCursorPos(
+      ImVec2(start_cursor_pos.x + (size.x - toolbar_width) * 0.5f, overlay_y));
+  ImGui::BeginGroup();
+  Panels::Toolbar(cb);
+  ImGui::EndGroup();
+
+  // Pop global styles
+  ImGui::PopStyleVar(3);
 
   ImGui::EndChild();
 }

@@ -3,6 +3,7 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 
 namespace Panels {
 
@@ -16,21 +17,28 @@ void MenuBar(std::function<void()> onExit, bool& debug_highlight,
       ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoTitleBar |
       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
 
-  // runtime toggles
   if (ImGui::BeginViewportSideBar("##MainMenuBar", viewport, ImGuiDir_Up,
                                   height, window_flags)) {
     if (ImGui::BeginMenuBar()) {
-      if (ImGui::BeginMenu("File")) {
-        if (ImGui::MenuItem("Exit") && onExit)
+
+      // UX Improvement: Added File & Debug icons
+      if (ImGui::BeginMenu(ICON_FA_FILE " File")) {
+        // Standard UX is to show keyboard shortcuts on the right side
+        if (ImGui::MenuItem(ICON_FA_DOOR_OPEN " Exit", "Alt+F4") && onExit)
           onExit();
         ImGui::EndMenu();
       }
-      if (ImGui::BeginMenu("Debug")) {
-        ImGui::MenuItem("Highlight ID Conflicts", nullptr, &debug_highlight);
-        ImGui::MenuItem("Show Metrics Window", nullptr, &show_metrics);
-        ImGui::MenuItem("Show Debug Log Window", nullptr, &show_log);
-        ImGui::MenuItem("Show Style Editor", nullptr, &show_style_editor);
-        if (ImGui::MenuItem("Activate Picker"))
+
+      if (ImGui::BeginMenu(ICON_FA_BUG " Debug")) {
+        ImGui::MenuItem(ICON_FA_HIGHLIGHTER " Highlight ID Conflicts", nullptr,
+                        &debug_highlight);
+        ImGui::MenuItem(ICON_FA_CHART_BAR " Show Metrics Window", nullptr,
+                        &show_metrics);
+        ImGui::MenuItem(ICON_FA_ALIGN_LEFT " Show Debug Log Window", nullptr,
+                        &show_log);
+        ImGui::MenuItem(ICON_FA_PALETTE " Show Style Editor", nullptr,
+                        &show_style_editor);
+        if (ImGui::MenuItem(ICON_FA_EYE_DROPPER " Activate Picker"))
           activate_picker = true;
         ImGui::EndMenu();
       }

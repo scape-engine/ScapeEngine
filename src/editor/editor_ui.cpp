@@ -306,103 +306,96 @@ void EditorUI::DockSpace() {
 void EditorUI::RenderUI() {
   ImGuiIO& io = ImGui::GetIO();
   io.IniFilename = nullptr;
-
+  ImGui::PushStyleVar(
+      ImGuiStyleVar_WindowMinSize,
+      ImVec2(300.0f, 250.0f));  // Force panels to have a minimum width so they
+                                // don't squish
   DockSpace();
 
-  // ——— Build layout ———
-  if (!built_layout_) {
+  const char* title_scene = ICON_FA_GAMEPAD " Scene";
+  const char* title_hierarchy = ICON_FA_SITEMAP " Hierarchy";
+  const char* title_inspector = ICON_FA_LIST " Inspector";
+  const char* title_world = ICON_FA_GLOBE " World";
+  const char* title_console = ICON_FA_TERMINAL " Console";
+  const char* title_assets = ICON_FA_FOLDER_OPEN " Asset Browser";
+  const char* title_terrain = ICON_FA_MOUNTAIN " Terrain Editor";
 
+  // ——— Build Unity-Style Layout ———
+  if (!built_layout_) {
     ImGui::DockBuilderRemoveNode(dock_id_);
-    ImGui::DockBuilderAddNode(dock_id_, ImGuiDockNodeFlags_None);
+    ImGui::DockBuilderAddNode(dock_id_, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock_id_, ImGui::GetIO().DisplaySize);
 
-    // splits:
-    ImGuiID left = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Left, 0.20f,
-                                               nullptr, &dock_id_);
-    ImGuiID right = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Right, 0.20f,
-                                                nullptr, &dock_id_);
-    ImGuiID bottom = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Down, 0.25f,
-                                                 nullptr, &dock_id_);
-    ImGuiID top = ImGui::DockBuilderSplitNode(dock_id_, ImGuiDir_Up, 0.15f,
-                                              nullptr, &dock_id_);
+    ImGuiID dock_main_id = dock_id_;
 
-    // docked Panels
-    ImGui::DockBuilderDockWindow("Toolbar", top);
-    ImGui::DockBuilderDockWindow("Hierarchy", left);
-    ImGui::DockBuilderDockWindow("Procedural Preview", left);
-    ImGui::DockBuilderDockWindow("Inspector", right);
-    ImGui::DockBuilderDockWindow("World", right);
-    ImGui::DockBuilderDockWindow("Terrain Editor", right);
-    ImGui::DockBuilderDockWindow("Scene", dock_id_);
-    ImGui::DockBuilderDockWindow("Model View", dock_id_);
-    ImGui::DockBuilderDockWindow("Console", bottom);
-    ImGui::DockBuilderDockWindow("Asset Browser", bottom);
-    ImGui::DockBuilderDockWindow("Camera", right);
-    ImGui::DockBuilderDockWindow("PCG Graph Editor", bottom);
-    ImGui::DockBuilderDockWindow("Asset Graph", bottom);
+    // Bottom (Console, Assets)
+    ImGuiID dock_bottom_id = ImGui::DockBuilderSplitNode(
+        dock_main_id, ImGuiDir_Down, 0.25f, nullptr, &dock_main_id);
+
+    // Unity Style: Hierarchy on Left, Inspector on Right
+    ImGuiID dock_left_id = ImGui::DockBuilderSplitNode(
+        dock_main_id, ImGuiDir_Left, 0.20f, nullptr, &dock_main_id);
+    ImGuiID dock_right_id = ImGui::DockBuilderSplitNode(
+        dock_main_id, ImGuiDir_Right, 0.25f, nullptr, &dock_main_id);
+
+    // Docking
+    ImGui::DockBuilderDockWindow(title_hierarchy, dock_left_id);
+
+    ImGui::DockBuilderDockWindow(title_inspector, dock_right_id);
+    ImGui::DockBuilderDockWindow(title_world,
+                                 dock_right_id);  // Tabbed with Inspector
+    ImGui::DockBuilderDockWindow(title_terrain,
+                                 dock_right_id);  // Tabbed with Inspector
+
+    ImGui::DockBuilderDockWindow(title_console, dock_bottom_id);
+    ImGui::DockBuilderDockWindow(title_assets, dock_bottom_id);
+    ImGui::DockBuilderDockWindow("Asset Graph", dock_bottom_id);
+
+    ImGui::DockBuilderDockWindow(title_scene, dock_main_id);
+    ImGui::DockBuilderDockWindow("Procedural Preview", dock_main_id);
+    ImGui::DockBuilderDockWindow("Model View", dock_main_id);
 
     ImGui::DockBuilderFinish(dock_id_);
     built_layout_ = true;
   }
 
-  //--------------------------- TOP TOOLBAR ----------------------------------
+  // --- TOOLBAR CALLBACKS ---
   Panels::ToolbarCallbacks cb;
-
   cb.onStart = [this]() {
     if (!is_game_started_) {
       is_game_started_ = true;
       EditorEvents::game_start_pressed();
     }
   };
-
   cb.onStop = [this]() {
     if (is_game_started_) {
       is_game_started_ = false;
       EditorEvents::game_end_pressed();
     }
   };
-
   cb.onQuit = [this]() {
-    if (is_game_started_) {
-      is_game_started_ = false;
-      EditorEvents::game_end_pressed();
-    }
-    this->quit_ = true;
+    quit_ = true;
     WindowManager::Quit();
     EditorEvents::editor_exit_pressed();
   };
 
-  ImGui::Begin("Toolbar", nullptr);
-  Panels::Toolbar(cb);
-  ImGui::End();
-
-  auto& world = ECS::Main();
-
   // -------- MIDDLE : SCENE --------
-  ImGui::Begin("Scene", nullptr);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+  ImGui::Begin(title_scene, nullptr);
+
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
-                     game_canvas_focused_);
+                     game_canvas_focused_, cb);
+
   UpdateMovement();
   ImGui::End();
+  ImGui::PopStyleVar();
 
-  // -------- RIGHT : WORLD SETTINGS --------
-  ImGui::Begin("World", nullptr);
+  // -------- PANELS --------
   Panels::WorldSettings();
-  ImGui::End();
-
-  // -------- RIGHT : TERRAIN EDITOR --------
-  ImGui::Begin("Terrain Editor", nullptr);
-  Panels::TerrainEditor();
-  ImGui::End();
-
-  //--------------------------- Panels ------------------------------
-  ImGui::Begin("Console", nullptr);
+  // Panels::TerrainEditor(); // Only call this if you aren't rendering it via
+  // g_windows_ loop!
   Panels::ConsolePanel();
-  ImGui::End();
-
-  ImGui::Begin("Asset Browser", nullptr);
   Panels::AssetBrowser();
-  ImGui::End();
   // Panels::FileExplorer();
   //------------------------- SEARCH POPUP --------------------------
   SearchPopup::Render();
@@ -429,6 +422,7 @@ void EditorUI::RenderUI() {
 
   // Push current state to pipeline for rendering
   {
+    auto& world = ECS::Main();
     auto& state = Runtime::State();
     std::vector<Entity> state_list;
     if (state.selected_entity != entt::null &&
@@ -444,6 +438,7 @@ void EditorUI::RenderUI() {
   for (auto* window : g_windows_) {
     window->Render();
   }
+  ImGui::PopStyleVar();
 }
 
 void EditorUI::LoadIcons() {

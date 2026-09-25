@@ -55,6 +55,10 @@ void SparklineGraph(const char* id, const float* values, int32_t count,
                     float min_v, float max_v, int32_t offset,
                     const ImVec4& color, const ImVec2& size);
 
+// Helper for UE5 style vector controls
+bool DrawVec3Control(const std::string& label, glm::vec3& values,
+                     float resetValue = 0.0f);
+
 // Begin a child and push fitting clip rect
 void BeginClippedChild(ImVec2 size,
                        ImVec2 position = ImGui::GetCursorScreenPos());
