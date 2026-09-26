@@ -69,6 +69,10 @@ void EditorUI::Initialize() {
   EditorStyles::Initialize();
   LoadIcons();
 
+  // Set up window title
+  ImVec4 bar = ImGui::ColorConvertU32ToFloat4(EditorColor::panel);
+  Platform::StyleTitleBar(WindowManager::GetWindow(), bar.x, bar.y, bar.z);
+
   ImGuiIO& io = ImGui::GetIO();
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;    // Enable Docking
   io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;  // Enable Multi-Viewport

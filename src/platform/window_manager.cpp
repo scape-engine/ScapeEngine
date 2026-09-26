@@ -41,7 +41,6 @@ bool WindowManager::Initialize(const char* title, int width, int height) {
   }
 
   SDL_RaiseWindow(instance.window_);
-  // platform::LockWindowSize(instance.window_, width, height);
   Platform::LockMinSize(instance.window_, width, height);
 
   // ------------------------------------------------

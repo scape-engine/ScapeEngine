@@ -8,10 +8,8 @@
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/utils/gui_utils.h"
 
-TabContainer::TabContainer(std::string name,
-                           std::vector<TabEntry> entries)
-    : name_(std::move(name)), entries_(std::move(entries)) {
-}
+TabContainer::TabContainer(std::string name, std::vector<TabEntry> entries)
+    : name_(std::move(name)), entries_(std::move(entries)) {}
 
 void TabContainer::Select(const char* window_name) {
   for (size_t i = 0; i < entries_.size(); ++i) {
@@ -23,7 +21,7 @@ void TabContainer::Select(const char* window_name) {
 }
 
 void TabContainer::Render() {
-   GUIUtils::HideDockTabBar();
+  GUIUtils::HideDockTabBar();
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::Begin(name_.c_str(), nullptr, EditorFlag::standard);
   ImGui::PopStyleVar();
@@ -48,8 +46,10 @@ void TabContainer::Render() {
 }
 
 void TabContainer::RenderActivePanel(ImVec2 position, ImVec2 size) {
-  if (entries_.empty()) return;
-  if (active_ >= entries_.size()) active_ = 0;
+  if (entries_.empty())
+    return;
+  if (active_ >= entries_.size())
+    active_ = 0;
 
   // Only the active panel is submitted; ImGui drops the others from the node,
   // so the tab-less node always shows this one.
@@ -63,12 +63,14 @@ void TabContainer::RenderActivePanel(ImVec2 position, ImVec2 size) {
 void TabContainer::RenderHeader(ImDrawList& draw_list) {
   const ImVec2 strip_min = ImGui::GetCursorScreenPos();
   const float width = ImGui::GetContentRegionAvail().x;
-  const ImVec2 strip_max = ImVec2(strip_min.x + width, strip_min.y + header_height_);
+  const ImVec2 strip_max =
+      ImVec2(strip_min.x + width, strip_min.y + header_height_);
   const float y = strip_min.y + (header_height_ - control_height_) * 0.5f;
 
   // Editor-type selector (placeholder)
   IMComponents::DropdownButton(draw_list, "##ContainerType", ICON_FA_SLIDERS,
-                               ImVec2(strip_min.x + header_pad_x_, y), control_height_);
+                               ImVec2(strip_min.x + header_pad_x_, y),
+                               control_height_);
 
   // Right cluster: more-button, search to its left
   const float more_x = strip_max.x - header_pad_x_ - control_height_;
@@ -93,7 +95,7 @@ void TabContainer::RenderHeader(ImDrawList& draw_list) {
 //=============================================================================
 void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
                               float height) {
- const float x = rail_min.x + (rail_width_ - rail_button_) * 0.5f;
+  const float x = rail_min.x + (rail_width_ - rail_button_) * 0.5f;
   const ImVec2 button_size = ImVec2(rail_button_, rail_button_);
   float y = rail_min.y + rail_pad_y_;
   int last_group = entries_.empty() ? 0 : entries_.front().group;
@@ -111,20 +113,23 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
     ImGui::SetCursorScreenPos(p0);
     ImGui::InvisibleButton(entry.window_name, button_size);
     const bool hovered = ImGui::IsItemHovered();
-    if (ImGui::IsItemClicked()) active_ = i;
-    if (hovered) IMComponents::Tooltip(entry.tooltip);
+    if (ImGui::IsItemClicked())
+      active_ = i;
+    if (hovered)
+      IMComponents::Tooltip(entry.tooltip);
 
     // Square: recessed dark by default, lifted when selected
     const bool selected = i == active_;
-    const ImU32 bg = selected ? EditorColor::control_selected
-                     : hovered ? EditorColor::strip
-                               : EditorColor::void_bg;
-    draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
+    const ImU32 bg = selected  ? EditorColor::control_selected
+                     : hovered ? EditorColor::hover_overlay
+                               : IM_COL32(0, 0, 0, 0);
+    if (bg != 0)
+      draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
 
-    // Icon: larger than body text, square size unchanged
+    // Icon: small glyph centered in the square
     IMComponents::Glyph(draw_list, p0, button_size, entry.icon,
                         selected ? EditorColor::text_bright : EditorColor::text,
-                        EditorStyles::GetFonts().h2);
+                        EditorStyles::GetFonts().s);
 
     y += rail_button_ + rail_gap_;
   }

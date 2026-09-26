@@ -12,8 +12,8 @@
 #include "editor/editor_ui.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/utils/gui_utils.h"
-#include "engine/renderer/icons/icon_loader.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
+#include "engine/renderer/icons/icon_loader.h"
 
 #include "engine/core/logger.h"
 
@@ -319,85 +319,65 @@ void Input(std::string label, float& value, float speed) {
 }
 
 void Input(std::string label, glm::vec3& value, float speed) {
-  label += ":";
-
   // EVALUATE
-  const float item_spacing_x = 6.0f;
-  float x_region_avail = ImGui::GetContentRegionAvail().x;
-  float label_width = x_region_avail * 0.3f;
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const float row_height = ImGui::GetFrameHeight();
+  const float row_gap = 2.0f;
+  const float strip_width = 3.0f;
+  const float axis_gap = 6.0f;
+  const float x_region_avail = ImGui::GetContentRegionAvail().x;
+  const float label_width = x_region_avail * 0.3f;
+  const float axis_width = ImGui::CalcTextSize("X").x + axis_gap;
+  const float field_width =
+      ImMax(x_region_avail - label_width - axis_width, 40.0f);
 
-  // Width of one axis button ("X"/"Y"/"Z") with current frame padding
-  float button_width =
-      ImGui::CalcTextSize("X").x + ImGui::GetStyle().FramePadding.x * 2.0f;
-
-  // Space for the three drag fields = second column minus 3 buttons minus 5
-  // gaps (button<->drag ×3, group<->group ×2)
-  float components_width = (x_region_avail - label_width) -
-                           3.0f * button_width - 5.0f * item_spacing_x -
-                           ImGui::GetStyle().ColumnsMinSpacing;
-  components_width = ImMax(components_width, 3.0f * 24.0f);
+  const char* axis_names[3] = {"X", "Y", "Z"};
+  const ImU32 axis_colors[3] = {EditorColor::axis_x, EditorColor::axis_y,
+                                EditorColor::axis_z};
+  float* components[3] = {&value.x, &value.y, &value.z};
 
   ImGui::PushID(EditorUI::Get()->GenerateId());
-
-  // SETUP COLUMNS
-  ImGui::Columns(2);
-  ImGui::SetColumnWidth(0, label_width);
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  const ImVec2 origin = ImGui::GetCursorScreenPos();
 
   // LABEL
-  ImGui::Text("%s", label.c_str());
-  ImGui::NextColumn();
+  ImGui::AlignTextToFramePadding();
+  ImGui::TextUnformatted(label.c_str());
 
-  // SETUP COMPONENTS
-  ImGui::PushMultiItemsWidths(3, components_width);
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{6.0f, 0.0f});
+  for (int i = 0; i < 3; ++i) {
+    const float y = origin.y + i * (row_height + row_gap);
+    const ImVec2 axis_min = ImVec2(origin.x + label_width, y);
+    ImGui::PushID(i);
 
-  // X COMPONENT
-  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{0.8f, 0.0f, 0.25f, 0.3f});
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                        ImVec4{0.8f, 0.0f, 0.25f, 0.4f});
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{0.8f, 0.0f, 0.25f, 0.7f});
-  if (ImGui::Button("X"))
-    value.x = 0.0f;
-  ImGui::PopStyleColor(3);
-  ImGui::SameLine();
-  ImGui::DragFloat("##_X", &value.x, speed, 0.0f, 0.0f, "%.2f");
-  ImGui::PopItemWidth();
-  ImGui::SameLine();
+    // AXIS LETTER (right-aligned, click resets component)
+    ImGui::SetCursorScreenPos(axis_min);
+    if (ImGui::InvisibleButton("##reset", ImVec2(axis_width, row_height)))
+      *components[i] = 0.0f;
+    const ImVec2 letter_size = ImGui::CalcTextSize(axis_names[i]);
+    draw_list->AddText(
+        ImVec2(axis_min.x + axis_width - axis_gap - letter_size.x,
+               y + (row_height - letter_size.y) * 0.5f),
+        axis_colors[i], axis_names[i]);
 
-  // Y COMPONENT
-  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{0.25f, 0.8f, 0.25f, 0.3f});
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                        ImVec4{0.25f, 0.8f, 0.25f, 0.4f});
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                        ImVec4{0.25f, 0.8f, 0.25f, 0.7f});
-  if (ImGui::Button("Y"))
-    value.y = 0.0f;
-  ImGui::PopStyleColor(3);
-  ImGui::SameLine();
-  ImGui::DragFloat("##_Y", &value.y, speed, 0.0f, 0.0f, "%.2f");
-  ImGui::PopItemWidth();
-  ImGui::SameLine();
+    // FIELD
+    ImGui::SetCursorScreenPos(ImVec2(axis_min.x + axis_width, y));
+    ImGui::SetNextItemWidth(field_width);
+    ImGui::DragFloat("##value", components[i], speed, 0.0f, 0.0f, "%.2f");
 
-  // Z COMPONENT
-  ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{0.1f, 0.25f, 0.8f, 0.3f});
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                        ImVec4{0.1f, 0.25f, 0.8f, 0.4f});
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{0.1f, 0.25f, 0.8f, 0.7f});
-  if (ImGui::Button("Z"))
-    value.z = 0.0f;
+    // LEFT STRIP over the field's left edge
+    const ImVec2 field_min = ImGui::GetItemRectMin();
+    const ImVec2 field_max = ImGui::GetItemRectMax();
+    draw_list->AddRectFilled(
+        field_min, ImVec2(field_min.x + strip_width, field_max.y),
+        axis_colors[i], style.FrameRounding, ImDrawFlags_RoundCornersLeft);
+    ImGui::PopID();
+  }
 
-  ImGui::PopStyleColor(3);
-  ImGui::SameLine();
-  ImGui::DragFloat("##_Z", &value.z, speed, 0.0f, 0.0f, "%.2f");
-  ImGui::PopItemWidth();
-
-  // EXIT
-  ImGui::PopStyleVar();
-  ImGui::Columns(1);
-  ImGui::PopID();
-
-  // PADDING
+  // EXIT: move below the three rows
+  ImGui::SetCursorScreenPos(
+      ImVec2(origin.x, origin.y + 3.0f * row_height + 2.0f * row_gap));
   ImGui::Dummy(ImVec2(0.0f, 2.0f));
+  ImGui::PopID();
 }
 
 //=============================================================================
@@ -670,7 +650,8 @@ void LoadingBuffer(ImDrawList& draw_list, ImVec2 position, float radius,
 
 void Glyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
            const char* glyph, ImU32 color, ImFont* font) {
-  if (!font) font = ImGui::GetFont();
+  if (!font)
+    font = ImGui::GetFont();
   const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, glyph);
   const ImVec2 pos = ImVec2(slot_min.x + (slot_size.x - size.x) * 0.5f,
                             slot_min.y + (slot_size.y - size.y) * 0.5f);
@@ -687,10 +668,12 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
 
   draw_list.AddRectFilled(position, split, EditorColor::control, radius,
                           ImDrawFlags_RoundCornersLeft);
-  draw_list.AddRectFilled(ImVec2(split.x, position.y), p1, EditorColor::input_bg,
-                          radius, ImDrawFlags_RoundCornersRight);
-  Glyph(draw_list, position, ImVec2(icon_width, size.y), ICON_FA_MAGNIFYING_GLASS,
-        EditorColor::text_dim, EditorStyles::GetFonts().s);
+  draw_list.AddRectFilled(ImVec2(split.x, position.y), p1,
+                          EditorColor::input_bg, radius,
+                          ImDrawFlags_RoundCornersRight);
+  Glyph(draw_list, position, ImVec2(icon_width, size.y),
+        ICON_FA_MAGNIFYING_GLASS, EditorColor::text_dim,
+        EditorStyles::GetFonts().s);
 
   ImFont* font = EditorStyles::GetFonts().s;
   ImGui::SetCursorScreenPos(ImVec2(split.x, position.y));
@@ -701,17 +684,19 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
   ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
   ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
   ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_TextDisabled, ImGui::ColorConvertU32ToFloat4(
-                                                   EditorColor::text_placeholder));
+  ImGui::PushStyleColor(
+      ImGuiCol_TextDisabled,
+      ImGui::ColorConvertU32ToFloat4(EditorColor::text_placeholder));
   ImGui::SetNextItemWidth(size.x - icon_width);
-  const bool changed = ImGui::InputTextWithHint(id, hint, buffer,
-                                                static_cast<int>(buffer_size));
+  const bool changed =
+      ImGui::InputTextWithHint(id, hint, buffer, static_cast<int>(buffer_size));
   ImGui::PopStyleColor(4);
   ImGui::PopStyleVar(2);
   ImGui::PopFont();
 
   draw_list.AddRect(position, p1, EditorColor::control_border, radius, 0, 1.0f);
-  draw_list.AddLine(ImVec2(split.x, position.y), split, EditorColor::control_border, 1.0f);
+  draw_list.AddLine(ImVec2(split.x, position.y), split,
+                    EditorColor::control_border, 1.0f);
   return changed;
 }
 
@@ -720,10 +705,15 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
   ImFont* small = EditorStyles::GetFonts().s;
   const float pad = 8.0f;
   const float icon_w = icon ? ImGui::CalcTextSize(icon).x : 0.0f;
-  const float chevron_w =
-      chevron ? small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f, ICON_FA_CHEVRON_DOWN).x : 0.0f;
+  const float chevron_w = chevron
+                              ? small
+                                    ->CalcTextSizeA(small->FontSize, FLT_MAX,
+                                                    0.0f, ICON_FA_CHEVRON_DOWN)
+                                    .x
+                              : 0.0f;
   const float gap = (icon && chevron) ? 6.0f : 0.0f;
-  const float width = (icon || chevron) ? pad * 2 + icon_w + gap + chevron_w : height;
+  const float width =
+      (icon || chevron) ? pad * 2 + icon_w + gap + chevron_w : height;
 
   ImGui::SetCursorScreenPos(position);
   ImGui::InvisibleButton(id, ImVec2(width, height));
@@ -731,15 +721,17 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
   const bool clicked = ImGui::IsItemClicked();
 
   const ImVec2 p1 = position + ImVec2(width, height);
-  draw_list.AddRectFilled(position, p1,
-                          hovered ? EditorColor::control_hovered : EditorColor::control,
-                          EditorSizes::control_radius);
+  draw_list.AddRectFilled(
+      position, p1,
+      hovered ? EditorColor::control_hovered : EditorColor::control,
+      EditorSizes::control_radius);
   draw_list.AddRect(position, p1, EditorColor::control_border,
                     EditorSizes::control_radius, 0, 1.0f);
 
   float x = position.x + pad;
   if (icon) {
-    Glyph(draw_list, ImVec2(x, position.y), ImVec2(icon_w, height), icon, EditorColor::text);
+    Glyph(draw_list, ImVec2(x, position.y), ImVec2(icon_w, height), icon,
+          EditorColor::text);
     x += icon_w + gap;
   }
   if (chevron)
@@ -749,15 +741,17 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
 }
 
 bool IconDropdownButton(ImDrawList& draw_list, const char* id,
-                         const char* icon_id, ImVec2 position, float height,
-                         bool chevron) {
+                        const char* icon_id, ImVec2 position, float height,
+                        bool chevron) {
   ImFont* small = EditorStyles::GetFonts().s;
   const float pad = 8.0f;
   const float icon_size = height - 10.0f;  // 16px at 26px controls
-  const float chevron_w =
-      chevron ? small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f,
-                                     ICON_FA_CHEVRON_DOWN).x
-              : 0.0f;
+  const float chevron_w = chevron
+                              ? small
+                                    ->CalcTextSizeA(small->FontSize, FLT_MAX,
+                                                    0.0f, ICON_FA_CHEVRON_DOWN)
+                                    .x
+                              : 0.0f;
   const float gap = chevron ? 6.0f : 0.0f;
   const float width = pad * 2 + icon_size + gap + chevron_w;
 
@@ -767,10 +761,10 @@ bool IconDropdownButton(ImDrawList& draw_list, const char* id,
   const bool clicked = ImGui::IsItemClicked();
 
   const ImVec2 p1 = position + ImVec2(width, height);
-  draw_list.AddRectFilled(position, p1,
-                          hovered ? EditorColor::control_hovered
-                                  : EditorColor::control,
-                          EditorSizes::control_radius);
+  draw_list.AddRectFilled(
+      position, p1,
+      hovered ? EditorColor::control_hovered : EditorColor::control,
+      EditorSizes::control_radius);
   draw_list.AddRect(position, p1, EditorColor::control_border,
                     EditorSizes::control_radius, 0, 1.0f);
 
@@ -800,7 +794,8 @@ void KeyValue(const char* key, const std::string& value, ImU32 value_color) {
   ImGui::SameLine(0.0f, 0.0f);
   ImGui::TextUnformatted(": ");
   ImGui::SameLine(0.0f, 0.0f);
-  ImGui::PushStyleColor(ImGuiCol_Text, ImGui::ColorConvertU32ToFloat4(value_color));
+  ImGui::PushStyleColor(ImGuiCol_Text,
+                        ImGui::ColorConvertU32ToFloat4(value_color));
   ImGui::TextUnformatted(value.c_str());
   ImGui::PopStyleColor();
 }

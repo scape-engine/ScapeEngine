@@ -1,9 +1,9 @@
 #ifndef TAB_CONTAINER_H
 #define TAB_CONTAINER_H
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include <boost/signals2.hpp>
 
@@ -39,14 +39,14 @@ private:
   void RenderActivePanel(ImVec2 position, ImVec2 size);
 
   // Layout (px)
-  static constexpr float header_height_ = 42.0f;
+  static constexpr float header_height_ = 30.0f;
   static constexpr float header_pad_x_ = 10.0f;
-  static constexpr float control_height_ = 26.0f;
-  static constexpr float rail_width_ = 48.0f;
-  static constexpr float rail_button_ = 36.0f;
-  static constexpr float rail_pad_y_ = 14.0f;
-  static constexpr float rail_gap_ = 4.0f;
-  static constexpr float rail_group_gap_ = 18.0f;
+  static constexpr float control_height_ = 20.0f;
+  static constexpr float rail_width_ = 32.0f;
+  static constexpr float rail_button_ = 24.0f;
+  static constexpr float rail_pad_y_ = 8.0f;
+  static constexpr float rail_gap_ = 2.0f;
+  static constexpr float rail_group_gap_ = 12.0f;
 
   std::string name_;
   std::vector<TabEntry> entries_;

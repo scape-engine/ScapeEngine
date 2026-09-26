@@ -51,9 +51,9 @@ public:
 
 private:
   // Rendering
-  void RenderHeader(ImDrawList& draw_list); 
- void RenderSearch(ImDrawList& draw_list, ImVec2 position, ImVec2 size);
- void RenderActions(ImDrawList& draw_list, ImVec2 position, float height);
+  void RenderHeader(ImDrawList& draw_list);
+  void RenderSearch(ImDrawList& draw_list, ImVec2 position, ImVec2 size);
+  void RenderActions(ImDrawList& draw_list, ImVec2 position, float height);
   void RenderHierarchy(ImDrawList& draw_list);
   void RenderRootHeader(ImDrawList& draw_list);
   void RenderItem(ImDrawList& draw_list, HierarchyItem& item,
@@ -66,11 +66,11 @@ private:
   // Row helpers
   // Draw glyph centered in a slot of width slot_width starting at slot_min
   void DrawGlyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
-               const char* glyph, ImU32 color, ImFont* font = nullptr);
+                 const char* glyph, ImU32 color, ImFont* font = nullptr);
 
   // Draw chevron in caret slot; returns true if the slot was clicked
-  bool DrawChevron(ImDrawList& draw_list, ImVec2 slot_min, bool expanded, bool interactive,
-                   ImU32 color);
+  bool DrawChevron(ImDrawList& draw_list, ImVec2 slot_min, bool expanded,
+                   bool interactive, ImU32 color);
 
   // Entity presentation
   const char* EntityIcon(const HierarchyItem& item) const;
@@ -94,16 +94,17 @@ private:
   void OnEntityChanged(entt::registry&, entt::entity);
 
   // Layout (px)
-  static constexpr float header_height_ = 42.0f;
+  static constexpr float header_height_ = 34.0f;
   static constexpr float header_pad_x_ = 10.0f;
-  static constexpr float search_height_ = 26.0f;
-  static constexpr float search_width_ratio_ = 0.58f; 
-  static constexpr float content_gap_ = 6.0f;     
-  static constexpr float row_height_ = 24.0f;
-  static constexpr float row_pad_x_ = 6.0f; 
-  static constexpr float caret_slot_ = 24.0f;
-  static constexpr float icon_slot_ = 24.0f;
-  static constexpr float indent_ = 24.0f;
+  static constexpr float search_height_ = 22.0f;
+  static constexpr float search_width_ratio_ = 0.58f;
+  static constexpr float content_gap_ = 4.0f;
+  static constexpr float row_height_ = 20.0f;
+  static constexpr float row_pad_x_ = 6.0f;
+  static constexpr float caret_slot_ = 16.0f;
+  static constexpr float icon_slot_ = 18.0f;
+  static constexpr float toggle_slot_ = 20.0f;
+  static constexpr float indent_ = 16.0f;
   static constexpr float text_gap_ = 4.0f;
   static constexpr float header_gap_ = 6.0f;
 

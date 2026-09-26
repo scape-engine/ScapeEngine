@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+
+#include "imgui_internal.h"
 
 #include "engine/transform/transform.h"
 
@@ -73,7 +76,8 @@ bool HierarchyPanel::MatchesSearch(const HierarchyItem& item) const {
     return true;
 
   auto lower = [](std::string s) {
-    for (char& c : s) c = static_cast<char>(std::tolower(c));
+    for (char& c : s)
+      c = static_cast<char>(std::tolower(c));
     return s;
   };
   if (lower(item.entity.Name()).find(lower(search_buffer)) != std::string::npos)
@@ -101,9 +105,9 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
       ImVec2(panel_width * search_width_ratio_, search_height_);
   RenderSearch(draw_list, search_pos, search_size);
 
-  RenderActions(
-      draw_list, ImVec2(search_pos.x + search_size.x + header_gap_, y),
-      search_height_);
+  RenderActions(draw_list,
+                ImVec2(search_pos.x + search_size.x + header_gap_, y),
+                search_height_);
 
   // Divider between header strip and tree
   draw_list.AddLine(ImVec2(strip_min.x, strip_max.y - 0.5f),
@@ -113,10 +117,10 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
   ImGui::SetCursorScreenPos(ImVec2(strip_min.x, strip_max.y + content_gap_));
 }
 
-void HierarchyPanel::RenderActions(ImDrawList& draw_list,
-                                         ImVec2 position, float height) {
+void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
+                                   float height) {
   if (IMComponents::IconDropdownButton(draw_list, "##HierarchyActions",
-                                        "open-module", position, height)) {
+                                       "open-module", position, height)) {
     PopupMenu::Open();
   }
 }
@@ -142,7 +146,8 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
 
     // Vertical guide under the root caret
     const ImVec2 children_end = ImGui::GetCursorScreenPos();
-    const float guide_x = children_start.x + caret_slot_ * 0.5f;
+    const float guide_x =
+        std::floor(children_start.x + row_pad_x_ + caret_slot_ * 0.5f);
     draw_list.AddLine(ImVec2(guide_x, children_start.y),
                       ImVec2(guide_x, children_end.y), EditorColor::tree_guide,
                       1.0f);
@@ -168,11 +173,14 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
     root_expanded_ = !root_expanded_;
 
   const float x0 = rect_min.x + row_pad_x_;
-  DrawChevron(draw_list, ImVec2(x0, rect_min.y), root_expanded_, true, EditorColor::text);
+  DrawChevron(draw_list, ImVec2(x0, rect_min.y), root_expanded_, true,
+              EditorColor::text);
   DrawGlyph(draw_list, ImVec2(x0 + caret_slot_, rect_min.y),
-            ImVec2(icon_slot_, row_height_), ICON_FA_BOX_ARCHIVE, EditorColor::text);
-  const ImVec2 text_pos = ImVec2(x0 + caret_slot_ + icon_slot_ + text_gap_,
-                                 rect_min.y + (row_height_ - ImGui::GetFontSize()) * 0.5f);
+            ImVec2(icon_slot_, row_height_), ICON_FA_BOX_ARCHIVE,
+            EditorColor::text);
+  const ImVec2 text_pos =
+      ImVec2(x0 + caret_slot_ + icon_slot_ + text_gap_,
+             rect_min.y + (row_height_ - ImGui::GetFontSize()) * 0.5f);
   draw_list.AddText(text_pos, EditorColor::text, "Scene Hierarchy");
 
   ImGui::Dummy(ImVec2(0.0f, row_height_));
@@ -259,18 +267,21 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
 
   // RIGHT-ALIGNED ICONS (data / eye / camera) — drawn before hit-testing the
   // row so clicking a toggle doesn't also select
-  const bool icon_clicked = RenderItemIcons(draw_list, item, rect_min, rect_max);
+  const bool icon_clicked =
+      RenderItemIcons(draw_list, item, rect_min, rect_max);
 
   // CHEVRON (only when there are children; keeps alignment otherwise)
-  const ImVec2 caret_min = ImVec2(rect_min.x + row_pad_x_ + x_offset, rect_min.y);
-  const bool chevron_clicked =
-      DrawChevron(draw_list, caret_min, item.expanded, has_children, chevron_color);
+  const ImVec2 caret_min =
+      ImVec2(rect_min.x + row_pad_x_ + x_offset, rect_min.y);
+  const bool chevron_clicked = DrawChevron(draw_list, caret_min, item.expanded,
+                                           has_children, chevron_color);
   if (has_children && (chevron_clicked || wheel_clicked))
     item.expanded = !item.expanded;
 
   // TYPE ICON + NAME
-  DrawGlyph(draw_list, ImVec2(caret_min.x + caret_slot_, rect_min.y), ImVec2(icon_slot_, row_height_),
-            EntityIcon(item), EditorColor::accent_border);
+  DrawGlyph(draw_list, ImVec2(caret_min.x + caret_slot_, rect_min.y),
+            ImVec2(icon_slot_, row_height_), EntityIcon(item),
+            EditorColor::accent_border);
 
   const ImVec2 text_pos =
       ImVec2(caret_min.x + caret_slot_ + icon_slot_ + text_gap_,
@@ -300,9 +311,11 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
           std::find(current_hierarchy.begin(), current_hierarchy.end(), item);
       if (start != current_hierarchy.end() && end != current_hierarchy.end()) {
         if (start <= end) {
-          for (auto i = start; i != end; ++i) select(*i);
+          for (auto i = start; i != end; ++i)
+            select(*i);
         } else {
-          for (auto i = start; i != end; --i) select(*i);
+          for (auto i = start; i != end; --i)
+            select(*i);
         }
         select(*end);
       }
@@ -336,10 +349,14 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   // DROP (unchanged TODOs)
   if (dragging_hierarchy && !ImGui::IsMouseDown(0) && drop_type != NO_DROP) {
     switch (drop_type) {
-      case DROP_ITEM:      /* TODO */ break;
-      case MOVE_ITEM_UP:   /* TODO */ break;
-      case MOVE_ITEM_DOWN: /* TODO */ break;
-      default: break;
+      case DROP_ITEM: /* TODO */
+        break;
+      case MOVE_ITEM_UP: /* TODO */
+        break;
+      case MOVE_ITEM_DOWN: /* TODO */
+        break;
+      default:
+        break;
     }
   }
 
@@ -359,11 +376,12 @@ bool HierarchyPanel::RenderItemIcons(ImDrawList& draw_list, HierarchyItem& item,
 
   // Slots from the right edge: [data][eye][camera]
   auto slot_min = [&](int index_from_right) {
-    return ImVec2(rect_max.x - row_pad_x_ - icon_slot_ * (index_from_right + 1),
-                  rect_min.y);
+    return ImVec2(
+        rect_max.x - row_pad_x_ - toggle_slot_ * (index_from_right + 1),
+        rect_min.y);
   };
   auto slot_clicked = [&](ImVec2 min) {
-    ImVec2 max = ImVec2(min.x + icon_slot_, rect_max.y);
+    ImVec2 max = ImVec2(min.x + toggle_slot_, rect_max.y);
     return ImGui::IsMouseHoveringRect(min, max) && ImGui::IsMouseClicked(0);
   };
 
@@ -389,49 +407,64 @@ bool HierarchyPanel::RenderItemIcons(ImDrawList& draw_list, HierarchyItem& item,
   // Data icon (component type, green) — non-interactive for now
   const char* data_icon = EntityDataIcon(item);
   if (data_icon)
-    DrawGlyph(draw_list, slot_min(2), ImVec2(icon_slot_, row_height_), data_icon,
-              EditorColor::success);
+    DrawGlyph(draw_list, slot_min(2), ImVec2(icon_slot_, row_height_),
+              data_icon, EditorColor::success);
 
   return any_clicked;
 }
 
 void HierarchyPanel::DrawGlyph(ImDrawList& draw_list, ImVec2 slot_min,
-                               ImVec2 slot_size, const char* glyph,
-                               ImU32 color, ImFont* font) {
-  if (!font) font = ImGui::GetFont();
+                               ImVec2 slot_size, const char* glyph, ImU32 color,
+                               ImFont* font) {
+  if (!font)
+    font = ImGui::GetFont();
   const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, glyph);
-  const ImVec2 pos = ImVec2(slot_min.x + (slot_size.x - size.x) * 0.5f,
+
+  // Center horizontally on the visible ink, not the advance width
+  unsigned int codepoint = 0;
+  ImTextCharFromUtf8(&codepoint, glyph, nullptr);
+  const ImFontGlyph* g = font->FindGlyph((ImWchar)codepoint);
+  const float ink_center = g ? (g->X0 + g->X1) * 0.5f : size.x * 0.5f;
+
+  const ImVec2 pos = ImVec2(slot_min.x + slot_size.x * 0.5f - ink_center,
                             slot_min.y + (slot_size.y - size.y) * 0.5f);
   draw_list.AddText(font, font->FontSize, pos, color, glyph);
 }
 
 bool HierarchyPanel::DrawChevron(ImDrawList& draw_list, ImVec2 slot_min,
                                  bool expanded, bool interactive, ImU32 color) {
-  const ImVec2 slot_max = ImVec2(slot_min.x + caret_slot_, slot_min.y + row_height_);
-  const bool hovered = interactive && ImGui::IsMouseHoveringRect(slot_min, slot_max);
-  DrawGlyph(draw_list, slot_min, ImVec2(caret_slot_, row_height_),
-            expanded ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
-            hovered ? EditorColor::text_bright : color);   // default font (p), not s
+  const ImVec2 slot_max =
+      ImVec2(slot_min.x + caret_slot_, slot_min.y + row_height_);
+  const bool hovered =
+      interactive && ImGui::IsMouseHoveringRect(slot_min, slot_max);
+  DrawGlyph(
+      draw_list, slot_min, ImVec2(caret_slot_, row_height_),
+      expanded ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
+      hovered ? EditorColor::text_bright : color);  // default font (p), not s
   return hovered && ImGui::IsMouseClicked(0);
 }
 
 const char* HierarchyPanel::EntityIcon(const HierarchyItem& item) const {
   const EntityContainer& e = item.entity;
-  if (e.Has<CameraComponent>())            return ICON_FA_VIDEO;
-  if (e.Has<PointLightComponent>() ||
-      e.Has<DirectionalLightComponent>() ||
-      e.Has<SkyLightComponent>())          return ICON_FA_LIGHTBULB;
-  if (e.Has<MeshRendererComponent>())      return ICON_FA_CUBE;
+  if (e.Has<CameraComponent>())
+    return ICON_FA_VIDEO;
+  if (e.Has<PointLightComponent>() || e.Has<DirectionalLightComponent>() ||
+      e.Has<SkyLightComponent>())
+    return ICON_FA_LIGHTBULB;
+  if (e.Has<MeshRendererComponent>())
+    return ICON_FA_CUBE;
   return ICON_FA_CIRCLE_NODES;  // empty / transform-only entity
 }
 
 const char* HierarchyPanel::EntityDataIcon(const HierarchyItem& item) const {
   const EntityContainer& e = item.entity;
-  if (e.Has<CameraComponent>())            return ICON_FA_CAMERA_RETRO;
-  if (e.Has<PointLightComponent>() ||
-      e.Has<DirectionalLightComponent>() ||
-      e.Has<SkyLightComponent>())          return ICON_FA_SUN;
-  if (e.Has<MeshRendererComponent>())      return ICON_FA_DRAW_POLYGON;
+  if (e.Has<CameraComponent>())
+    return ICON_FA_CAMERA_RETRO;
+  if (e.Has<PointLightComponent>() || e.Has<DirectionalLightComponent>() ||
+      e.Has<SkyLightComponent>())
+    return ICON_FA_SUN;
+  if (e.Has<MeshRendererComponent>())
+    return ICON_FA_DRAW_POLYGON;
   return nullptr;
 }
 

@@ -109,6 +109,10 @@ bool IsTextInputActive() {
   return SDL_IsTextInputActive() == SDL_TRUE;
 }
 
+void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
+  // Implementation for styling the title bar
+}
+
 // TODO: move to /input/cursor
 glm::vec2 GetCursorPosition() {
   int x, y;

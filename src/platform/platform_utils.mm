@@ -114,6 +114,20 @@ void RestoreMinSize(SDL_Window* w)
     SDL_SetWindowMinimumSize(w, 0, 0);        // remove lower bound
 }
 
+void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
+    SDL_SysWMinfo wmi;
+    SDL_VERSION(&wmi.version);
+    if (!SDL_GetWindowWMInfo(window, &wmi))
+        return;
+
+    NSWindow* nsWindow = wmi.info.cocoa.window;
+    nsWindow.titlebarAppearsTransparent = YES;
+    nsWindow.backgroundColor = [NSColor colorWithSRGBRed:r green:g blue:b alpha:1.0];
+    nsWindow.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua]; 
+    if (@available(macOS 11.0, *))
+        nsWindow.titlebarSeparatorStyle = NSTitlebarSeparatorStyleNone;
+}
+
 void DisableTextInput() {
     SDL_StopTextInput();
 }

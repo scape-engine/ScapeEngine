@@ -29,8 +29,12 @@ void ToggleBorderlessFullscreen(SDL_Window* win, bool enable);
 bool IsBorderlessFullscreen(SDL_Window* win);
 void RefreshFramebufferSize(SDL_Window* win);  // bgfx+ImGui sync
 bool InFullscreenSpace(SDL_Window* w);
+
 void LockMinSize(SDL_Window* w, int minW, int minH);
 void RestoreMinSize(SDL_Window* w);
+
+// Transparent titlebar, incl traffic lights and content under it
+void StyleTitleBar(SDL_Window* window, float r, float g, float b);
 
 // Text input control
 void DisableTextInput();
