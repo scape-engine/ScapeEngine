@@ -42,7 +42,7 @@ inline void WorldSettings() {
 
     // Cycle controls
     bool paused = skybox->IsCyclePaused();
-    if (ImGui::Checkbox("Pause Cycle", &paused)) {
+    if (IMComponents::Checkbox("Pause Cycle", &paused)) {
       skybox->SetCyclePaused(paused);
     }
 
@@ -141,17 +141,17 @@ inline void WorldSettings() {
     auto& pipeline = Runtime::GetSceneViewPipeline();
 
     bool wireframe = pipeline.wireframe_;
-    if (ImGui::Checkbox("Wireframe Mode", &wireframe)) {
+    if (IMComponents::Checkbox("Wireframe Mode", &wireframe)) {
       pipeline.wireframe_ = wireframe;
     }
 
     bool showSkybox = pipeline.show_skybox_;
-    if (ImGui::Checkbox("Show Skybox", &showSkybox)) {
+    if (IMComponents::Checkbox("Show Skybox", &showSkybox)) {
       pipeline.show_skybox_ = showSkybox;
     }
 
     bool showGizmos = pipeline.show_gizmos_;
-    if (ImGui::Checkbox("Show Gizmos", &showGizmos)) {
+    if (IMComponents::Checkbox("Show Gizmos", &showGizmos)) {
       pipeline.show_gizmos_ = showGizmos;
     }
 

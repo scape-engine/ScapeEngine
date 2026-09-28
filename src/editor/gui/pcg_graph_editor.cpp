@@ -298,7 +298,7 @@ void PCGGraphEditorPanel::DrawInlineParams(PCG::ProgramGraph::Node& node,
 
       case PCG::NodeType::Param::Type::Bool: {
         bool value = std::get<bool>(node.params[i]);
-        if (ImGui::Checkbox(param.name.c_str(), &value)) {
+        if (IMComponents::Checkbox(param.name.c_str(), &value)) {
           node.params[i] = value;
           OnNodeParamChanged(node.id);
         }

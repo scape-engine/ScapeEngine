@@ -95,7 +95,7 @@ bool _BeginComponent(const std::string& identifier,
     const float box = ImGui::GetFrameHeight();
     const ImVec2 restore = ImGui::GetCursorScreenPos();
     ImGui::SetCursorScreenPos(ImVec2(x, p0.y + (header_height - box) * 0.5f));
-    ImGui::Checkbox(("##enabled_" + identifier).c_str(), enabled_ptr);
+    IMComponents::Checkbox(("##enabled_" + identifier).c_str(), enabled_ptr);
     ImGui::SetCursorScreenPos(restore);
     ImGui::PopStyleVar();
     x += box + 6.0f;

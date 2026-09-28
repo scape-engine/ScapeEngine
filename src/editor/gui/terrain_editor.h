@@ -95,8 +95,8 @@ inline void TerrainEditor() {
 
     // Sharpness variation
     ImGui::PushID("vary_sharpness");
-    changed |=
-        ImGui::Checkbox("Vary Sharpness", &config.vary_sharpness.enabled);
+    changed |= IMComponents::Checkbox("Vary Sharpness",
+                                      &config.vary_sharpness.enabled);
     if (config.vary_sharpness.enabled) {
       ImGui::Indent();
 
@@ -128,8 +128,8 @@ inline void TerrainEditor() {
 
     // Perturbation variation
     ImGui::PushID("vary_perturb");
-    changed |=
-        ImGui::Checkbox("Vary Domain Warp", &config.vary_perturb.enabled);
+    changed |= IMComponents::Checkbox("Vary Domain Warp",
+                                      &config.vary_perturb.enabled);
     if (config.vary_perturb.enabled) {
       ImGui::Indent();
 
@@ -159,8 +159,8 @@ inline void TerrainEditor() {
 
     // Feature amplification variation
     ImGui::PushID("vary_amplify");
-    changed |=
-        ImGui::Checkbox("Vary Feature Emphasis", &config.vary_amplify.enabled);
+    changed |= IMComponents::Checkbox("Vary Feature Emphasis",
+                                      &config.vary_amplify.enabled);
     if (config.vary_amplify.enabled) {
       ImGui::Indent();
 

@@ -260,7 +260,7 @@ void Input(std::string label, bool& value) {
     ImGui::TableSetColumnIndex(1);
     ImGui::PushItemWidth(-1);
     std::string id = EditorUI::Get()->GenerateIdString();
-    ImGui::Checkbox(id.c_str(), &value);
+    IMComponents::Checkbox(id.c_str(), &value);
     ImGui::PopItemWidth();
 
     ImGui::EndTable();
@@ -422,7 +422,7 @@ void IndicatorLabel(std::string label, double value, std::string additional) {
 bool ExtendableSettings(std::string label, bool& value, const char* icon) {
   ImVec2 cursor = ImGui::GetCursorPos();
   std::string id = EditorUI::Get()->GenerateIdString();
-  ImGui::Checkbox(id.c_str(), &value);
+  IMComponents::Checkbox(id.c_str(), &value);
 
   cursor.x += 35.0f;
   ImGui::SetCursorPos(cursor);
@@ -798,6 +798,66 @@ void KeyValue(const char* key, const std::string& value, ImU32 value_color) {
                         ImGui::ColorConvertU32ToFloat4(value_color));
   ImGui::TextUnformatted(value.c_str());
   ImGui::PopStyleColor();
+}
+
+//=============================================================================
+// CHECKBOX
+//=============================================================================
+bool Checkbox(const char* label, bool* value) {
+  ImGuiWindow* window = ImGui::GetCurrentWindow();
+  if (window->SkipItems)
+    return false;
+
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const ImGuiID id = window->GetID(label);
+  const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
+  const float square = ImGui::GetFrameHeight();
+  const ImVec2 pos = window->DC.CursorPos;
+
+  const ImRect total_bb(
+      pos, pos + ImVec2(square + (label_size.x > 0.0f
+                                      ? style.ItemInnerSpacing.x + label_size.x
+                                      : 0.0f),
+                        label_size.y + style.FramePadding.y * 2.0f));
+  ImGui::ItemSize(total_bb, style.FramePadding.y);
+  if (!ImGui::ItemAdd(total_bb, id))
+    return false;
+
+  bool hovered = false;
+  bool held = false;
+  const bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+  if (pressed) {
+    *value = !*value;
+    ImGui::MarkItemEdited(id);
+  }
+
+  ImDrawList* draw_list = window->DrawList;
+  const ImVec2 box_min = pos;
+  const ImVec2 box_max = pos + ImVec2(square, square);
+  const float rounding = EditorSizes::control_radius;
+
+  if (*value) {
+    // ON: accent fill, no border, white check
+    draw_list->AddRectFilled(
+        box_min, box_max,
+        hovered ? EditorColor::accent_hover : EditorColor::accent, rounding);
+    const float pad = ImMax(1.0f, (float)(int)(square / 5.0f));
+    ImGui::RenderCheckMark(draw_list, box_min + ImVec2(pad, pad),
+                           EditorColor::text_bright, square - pad * 2.0f);
+  } else {
+    // OFF: dark fill with a subtle border
+    draw_list->AddRectFilled(
+        box_min, box_max,
+        hovered ? EditorColor::control : EditorColor::input_bg, rounding);
+    draw_list->AddRect(box_min, box_max, EditorColor::control_border, rounding,
+                       0, 1.0f);
+  }
+
+  if (label_size.x > 0.0f)
+    ImGui::RenderText(ImVec2(box_max.x + style.ItemInnerSpacing.x,
+                             pos.y + style.FramePadding.y),
+                      label);
+  return pressed;
 }
 
 }  // namespace IMComponents

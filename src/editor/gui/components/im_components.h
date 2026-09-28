@@ -76,6 +76,16 @@ bool IconButton(const char* icon, ImDrawList& draw_list, ImVec2 position,
                 ImU32 color = IM_COL32(0, 0, 0, 0),
                 ImU32 hovered_color = IM_COL32(65, 65, 80, 120));
 
+// Compact control button: optional icon + optional chevron. Returns clicked.
+// Width is derived from content; pass icon = nullptr for a chevron-only button.
+bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
+                    ImVec2 position, float height, bool chevron = true);
+
+// Control button with a bitmap icon (IconLoader id) + optional chevron.
+bool IconDropdownButton(ImDrawList& draw_list, const char* id,
+                        const char* icon_id, ImVec2 position, float height,
+                        bool chevron = true);
+
 // Draw loading buffer at current cursor position
 void LoadingBuffer(ImDrawList& draw_list, ImVec2 position, float radius,
                    int thickness, const ImU32& color);
@@ -84,25 +94,18 @@ void LoadingBuffer(ImDrawList& draw_list, ImVec2 position, float radius,
 void Glyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
            const char* glyph, ImU32 color, ImFont* font = nullptr);
 
-// Two-segment search field [ (q) | hint ]. Returns true when text changed.
+// Two-segment search field [ (q) | hint ]. Returns true when text changed
 bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
                  size_t buffer_size, ImVec2 position, ImVec2 size,
                  const char* hint = "Search...");
 
-// Compact control button: optional icon + optional chevron. Returns clicked.
-// Width is derived from content; pass icon = nullptr for a chevron-only button.
-bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
-                    ImVec2 position, float height, bool chevron = true);
-
-// Control button with a bitmap icon (IconLoader id) + optional chevron.
-bool IconDropdownButton(ImDrawList& draw_list, const char* id,
-                         const char* icon_id, ImVec2 position, float height,
-                         bool chevron = true);
-
 void SectionTitle(const char* title, float gap_before = 14.0f);
 
-void KeyValue(const char* key, const std::string& value, ImU32 value_color = EditorColor::text);
+void KeyValue(const char* key, const std::string& value,
+              ImU32 value_color = EditorColor::text);
 
+// Accent fill + white check when on, subtle bordered box when off
+bool Checkbox(const char* label, bool* value);
 
 }  // namespace IMComponents
 
