@@ -79,6 +79,10 @@ struct EditorColor {
       IM_COL32(49, 105, 227, 64);  // #3169E3 @ 0.25 row fill
   static constexpr ImU32 tree_guide =
       IM_COL32(211, 211, 211, 153);  // #D3D3D3 @ 0.6
+  static constexpr ImU32 section_header =
+      IM_COL32(32, 32, 32, 255);  // #202020 component header strip
+  static constexpr ImU32 row_alt =
+      IM_COL32(0, 0, 0, 45);  // black @ ~0.18, zebra stripe
 
   // ---- Text ----
   static constexpr ImU32 text = IM_COL32(211, 211, 211, 255);      // #D3D3D3
@@ -114,8 +118,7 @@ struct EditorColor {
   static constexpr ImU32 hover_overlay = IM_COL32(255, 255, 255, 12);
   static constexpr ImU32 active_overlay = IM_COL32(255, 255, 255, 30);
 
-  // ---- Legacy aliases (existing call sites; retire during the layout pass)
-  // ----
+  // ---- Legacy aliases (replace during the layout pass) ----
   static constexpr ImU32 background = panel;
   static constexpr ImU32 text_transparent = IM_COL32(211, 211, 211, 153);
   static constexpr ImU32 element_transparent = IM_COL32(32, 32, 32, 130);
@@ -159,7 +162,7 @@ struct EditorSizes {
 
   static constexpr float panel_radius = 8.0f;
   static constexpr float control_radius = 4.0f;
-  static constexpr float panel_gap = 10.0f;     // gap between docked panels
+  static constexpr float panel_gap = 5.0f;      // gap between docked panels
   static constexpr float panel_margin = 10.0f;  // outer margin around dockspace
   static constexpr float item_spacing = 5.0f;
   static constexpr float inner_spacing = 2.0f;

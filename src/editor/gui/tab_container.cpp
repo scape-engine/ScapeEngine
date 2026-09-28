@@ -58,7 +58,7 @@ void TabContainer::RenderActivePanel(ImVec2 position, ImVec2 size) {
 }
 
 //=============================================================================
-// HEADER   [icon v]                          [ (q) Search... ] [v]
+// HEADER   [icon v]
 //=============================================================================
 void TabContainer::RenderHeader(ImDrawList& draw_list) {
   const ImVec2 strip_min = ImGui::GetCursorScreenPos();

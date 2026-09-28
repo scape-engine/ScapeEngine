@@ -29,6 +29,9 @@ namespace InspectableComponents {
 // Store collapsed state for each component
 std::unordered_map<uint32_t, bool> g_opened;
 
+// Top-left of the component currently being drawn
+ImVec2 g_component_top;
+
 // Return pointer to opened state
 bool* _IsOpened(uint32_t component_id) {
   return &g_opened[component_id];
@@ -58,98 +61,116 @@ bool _BeginComponent(const std::string& identifier,
                      bool always_opened = false) {
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
 
-  ImVec2 content_avail = ImGui::GetContentRegionAvail();
-  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
+  const float header_height = EditorSizes::header_bar_height;
+  const float pad_x = 10.0f;
+  const float radius = 6.0f;
+  ImFont* small = EditorStyles::GetFonts().s;
 
-  float title_height = EditorSizes::h4_font_size;
-  ImVec2 title_padding = ImVec2(10.0f, 10.0f);
-
-  float height = title_height + title_padding.y * 2;
-  float y_margin = 2.0f;
-  ImVec2 size = ImVec2(content_avail.x, height);
-
-  ImVec2 p0 = ImVec2(cursor_pos.x, cursor_pos.y + y_margin);
-  ImVec2 p1 = ImVec2(p0.x + size.x, p0.y + size.y);
-  const bool hovered = ImGui::IsMouseHoveringRect(p0, p1);
-
-  ImVec2 cursor = p0 + title_padding;
-
-  bool always_enabled = !enabled_ptr;
+  const ImVec2 p0 = ImGui::GetCursorScreenPos();
+  const ImVec2 p1 =
+      ImVec2(p0.x + ImGui::GetContentRegionAvail().x, p0.y + header_height);
 
   uint32_t component_id = entt::hashed_string::value(identifier.c_str());
   bool* opened_ptr = _IsOpened(component_id);
+  const bool opened = always_opened || *opened_ptr;
 
-  // Click to collapse
-  if (!always_opened) {
-    if (hovered && ImGui::IsMouseClicked(2))
-      *opened_ptr = !(*opened_ptr);
-  }
+  // HEADER BACKGROUND (only top corners rounded while open)
+  draw_list.AddRectFilled(
+      p0, p1, EditorColor::section_header, radius,
+      opened ? ImDrawFlags_RoundCornersTop : ImDrawFlags_RoundCornersAll);
+  if (!opened)
+    draw_list.AddRect(p0, p1, EditorColor::panel_stroke, radius, 0, 1.0f);
 
-  // Draw background
-  draw_list.AddRectFilled(p0, p1, IM_COL32(30, 30, 30, 255), 10.0f);
+  // CHEVRON
+  float x = p0.x + pad_x;
+  IMComponents::Glyph(
+      draw_list, ImVec2(x, p0.y), ImVec2(12.0f, header_height),
+      opened ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
+      always_opened ? EditorColor::text_disabled : EditorColor::text, small);
+  x += 12.0f + 8.0f;
 
-  // Draw expansion caret
-  if (always_opened) {
-    draw_list.AddText(EditorStyles::GetFonts().h4_bold,
-                      EditorSizes::h4_font_size, cursor, EditorColor::text,
-                      ICON_FA_CARET_DOWN);
-  } else {
-    IMComponents::Caret(*opened_ptr, draw_list, cursor, ImVec2(-1.0f, 2.0f),
-                        IM_COL32(0, 0, 0, 0), EditorColor::element);
-  }
-  cursor.x += 22.0f;
-
-  // Draw component icon
-  // TODO: Use IconPool::Get(icon) texture
-  // ImVec2 icon_size = ImVec2(18.0f, 18.0f);
-  // draw_list.AddImage(icon, cursor, cursor + icon_size, ImVec2(0, 1),
-  // ImVec2(1, 0)); cursor.x += icon_size.x + 8.0f;
-  cursor.x += 8.0f;  // ! Placeholder spacing
-
-  // Draw enabled checkbox
-  if (!always_enabled) {
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(3, 3));
-
-    ImVec2 internal_cursor = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(cursor + ImVec2(0.0f, -2.0f));
-    std::string id = EditorUI::Get()->GenerateIdString();
-    ImGui::Checkbox(id.c_str(), enabled_ptr);
-    ImGui::SetCursorScreenPos(internal_cursor);
-    cursor.x += 28.0f;
-
+  // ENABLED CHECKBOX
+  if (enabled_ptr) {
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 2.0f));
+    const float box = ImGui::GetFrameHeight();
+    const ImVec2 restore = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(ImVec2(x, p0.y + (header_height - box) * 0.5f));
+    ImGui::Checkbox(("##enabled_" + identifier).c_str(), enabled_ptr);
+    ImGui::SetCursorScreenPos(restore);
     ImGui::PopStyleVar();
+    x += box + 6.0f;
   }
 
-  // Draw component name
-  draw_list.AddText(EditorStyles::GetFonts().h4_bold, EditorSizes::h4_font_size,
-                    cursor, EditorColor::text, identifier.c_str());
+  // TITLE
+  ImFont* font = EditorStyles::GetFonts().p;
+  draw_list.AddText(font, font->FontSize,
+                    ImVec2(x, p0.y + (header_height - font->FontSize) * 0.5f),
+                    EditorColor::text, identifier.c_str());
 
-  // Draw remove button
+  // GRIP (2x4 dots, placeholder for drag-reordering)
+  float right = p1.x - pad_x;
+  const float dot = 1.0f;
+  const float step = 4.0f;
+  for (int col = 0; col < 4; ++col)
+    for (int row = 0; row < 2; ++row)
+      draw_list.AddCircleFilled(
+          ImVec2(right - dot - col * step,
+                 p0.y + header_height * 0.5f + (row - 0.5f) * step),
+          dot, EditorColor::text_disabled);
+  right -= 3.0f * step + 2.0f * dot + 8.0f;
+
+  // REMOVE BUTTON
+  bool remove_clicked = false;
   if (removed_ptr) {
-    float button_size = 20.0f;
-    cursor.x = p1.x - button_size - title_padding.x;
-
-    if (IMComponents::IconButton(ICON_FA_XMARK, draw_list, cursor,
-                                 ImVec2(-1.0f, 2.0f), IM_COL32(0, 0, 0, 0),
-                                 IM_COL32(255, 65, 65, 90))) {
+    const ImVec2 x_min = ImVec2(right - 16.0f, p0.y);
+    const bool x_hovered =
+        ImGui::IsMouseHoveringRect(x_min, ImVec2(right, p1.y));
+    IMComponents::Glyph(
+        draw_list, x_min, ImVec2(16.0f, header_height), ICON_FA_XMARK,
+        x_hovered ? EditorColor::error : EditorColor::text_disabled, small);
+    if (x_hovered && ImGui::IsMouseClicked(0)) {
       *removed_ptr = true;
+      remove_clicked = true;
     }
   }
 
-  // Advance cursor and draw content
-  bool currently_opened = always_opened ? true : *opened_ptr;
+  // TOGGLE (left click anywhere on the header except the controls)
+  if (!always_opened && ImGui::IsMouseHoveringRect(p0, p1) &&
+      ImGui::IsMouseClicked(0) && !remove_clicked && !ImGui::IsAnyItemHovered())
+    *opened_ptr = !*opened_ptr;
 
-  if (currently_opened) {
-    ImGui::Dummy(ImVec2(size.x, size.y + y_margin + 12.0f));
-  } else {
-    ImGui::Dummy(ImVec2(size.x, size.y + y_margin));
+  ImGui::SetCursorScreenPos(ImVec2(p0.x, p1.y));
+  if (!opened) {
+    ImGui::Dummy(ImVec2(0.0f, 4.0f));  // gap to next component
+    return false;
   }
 
-  return currently_opened;
+  // BODY: auto-height child gives padding on both sides
+  g_component_top = p0;
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad_x, 8.0f));
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
+  ImGui::BeginChild(
+      ("##body_" + identifier).c_str(), ImVec2(0.0f, 0.0f),
+      ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar();
+  return true;
 }
 
 void _EndComponent() {
-  ImGui::Dummy(ImVec2(0.0f, 20.0f));
+  ImGui::EndChild();
+
+  // Drawn on the parent list, which renders before the child: ends up behind
+  ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+  const float radius = 6.0f;
+  const ImVec2 body_min = ImGui::GetItemRectMin();
+  const ImVec2 body_max = ImGui::GetItemRectMax();
+  draw_list.AddRectFilled(body_min, body_max, EditorColor::strip, radius,
+                          ImDrawFlags_RoundCornersBottom);
+  draw_list.AddRect(ImVec2(body_min.x, g_component_top.y), body_max,
+                    EditorColor::panel_stroke, radius, 0, 1.0f);
+
+  ImGui::Dummy(ImVec2(0.0f, 4.0f));  // gap to next component
 }
 
 //=============================================================================

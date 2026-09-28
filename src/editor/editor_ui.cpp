@@ -103,6 +103,8 @@ void EditorUI::Initialize() {
                            std::make_unique<InspectorPanel>(), 2});
   property_tabs.push_back({ICON_FA_MOUNTAIN, "Terrain Editor", "Terrain Editor",
                            std::make_unique<TerrainEditorPanel>(), 2});
+  // property_tabs.push_back({ICON_FA_MOUNTAIN, "World Settings", "World",
+  // std::make_unique<WorldSettings>(), 2});
 
   TabContainer* properties =
       _AddWindow<TabContainer>("Properties", std::move(property_tabs));

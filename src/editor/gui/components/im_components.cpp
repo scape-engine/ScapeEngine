@@ -745,7 +745,7 @@ bool IconDropdownButton(ImDrawList& draw_list, const char* id,
                         bool chevron) {
   ImFont* small = EditorStyles::GetFonts().s;
   const float pad = 8.0f;
-  const float icon_size = height - 10.0f;  // 16px at 26px controls
+  const float icon_size = height - 7.0f;  // 16px at 26px controls
   const float chevron_w = chevron
                               ? small
                                     ->CalcTextSizeA(small->FontSize, FLT_MAX,

@@ -6,6 +6,7 @@
 
 #include "imgui_internal.h"
 
+#include "engine/renderer/icons/icon_loader.h"
 #include "engine/transform/transform.h"
 
 #include "editor/gui/inspectables/entity_inspectable.h"
@@ -120,7 +121,7 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
 void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
                                    float height) {
   if (IMComponents::IconDropdownButton(draw_list, "##HierarchyActions",
-                                       "open-module", position, height)) {
+                                       "new-component", position, height)) {
     PopupMenu::Open();
   }
 }
@@ -138,6 +139,7 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
 
   if (root_expanded_) {
     const ImVec2 children_start = ImGui::GetCursorScreenPos();
+    row_index_ = 0;
 
     for (auto& item : current_hierarchy) {
       if (MatchesSearch(item))
@@ -175,9 +177,14 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
   const float x0 = rect_min.x + row_pad_x_;
   DrawChevron(draw_list, ImVec2(x0, rect_min.y), root_expanded_, true,
               EditorColor::text);
-  DrawGlyph(draw_list, ImVec2(x0 + caret_slot_, rect_min.y),
-            ImVec2(icon_slot_, row_height_), ICON_FA_BOX_ARCHIVE,
-            EditorColor::text);
+
+  const ImVec2 icon_min =
+      ImVec2(std::floor(x0 + caret_slot_ + (icon_slot_ - icon_size_) * 0.5f),
+             std::floor(rect_min.y + (row_height_ - icon_size_) * 0.5f));
+  draw_list.AddImage(IconLoader::ToImGuiTexture("hierarchy"), icon_min,
+                     icon_min + ImVec2(icon_size_, icon_size_), ImVec2(0, 0),
+                     ImVec2(1, 1), EditorColor::text);
+
   const ImVec2 text_pos =
       ImVec2(x0 + caret_slot_ + icon_slot_ + text_gap_,
              rect_min.y + (row_height_ - ImGui::GetFontSize()) * 0.5f);
@@ -205,6 +212,10 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   const ImVec2 rect_max = ImVec2(cursor_position.x + content_region.x,
                                  cursor_position.y + row_height_);
   const ImVec2 final_size = rect_max - rect_min;
+
+  // ZEBRA STRIPE
+  if (row_index_++ % 2 == 1)
+    draw_list.AddRectFilled(rect_min, rect_max, EditorColor::row_alt);
 
   const bool hovered =
       ImGui::IsMouseHoveringRect(rect_min, rect_max) && !popup_menu_used;

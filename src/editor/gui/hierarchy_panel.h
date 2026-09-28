@@ -107,11 +107,13 @@ private:
   static constexpr float indent_ = 16.0f;
   static constexpr float text_gap_ = 4.0f;
   static constexpr float header_gap_ = 6.0f;
+  static constexpr float icon_size_ = 14.0f;
 
   // Data
   char search_buffer[256];
   bool popup_menu_used;
   bool root_expanded_ = true;
+  uint32_t row_index_ = 0;  // row counter for zebra striping
 
   std::vector<HierarchyItem> current_hierarchy;
   std::unordered_map<uint32_t, HierarchyItem*> selected_items;
