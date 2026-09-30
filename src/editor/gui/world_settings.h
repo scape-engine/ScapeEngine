@@ -3,6 +3,7 @@
 
 #include <imgui.h>
 #include "editor/runtime/runtime.h"
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "engine/renderer/skybox/skybox.h"
 
 namespace Panels {
@@ -10,11 +11,11 @@ namespace Panels {
 inline void WorldSettings() {
   ImGui::BeginChild("WorldSettings", ImVec2(0, 0), false);
 
-  // Get global skybox
   Skybox* skybox = Runtime::BuildGlobalResources().skybox;
   if (!skybox) {
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() * 0.4f);
     ImGui::TextDisabled("No skybox available");
-    ImGui::EndChild();
+    ImGui::End();
     return;
   }
 
@@ -52,9 +53,11 @@ inline void WorldSettings() {
         skybox->SetCycleSpeed(speed);
       }
       ImGui::SameLine();
-      if (ImGui::Button("Reset##Speed")) {
+      if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Speed")) {
         skybox->SetCycleSpeed(0.05f);
       }
+      if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Reset Speed");
     }
 
     // Time presets
@@ -63,13 +66,22 @@ inline void WorldSettings() {
     ImGui::SameLine();
     if (ImGui::SmallButton("Dawn"))
       skybox->SetTimeOfDay(0.25f);
+    if (ImGui::SmallButton("Dawn"))
+      skybox->SetTimeOfDay(0.25f);
     ImGui::SameLine();
+    if (ImGui::SmallButton("Noon"))
+      skybox->SetTimeOfDay(0.5f);
     if (ImGui::SmallButton("Noon"))
       skybox->SetTimeOfDay(0.5f);
     ImGui::SameLine();
     if (ImGui::SmallButton("Dusk"))
       skybox->SetTimeOfDay(0.75f);
+    if (ImGui::SmallButton("Dusk"))
+      skybox->SetTimeOfDay(0.75f);
     ImGui::SameLine();
+    if (ImGui::SmallButton("Midnight"))
+      skybox->SetTimeOfDay(0.0f);
+
     if (ImGui::SmallButton("Midnight"))
       skybox->SetTimeOfDay(0.0f);
 
@@ -92,84 +104,80 @@ inline void WorldSettings() {
 
       if (changed) {
         skybox->SetParams(sunRadius, bloom, exposure);
+
+        if (ImGui::Button(ICON_FA_ROTATE_LEFT " Reset Defaults")) {
+          skybox->SetParams(0.00465f, 1.0f, 0.25f);
+        }
+
+        ImGui::TreePop();
       }
 
-      if (ImGui::Button("Reset to Defaults")) {
-        skybox->SetParams(0.00465f, 1.0f, 0.25f);
+      ImGui::Unindent();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  LIGHTING
+    // ═══════════════════════════════════════════════════════════
+    if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting")) {
+      ImGui::Indent();
+
+      const auto& params = skybox->GetParams();
+
+      ImGui::Text("Sun Direction: (%.2f, %.2f, %.2f)", params.sunDirShader[0],
+                  params.sunDirShader[1], params.sunDirShader[2]);
+
+      ImGui::ColorEdit3(
+          "Sun Color", (float*)params._sunColorArray,
+          ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+
+      ImGui::Text("Sun Intensity: %.2f", params._sunColorArray[3]);
+
+      ImGui::Spacing();
+      ImGui::ColorEdit3(
+          "Ambient Color", (float*)params._skyAmbientArray,
+          ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+      ImGui::TextDisabled("(Computed from time of day)");
+      ImGui::Unindent();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  RENDERING
+    // ═══════════════════════════════════════════════════════════
+    if (ImGui::CollapsingHeader(ICON_FA_DESKTOP " Rendering")) {
+      ImGui::Indent();
+
+      auto& pipeline = Runtime::GetSceneViewPipeline();
+
+      bool wireframe = pipeline.wireframe_;
+      if (IMComponents::Checkbox("Wireframe Mode", &wireframe)) {
+        pipeline.wireframe_ = wireframe;
       }
 
-      ImGui::TreePop();
+      bool showSkybox = pipeline.show_skybox_;
+      if (IMComponents::Checkbox("Show Skybox", &showSkybox)) {
+        pipeline.show_skybox_ = showSkybox;
+      }
+
+      bool showGizmos = pipeline.show_gizmos_;
+      if (IMComponents::Checkbox("Show Gizmos", &showGizmos)) {
+        pipeline.show_gizmos_ = showGizmos;
+      }
+
+      ImGui::Unindent();
     }
 
-    ImGui::Unindent();
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  //  LIGHTING
-  // ═══════════════════════════════════════════════════════════
-  if (ImGui::CollapsingHeader("Lighting")) {
-    ImGui::Indent();
-
-    const auto& params = skybox->GetParams();
-
-    ImGui::Text("Sun Direction: (%.2f, %.2f, %.2f)", params.sunDirShader[0],
-                params.sunDirShader[1], params.sunDirShader[2]);
-
-    ImGui::ColorEdit3(
-        "Sun Color", (float*)params._sunColorArray,
-        ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-
-    ImGui::Text("Sun Intensity: %.2f", params._sunColorArray[3]);
-
-    ImGui::Spacing();
-    ImGui::Text("Ambient Light:");
-    ImGui::ColorEdit3(
-        "Ambient Color", (float*)params._skyAmbientArray,
-        ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-
-    ImGui::TextDisabled("(These are computed from time of day)");
-
-    ImGui::Unindent();
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  //  RENDERING
-  // ═══════════════════════════════════════════════════════════
-  if (ImGui::CollapsingHeader("Rendering")) {
-    ImGui::Indent();
-
-    auto& pipeline = Runtime::GetSceneViewPipeline();
-
-    bool wireframe = pipeline.wireframe_;
-    if (IMComponents::Checkbox("Wireframe Mode", &wireframe)) {
-      pipeline.wireframe_ = wireframe;
+    // ═══════════════════════════════════════════════════════════
+    //  POST-PROCESSING
+    // ═══════════════════════════════════════════════════════════
+    if (ImGui::CollapsingHeader(ICON_FA_WAND_MAGIC_SPARKLES
+                                " Post-Processing")) {
+      ImGui::Indent();
+      ImGui::TextDisabled("Coming soon...");
+      ImGui::Unindent();
     }
 
-    bool showSkybox = pipeline.show_skybox_;
-    if (IMComponents::Checkbox("Show Skybox", &showSkybox)) {
-      pipeline.show_skybox_ = showSkybox;
-    }
-
-    bool showGizmos = pipeline.show_gizmos_;
-    if (IMComponents::Checkbox("Show Gizmos", &showGizmos)) {
-      pipeline.show_gizmos_ = showGizmos;
-    }
-
-    ImGui::Unindent();
+    ImGui::EndChild();
   }
-
-  // ═══════════════════════════════════════════════════════════
-  //  TODO: POST-PROCESSING
-  // ═══════════════════════════════════════════════════════════
-  if (ImGui::CollapsingHeader("Post-Processing")) {
-    ImGui::Indent();
-    ImGui::TextDisabled("Coming soon...");
-    // TODO: Add bloom, tonemapping, color grading, etc.
-    ImGui::Unindent();
-  }
-
-  ImGui::EndChild();
-}
 
 }  // namespace Panels
 

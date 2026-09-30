@@ -375,7 +375,15 @@ void EditorUI::RenderUI() {
 
   DockSpace();
 
-  // ——— Build layout ———
+  const char* title_scene = ICON_FA_GAMEPAD " Scene";
+  const char* title_hierarchy = ICON_FA_SITEMAP " Hierarchy";
+  const char* title_inspector = ICON_FA_LIST " Inspector";
+  const char* title_world = ICON_FA_GLOBE " World";
+  const char* title_console = ICON_FA_TERMINAL " Console";
+  const char* title_assets = ICON_FA_FOLDER_OPEN " Asset Browser";
+  const char* title_terrain = ICON_FA_MOUNTAIN " Terrain Editor";
+
+  // ——— Build Unity-Style Layout ———
   if (!built_layout_) {
     if (ImGui::DockBuilderGetNode(dock_id_) == nullptr ||
         ImGui::DockBuilderGetNode(dock_id_)->IsEmpty()) {
@@ -413,56 +421,40 @@ void EditorUI::RenderUI() {
     built_layout_ = true;
   }
 
-  //--------------------------- TOP TOOLBAR ----------------------------------
+  // --- TOOLBAR CALLBACKS ---
   Panels::ToolbarCallbacks cb;
-
   cb.onStart = [this]() {
     if (!is_game_started_) {
       is_game_started_ = true;
       EditorEvents::game_start_pressed();
     }
   };
-
   cb.onStop = [this]() {
     if (is_game_started_) {
       is_game_started_ = false;
       EditorEvents::game_end_pressed();
     }
   };
-
   cb.onQuit = [this]() {
-    if (is_game_started_) {
-      is_game_started_ = false;
-      EditorEvents::game_end_pressed();
-    }
-    this->quit_ = true;
+    quit_ = true;
     WindowManager::Quit();
     EditorEvents::editor_exit_pressed();
   };
-
-  ImGui::Begin("Toolbar", nullptr);
-  Panels::Toolbar(cb);
-  ImGui::End();
-
-  auto& world = ECS::Main();
 
   // -------- MIDDLE : SCENE --------
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::Begin("Viewport", nullptr);
   ImGui::PopStyleVar();
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
-                     game_canvas_focused_);
+                     game_canvas_focused_, cb);
+
   UpdateMovement();
   ImGui::End();
 
   //--------------------------- Panels ------------------------------
   ImGui::Begin("Console", nullptr);
   Panels::ConsolePanel();
-  ImGui::End();
-
-  ImGui::Begin("Asset Browser", nullptr);
   Panels::AssetBrowser();
-  ImGui::End();
   // Panels::FileExplorer();
   //------------------------- SEARCH POPUP --------------------------
   SearchPopup::Render();
@@ -489,6 +481,7 @@ void EditorUI::RenderUI() {
 
   // Push current state to pipeline for rendering
   {
+    auto& world = ECS::Main();
     auto& state = Runtime::State();
     std::vector<Entity> state_list;
     if (state.selected_entity != entt::null &&

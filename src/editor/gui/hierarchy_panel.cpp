@@ -20,8 +20,7 @@
 enum DropType { NO_DROP, DROP_ITEM, MOVE_ITEM_UP, MOVE_ITEM_DOWN };
 
 //=============================================================================
-// HIERARCHY PANEL
-// includes:
+// Hierarchy Panel
 //=============================================================================
 HierarchyPanel::HierarchyPanel()
     : search_buffer(""),
@@ -36,9 +35,9 @@ HierarchyPanel::HierarchyPanel()
       camera_target(nullptr),
       hierarchy_dirty_(true) {
 
-  /* TODO: setup drag rect here */
+  // TODO: Setup drag rect here
 
-  // Subscribe to transform creation/destruction
+  // Subscribe To Transform Creation/Destruction
   auto& reg = ECS::Main().Reg();
 
   on_create_connection_ = reg.on_construct<TransformComponent>()
@@ -127,6 +126,7 @@ void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
 }
 
 void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
+  // Rebuild Hierarchy If Dirty
   if (hierarchy_dirty_) {
     BuildSceneHierarchy();
     hierarchy_dirty_ = false;
@@ -204,6 +204,8 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   const bool has_children = item.children.size() > 0;
   const float x_offset = indentation * indent_;
 
+  // Capture Cursor Position For Full-Width Backgrounds
+  const ImVec2 window_pos = ImGui::GetWindowPos();
   const ImVec2 cursor_position = ImGui::GetCursorScreenPos();
   const ImVec2 content_region = ImGui::GetContentRegionAvail();
   const ImVec2 mouse_position = ImGui::GetMousePos();
@@ -220,7 +222,6 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   const bool hovered =
       ImGui::IsMouseHoveringRect(rect_min, rect_max) && !popup_menu_used;
   const bool double_clicked = hovered && ImGui::IsMouseDoubleClicked(0);
-  const bool wheel_clicked = hovered && ImGui::IsMouseClicked(2);
   const bool dragging_this = hovered && ImGui::IsMouseDragging(0);
 
   if (hovered)
@@ -230,11 +231,13 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   DropType drop_type = NO_DROP;
   if (hovered && dragging_hierarchy) {
     if (mouse_position.y < rect_min.y + final_size.y * 0.25f)
-      drop_type = MOVE_ITEM_UP;
-    else if (mouse_position.y > rect_max.y - final_size.y * 0.25f)
-      drop_type = MOVE_ITEM_DOWN;
-    else
-      drop_type = DROP_ITEM;
+      if (mouse_position.y < rect_min.y + final_size.y * 0.25f)
+        drop_type = MOVE_ITEM_UP;
+      else if (mouse_position.y > rect_max.y - final_size.y * 0.25f)
+        else if (mouse_position.y > rect_max.y - final_size.y * 0.25f)
+            drop_type = MOVE_ITEM_DOWN;
+      else
+        else drop_type = DROP_ITEM;
   }
 
   // MOVE LINES (unchanged, recolored)
@@ -310,9 +313,11 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
 
     if (io.KeyCtrl) {
       if (selected_items.find(item_id) == selected_items.end())
-        select(item);
-      else
-        selected_items.erase(item_id);
+        if (selected_items.find(item_id) == selected_items.end())
+          select(item);
+        else
+          else selected_items.erase(item_id);
+    } else if (io.KeyShift) {
     } else if (io.KeyShift) {
       if (!last_selected)
         last_selected = &item;
@@ -323,10 +328,12 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
       if (start != current_hierarchy.end() && end != current_hierarchy.end()) {
         if (start <= end) {
           for (auto i = start; i != end; ++i)
-            select(*i);
+            for (auto i = start; i != end; ++i)
+              select(*i);
         } else {
           for (auto i = start; i != end; --i)
-            select(*i);
+            for (auto i = start; i != end; --i)
+              select(*i);
         }
         select(*end);
       }
@@ -337,6 +344,8 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
           select(item);
         }
       } else {
+      }
+      else {
         selected_items.clear();
         select(item);
       }
@@ -480,41 +489,41 @@ const char* HierarchyPanel::EntityDataIcon(const HierarchyItem& item) const {
 }
 
 void HierarchyPanel::RenderDraggedItem() {
-  // Don't proceed if no item is being dragged
+  // Don't Proceed If No Item Is Being Dragged
   if (!dragging_hierarchy)
     return;
 
-  // If not dragging anymore, stop
+  // If Not Dragging Anymore, Stop
   if (!ImGui::IsMouseDown(0)) {
     dragging_hierarchy = false;
     return;
   }
 
-  // TODO: draw drag rect here, replace code below
-
-  // ! PLACEHOLDER: Draw drag indicator at mouse position
+  // UE5 Drag Preview Pill
   ImDrawList* fg = ImGui::GetForegroundDrawList();
-  ImVec2 pos = ImGui::GetMousePos() + ImVec2(12.0f, 12.0f);
+  ImVec2 pos = ImGui::GetMousePos() + ImVec2(16.0f, 16.0f);
 
   size_t n_selected = selected_items.size();
   std::string text =
-      n_selected > 1 ? std::to_string(n_selected) + " selected"
-                     : (last_selected ? "Moving " + last_selected->entity.Name()
-                                      : "Moving");
+      n_selected > 1 ? std::to_string(n_selected) + " items"
+                     : (last_selected ? last_selected->entity.Name() : "Item");
 
-  std::string label = std::string(ICON_FA_LEFT_LONG) + "   " + text;
+  std::string label = std::string(ICON_FA_LAYER_GROUP) + "  " + text;
 
   ImVec2 text_size = ImGui::CalcTextSize(label.c_str());
-  ImVec2 padding = ImVec2(20.0f, 10.0f);
+  ImVec2 padding = ImVec2(12.0f, 6.0f);
   ImVec2 rect_min = pos;
   ImVec2 rect_max = pos + text_size + padding * 2;
 
-  fg->AddRectFilled(rect_min, rect_max, EditorColor::selection, 5.0f);
+  // Use Background Color And Darker Border For Drag Element
+  ImU32 bg_col = ImGui::GetColorU32(ImGuiCol_MenuBarBg);
+  fg->AddRectFilled(rect_min, rect_max, bg_col, 16.0f);
+  fg->AddRect(rect_min, rect_max, IM_COL32(100, 100, 100, 200), 16.0f);
   fg->AddText(pos + padding, IM_COL32(255, 255, 255, 255), label.c_str());
 }
 
 void HierarchyPanel::RenderPopupMenu() {
-  if (PopupMenu::Begin()) {
+  if (PopupMenu::Begin("HierarchyContextMenu")) {
     popup_menu_used = true;
 
     if (last_hovered) {
@@ -542,37 +551,24 @@ void HierarchyPanel::RenderPopupMenu() {
     }
 
     if (PopupMenu::Menu(ICON_FA_CUBE, "3D Primitives")) {
-      if (PopupMenu::ItemLight("Cube")) { /* TODO: Handle cube */
-      }
-      if (PopupMenu::ItemLight("Sphere")) { /* TODO: Handle sphere */
-      }
-      if (PopupMenu::ItemLight("Capsule")) { /* TODO: Handle capsule */
-      }
-      if (PopupMenu::ItemLight("Cylinder")) { /* TODO: Handle cylinder */
-      }
-      if (PopupMenu::ItemLight("Pyramid")) { /* TODO: Handle pyramid */
-      }
-      if (PopupMenu::ItemLight("Plane")) { /* TODO: Handle plane */
-      }
-
+      PopupMenu::ItemLight("Cube");
+      PopupMenu::ItemLight("Sphere");
+      PopupMenu::ItemLight("Capsule");
+      PopupMenu::ItemLight("Cylinder");
+      PopupMenu::ItemLight("Pyramid");
+      PopupMenu::ItemLight("Plane");
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_LIGHTBULB, "Light")) {
-      if (PopupMenu::ItemLight("Directional Light")) { /* TODO */
-      }
-      if (PopupMenu::ItemLight("Point Light")) { /* TODO */
-      }
-      if (PopupMenu::ItemLight("Spotlight")) { /* TODO */
-      }
-
+      PopupMenu::ItemLight("Directional Light");
+      PopupMenu::ItemLight("Point Light");
+      PopupMenu::ItemLight("Spotlight");
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_VOLUME_HIGH, "Audio")) {
-      if (PopupMenu::ItemLight("Audio Source")) { /* TODO */
-      }
-
+      PopupMenu::ItemLight("Audio Source");
       PopupMenu::EndMenu();
     }
 
@@ -582,10 +578,7 @@ void HierarchyPanel::RenderPopupMenu() {
         auto [entity, transform] = world.CreateEntity("PCG Graph");
 
         world.Add<VolumeComponent>(entity);
-        // ? MeshRendererComponent should be added later when generator produces
-        // geometry
       }
-
       PopupMenu::EndMenu();
     }
 
@@ -599,19 +592,19 @@ void HierarchyPanel::RenderPopupMenu() {
 }
 
 void HierarchyPanel::BuildSceneHierarchy() {
-  // Clear current hierarchy before rebuilding
+  // Clear Current Hierarchy Before Rebuilding
   current_hierarchy.clear();
 
-  // Get all transforms
+  // Get All Transforms
   auto transforms = ECS::Main().View<TransformComponent>();
   std::vector<std::pair<entt::entity, TransformComponent*>> transform_list;
 
-  // Fill transform list for reversed iteration
+  // Fill Transform List For Reversed Iteration
   for (auto [entity, transform] : transforms.each()) {
     transform_list.push_back({entity, &transform});
   }
 
-  // Recursively build root entities in reverse
+  // Recursively Build Root Entities In Reverse
   for (auto it = transform_list.rbegin(); it != transform_list.rend(); ++it) {
     auto& [entity, transform] = *it;
     if (Transform::HasParent(*transform))
@@ -640,14 +633,14 @@ void HierarchyPanel::UpdateCameraMovement() {
   if (!camera_moving || !camera_target)
     return;
 
-  // Get god camera transform
+  // Get God Camera Transform
   TransformComponent& camera_transform =
       std::get<0>(Runtime::GetSceneViewPipeline().GetGodCamera());
 
-  // Get target transform
+  // Get Target Transform
   TransformComponent& target_transform = *camera_target;
 
-  // Get targets
+  // Get Targets
   float distance = 5.0f + Transform::GetScale(target_transform, Space::WORLD).z;
   glm::vec3 target_position =
       Transform::GetPosition(target_transform, Space::WORLD) +
@@ -655,24 +648,24 @@ void HierarchyPanel::UpdateCameraMovement() {
 
   float duration = 0.5f;
   if (camera_movement_time < duration) {
-    // Calculate position delta
+    // Calculate Position Delta
     float t = glm::clamp(camera_movement_time / duration, 0.0f, 1.0f);
 
-    // Get smoother targets
+    // Get Smoother Targets
     glm::vec3 new_position =
         glm::mix(camera_transform.position_, target_position, t);
-    // TODO: get rotation targets
+    // TODO: Get rotation targets
 
-    // Apply new position
+    // Apply New Position
     camera_transform.position_ = new_position;
-    // TODO: apply new rotation
+    // TODO: Apply new rotation
 
-    // Add to elapsed camera movement time
+    // Add To Elapsed Camera Movement Time
     camera_movement_time += Time::Deltaf();
   } else {
-    // Stop camera movement
+    // Stop Camera Movement
     camera_transform.position_ = target_position;
-    // TODO: stop rotation
+    // TODO: Stop rotation
 
     // Reset
     camera_moving = false;
@@ -681,7 +674,7 @@ void HierarchyPanel::UpdateCameraMovement() {
 }
 
 void HierarchyPanel::PerformAutoScroll() {
-  // No item dragged -> no auto scroll
+  // No Item Dragged -> No Auto Scroll
   if (!dragging_hierarchy)
     return;
 
@@ -689,7 +682,7 @@ void HierarchyPanel::PerformAutoScroll() {
   const float max_scroll_speed = 35.0f;
   const float scroll_area = 0.15f;
 
-  // Get data
+  // Get Data
   float mouse_y = ImGui::GetMousePos().y;
   float window_y = ImGui::GetWindowPos().y;
   float window_height = ImGui::GetWindowHeight();
@@ -699,7 +692,7 @@ void HierarchyPanel::PerformAutoScroll() {
            glm::clamp((x - range[0]) / (range[1] - range[0]), 0.0f, 1.0f);
   };
 
-  // Scroll up
+  // Scroll Up
   float up_range[2] = {window_y, window_y + window_height * scroll_area};
   if (mouse_y < up_range[1]) {
     float scroll_speed = max_scroll_speed * range_factor(mouse_y, up_range);
@@ -707,7 +700,7 @@ void HierarchyPanel::PerformAutoScroll() {
     return;
   }
 
-  // Scroll down
+  // Scroll Down
   float down_range[2] = {window_y + window_height,
                          window_y + window_height * (1.0f - scroll_area)};
   if (mouse_y > down_range[1]) {
