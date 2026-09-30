@@ -811,14 +811,16 @@ bool Checkbox(const char* label, bool* value) {
   const ImGuiStyle& style = ImGui::GetStyle();
   const ImGuiID id = window->GetID(label);
   const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
-  const float square = ImGui::GetFrameHeight();
+  const float frame = ImGui::GetFrameHeight();
+  const float square = ImMin(EditorSizes::checkbox_size, frame);
   const ImVec2 pos = window->DC.CursorPos;
 
   const ImRect total_bb(
       pos, pos + ImVec2(square + (label_size.x > 0.0f
                                       ? style.ItemInnerSpacing.x + label_size.x
                                       : 0.0f),
-                        label_size.y + style.FramePadding.y * 2.0f));
+                        frame));
+
   ImGui::ItemSize(total_bb, style.FramePadding.y);
   if (!ImGui::ItemAdd(total_bb, id))
     return false;
@@ -832,8 +834,9 @@ bool Checkbox(const char* label, bool* value) {
   }
 
   ImDrawList* draw_list = window->DrawList;
-  const ImVec2 box_min = pos;
-  const ImVec2 box_max = pos + ImVec2(square, square);
+  const ImVec2 box_min =
+      ImVec2(pos.x, std::floor(pos.y + (frame - square) * 0.5f));
+  const ImVec2 box_max = box_min + ImVec2(square, square);
   const float rounding = EditorSizes::control_radius;
 
   if (*value) {
@@ -841,7 +844,9 @@ bool Checkbox(const char* label, bool* value) {
     draw_list->AddRectFilled(
         box_min, box_max,
         hovered ? EditorColor::accent_hover : EditorColor::accent, rounding);
-    const float pad = ImMax(1.0f, (float)(int)(square / 5.0f));
+
+    // Check size
+    const float pad = ImMax(1.0f, std::floor(square * 0.28f));
     ImGui::RenderCheckMark(draw_list, box_min + ImVec2(pad, pad),
                            EditorColor::text_bright, square - pad * 2.0f);
   } else {

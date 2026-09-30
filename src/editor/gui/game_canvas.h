@@ -7,12 +7,13 @@
 
 #include <imgui.h>
 
+#include "editor/gui/styles/editor_styles.h"
 #include "editor/runtime/runtime.h"
 #include "editor/vendor/imguizmo/ImGuizmo.h"
-#include "engine/core/types/material_data.h"
 
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
+#include "engine/core/types/material_data.h"
 #include "engine/core/view_ids.h"
 
 #include "engine/ecs/world.h"
@@ -55,7 +56,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused) {
   static TransformGizmoState gizmo_state;  // Persistent state
 
   ImGui::BeginChild("GameCanvas", ImVec2(0, ImGui::GetContentRegionAvail().y),
-                    true);
+                    false);
 
   ImVec2 pos = ImGui::GetCursorScreenPos();  // Get current cursor position
   ImVec2 size = ImGui::GetContentRegionAvail();
@@ -98,10 +99,12 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused) {
     ImTextureID texId = renderer->GetSceneTexId();
     if (texId) {
 
-      // Draw scene image
-      ImGui::Image(texId, size, ImVec2(0, 1),  // uv0
-                   ImVec2(1, 0)                // uv1
-      );
+      // Draw scene image, round the corners that touch the panel edge
+      ImGui::GetWindowDrawList()->AddImageRounded(
+          texId, pos, ImVec2(pos.x + size.x, pos.y + size.y), ImVec2(0, 1),
+          ImVec2(1, 0), IM_COL32_WHITE, EditorSizes::panel_radius,
+          ImDrawFlags_RoundCornersBottom);
+      ImGui::Dummy(size);
 
       // ImGuizmo transform manipulation
       auto& state = Runtime::State();

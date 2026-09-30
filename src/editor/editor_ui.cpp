@@ -98,7 +98,7 @@ void EditorUI::Initialize() {
   property_tabs.push_back({ICON_FA_CIRCLE_INFO, "Project Info", "Project Info",
                            std::make_unique<InfoPanel>(), 0});
   property_tabs.push_back({ICON_FA_EARTH_AMERICAS, "Scene", "Scene",
-                           std::make_unique<ScenePanel>(), 1});
+                           std::make_unique<ScenePanel>(), 1, "world"});
   property_tabs.push_back({ICON_FA_CUBE, "Inspector", "Inspector",
                            std::make_unique<InspectorPanel>(), 2});
   property_tabs.push_back({ICON_FA_MOUNTAIN, "Terrain Editor", "Terrain Editor",
@@ -447,7 +447,9 @@ void EditorUI::RenderUI() {
   auto& world = ECS::Main();
 
   // -------- MIDDLE : SCENE --------
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   ImGui::Begin("Viewport", nullptr);
+  ImGui::PopStyleVar();
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
                      game_canvas_focused_);
   UpdateMovement();

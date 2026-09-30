@@ -22,6 +22,7 @@ struct TabEntry {
   const char* tooltip;
   std::unique_ptr<WindowBase> panel;
   int group = 0;  // consecutive entries with different groups get a wider gap
+  const char* icon_id = nullptr;  // IconLoader id;
 };
 
 class TabContainer : public WindowBase {

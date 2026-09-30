@@ -168,6 +168,7 @@ struct EditorSizes {
   static constexpr float inner_spacing = 2.0f;
   static constexpr float header_bar_height = 30.0f;  // panel header strip
   static constexpr float control_height = 20.0f;     // toolbar buttons / inputs
+  static constexpr float checkbox_size = 14.0f;      // checkbox square
   static constexpr float hairline = 1.0f;
 };
 

@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+#include "engine/renderer/icons/icon_loader.h"
+
 #include "editor/events.h"
 
 #include "editor/gui/components/im_components.h"
@@ -127,9 +129,20 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
       draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
 
     // Icon: small glyph centered in the square
-    IMComponents::Glyph(draw_list, p0, button_size, entry.icon,
-                        selected ? EditorColor::text_bright : EditorColor::text,
-                        EditorStyles::GetFonts().s);
+    const ImU32 icon_color =
+        selected ? EditorColor::text_bright : EditorColor::text;
+    if (entry.icon_id) {
+      const float icon_size = EditorSizes::s_icon_size;
+      const ImVec2 icon_min =
+          ImVec2(std::floor(p0.x + (rail_button_ - icon_size) * 0.5f),
+                 std::floor(p0.y + (rail_button_ - icon_size) * 0.5f));
+      draw_list.AddImage(IconLoader::ToImGuiTexture(entry.icon_id), icon_min,
+                         icon_min + ImVec2(icon_size, icon_size), ImVec2(0, 0),
+                         ImVec2(1, 1), icon_color);
+    } else {
+      IMComponents::Glyph(draw_list, p0, button_size, entry.icon, icon_color,
+                          EditorStyles::GetFonts().s);
+    }
 
     y += rail_button_ + rail_gap_;
   }
