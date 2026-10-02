@@ -1,5 +1,9 @@
 #include "popup_menu.h"
+
 #include <imgui.h>
+
+#include "editor/editor_ui.h"
+#include "editor/gui/styles/editor_styles.h"
 
 namespace PopupMenu {
 
@@ -36,11 +40,12 @@ void End() {
 }
 
 void Pop() {
-  ImGui::PopStyleVar(3);  // Only pop the 3 vars now
+  ImGui::PopStyleColor(4);
 }
 
 bool Item(const char* icon, std::string title) {
-  std::string text = std::string(icon) + "   " + title;
+  _Space();
+  std::string text = std::string(icon) + "     " + title;
   return ImGui::MenuItem(text.c_str());
 }
 
@@ -49,14 +54,17 @@ bool ItemLight(std::string title) {
 }
 
 bool Menu(const char* icon, std::string title) {
-  std::string text = std::string(icon) + "   " + title;
+  _Space();
+  std::string text = std::string(icon) + "     " + title;
   return ImGui::BeginMenu(text.c_str());
 }
 
 void EndMenu() {
   ImGui::EndMenu();
 }
+
 void Separator() {
+  _Space();
   ImGui::Separator();
 }
 

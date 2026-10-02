@@ -6,7 +6,7 @@
 namespace PopupMenu {
 
 // Begin new popup (str_id helps avoid conflict if UI changes dynamically)
-bool Begin(const char* str_id = nullptr);
+bool Begin();
 
 // End current popup
 void End();

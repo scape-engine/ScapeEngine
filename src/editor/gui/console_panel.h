@@ -6,8 +6,8 @@
 #include <string>
 #include <vector>
 
-#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "engine/core/logger.h"
 
 /**
@@ -20,8 +20,6 @@
 namespace Panels {
 
 inline void ConsolePanel() {
-  // Managing its own window with the correct icon
-  ImGui::Begin(ICON_FA_TERMINAL " Console");
 
   // Set background color and corner radius
   ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(25, 26, 28, 255));
@@ -67,7 +65,7 @@ inline void ConsolePanel() {
   ImGui::PopStyleColor();
   ImGui::PopStyleVar(2);
 
-  ImGui::End();  // End Console Window
+  // ImGui::End();  // End Console Window
 }
 
 }  // namespace Panels

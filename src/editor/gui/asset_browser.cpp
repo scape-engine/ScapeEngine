@@ -59,11 +59,6 @@ AssetBrowserPanel::NodeUIData AssetBrowserPanel::MakeNodeUI(
 void AssetBrowserPanel::Draw() {
   HandleInputs();  // called once per frame
 
-  if (!ImGui::Begin("Asset Browser", nullptr, EditorFlag::standard)) {
-    ImGui::End();
-    return;
-  }
-
   // Get draw list and position
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
   ImVec2 position = ImGui::GetCursorScreenPos();
@@ -649,15 +644,9 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
 
 // Singleton accessor for EditorUI
 void AssetBrowser() {
-  // 1. Open the window with the matching icon
-  ImGui::Begin(ICON_FA_FOLDER_OPEN " Asset Browser");
 
-  // 2. Draw the actual panel
   static AssetBrowserPanel panel;
   panel.Draw();
-
-  // 3. End the window
-  ImGui::End();
 }
 
 }  // namespace Panels

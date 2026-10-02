@@ -178,6 +178,7 @@ inline void WorldSettings() {
 
     ImGui::EndChild();
   }
+}
 
 }  // namespace Panels
 

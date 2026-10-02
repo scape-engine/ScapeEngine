@@ -33,10 +33,6 @@ struct ImGuiDockNode;
  * (application loop)
  **************************************************************************/
 
-namespace Panels {
-struct ToolbarCallbacks;
-}
-
 class EditorUI : public EditorBase {
 public:
   explicit EditorUI(RendererBase* renderer);
