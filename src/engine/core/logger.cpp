@@ -5,8 +5,9 @@
  * CORE LOGGER
  * Issues:
  * ! - file on disk is unbounded
- * ! - GetLogEntries returns a copy every frame, this should be changed
  * ! - copy is O(n) in entries, but only happens when version_ changes
+ * TODO: store struct LogEntry { LogLevel level; std::string text; } here to
+ * change GetLogEntries()'s type and its callers
  */
 
 Logger::Logger() : logfile_() {
@@ -55,9 +56,9 @@ uint64_t Logger::GetVersion() {
   return version_;
 }
 
-const std::deque<std::string>& Logger::GetLogEntries() {
+std::deque<std::string> Logger::GetLogEntries() {
   std::lock_guard<std::mutex> guard(mutex_);
-  return entries_;  // copy under lock - safe
+  return entries_;  // copied while the lock is held
 }
 
 void Logger::Log(LogLevel level, const std::string& message) {

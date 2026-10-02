@@ -108,7 +108,9 @@ struct EditorColor {
       IM_COL32(192, 132, 83, 51);  // #C08453 @ 0.20 row bg
   static constexpr ImU32 success = IM_COL32(13, 182, 143, 255);  // #0DB68F
   static constexpr ImU32 error = IM_COL32(171, 60, 72, 255);     // #AB3C48
-  static constexpr ImU32 warning = IM_COL32(234, 118, 0, 255);   // #EA7600
+  static constexpr ImU32 console_error =
+      IM_COL32(255, 120, 120, 255);  // #FF7878 readable error text
+  static constexpr ImU32 warning = IM_COL32(234, 118, 0, 255);  // #EA7600
 
   static constexpr ImU32 axis_x = IM_COL32(245, 53, 81, 255);   // #F53551
   static constexpr ImU32 axis_y = IM_COL32(105, 157, 21, 255);  // #699D15

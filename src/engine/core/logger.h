@@ -21,7 +21,7 @@ public:
 
   void Log(LogLevel level, const std::string& message);  // Log message
 
-  const std::deque<std::string>& GetLogEntries();
+  std::deque<std::string> GetLogEntries();
 
   std::map<LogLevel, std::string> logLevelNames{{LogLevel::Info, "INFO"},
                                                 {LogLevel::Debug, "DEBUG"},
