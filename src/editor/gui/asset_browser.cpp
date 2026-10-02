@@ -1,6 +1,8 @@
 #include "asset_browser.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <vector>
 
 #include "editor/gui/inspectables/asset_inspectable.h"
@@ -12,6 +14,8 @@ namespace Panels {
 
 uint32_t AssetBrowserPanel::selected_folder_id_ = 0;
 uint32_t AssetBrowserPanel::selected_node_id_ = 0;
+std::vector<uint32_t> AssetBrowserPanel::history_;
+int AssetBrowserPanel::history_pos_ = -1;
 
 AssetBrowserPanel::AssetBrowserPanel()
     : observer_(Runtime::Project().GetObserver()),
@@ -28,23 +32,21 @@ AssetBrowserPanel::NodeUIData AssetBrowserPanel::NodeUIData::CreateFor(
 
   ImFont* font = ImGui::GetFont();
 
-  ImVec2 padding{12.0f * scale, 10.0f * scale};
+  ImVec2 padding{8.0f * scale, 6.0f * scale};
   ImVec2 icon_size{40.0f * scale, 40.0f * scale};
 
-  // Fixed card width based on scale to ensure consistent grid layout
-  const float total_w = 110.0f * scale;
+  // Fixed cell width so the grid stays aligned
+  const float total_w = 84.0f * scale;
 
-  // Calculate wrap width (card width minus padding)
-  const float wrap_width = total_w - (padding.x * 1.5f);
+  // Label wraps inside the cell's horizontal padding
+  const float wrap_width = total_w - padding.x * 2.0f;
 
-  // Measure text dimensions natively accounting for word wrapping!
   ImVec2 text_size =
       font->CalcTextSizeA(font->FontSize, FLT_MAX, wrap_width, name.c_str());
 
-  // Calculate total cell dimensions.
-  // text_size.y will automatically expand the card height for multi-line text!
+  // padding | icon | padding | label | padding
   const float total_h =
-      icon_size.y + padding.y * 2.5f + text_size.y + padding.y;
+      padding.y + icon_size.y + padding.y + text_size.y + padding.y;
 
   return NodeUIData(name, font, padding, icon_size, text_size,
                     ImVec2(total_w, total_h));
@@ -105,12 +107,45 @@ void AssetBrowserPanel::HandleInputs() {
 }
 
 void AssetBrowserPanel::SelectFolder(uint32_t folder_id) {
-  selected_folder_id_ = folder_id;
   selected_node_id_ = 0;
+  if (folder_id == selected_folder_id_)
+    return;
+
+  // Drop forward entries, then record the new location
+  history_.resize(history_pos_ + 1);
+  history_.push_back(folder_id);
+  history_pos_ = static_cast<int>(history_.size()) - 1;
+
+  selected_folder_id_ = folder_id;
 }
 
 void AssetBrowserPanel::UnselectFolder() {
   SelectFolder(0);
+}
+
+void AssetBrowserPanel::GoBack() {
+  if (history_pos_ <= 0)
+    return;
+  selected_folder_id_ = history_[--history_pos_];
+  selected_node_id_ = 0;
+}
+
+void AssetBrowserPanel::GoForward() {
+  if (history_pos_ + 1 >= static_cast<int>(history_.size()))
+    return;
+  selected_folder_id_ = history_[++history_pos_];
+  selected_node_id_ = 0;
+}
+
+bool AssetBrowserPanel::MatchFilter(const std::string& name) const {
+  if (filter_[0] == '\0')
+    return true;
+  auto lower = [](std::string s) {
+    for (char& c : s)
+      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+  };
+  return lower(name).find(lower(filter_)) != std::string::npos;
 }
 
 void AssetBrowserPanel::OpenNodeInApplication(NodeRef node) {
@@ -173,76 +208,71 @@ void AssetBrowserPanel::OpenNodeInExplorer(NodeRef node) {
 // ------------------------- TOP CONTAINER -------------------------
 ImVec2 AssetBrowserPanel::RenderBreadcrumbBar(ImDrawList& draw_list,
                                               ImVec2 position) {
-  const float height = 40.0f;
-  const float padding = 40.0f;
+  const float height = top_bar_height_;
+  const float pad = 8.0f;
+  const float gap = 6.0f;
+  const float arrow_w = 20.0f;
+  const float control_h = EditorSizes::control_height + 4.0f;
+  ImFont* small = EditorStyles::GetFonts().s;
 
   ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, height);
-  ImVec2 p0 = position;
-  ImVec2 p1 = ImVec2(p0.x + size.x, p0.y + size.y);
+  const float y = position.y + (height - control_h) * 0.5f;
+  const float right = position.x + size.x - pad;
 
-  // Get selected folder
+  // BACK / FORWARD
+  auto arrow = [&](float x, const char* glyph, bool enabled) {
+    const ImVec2 min = ImVec2(x, y);
+    const ImVec2 max = ImVec2(x + arrow_w, y + control_h);
+    const bool hovered = enabled && ImGui::IsMouseHoveringRect(min, max);
+    IMComponents::Glyph(draw_list, min, ImVec2(arrow_w, control_h), glyph,
+                        !enabled  ? EditorColor::text_disabled
+                        : hovered ? EditorColor::text_bright
+                                  : EditorColor::text,
+                        small);
+    return hovered && ImGui::IsMouseClicked(0);
+  };
+
+  float x = position.x + pad;
+  if (arrow(x, ICON_FA_CHEVRON_LEFT, history_pos_ > 0))
+    GoBack();
+  x += arrow_w;
+  if (arrow(x, ICON_FA_CHEVRON_RIGHT,
+            history_pos_ + 1 < static_cast<int>(history_.size())))
+    GoForward();
+  x += arrow_w + gap;
+
+  // PATH TEXT ("project/sub/folder")
   auto folder = observer_.FetchFolder(selected_folder_id_);
-
-  // Draw back button if folder selected
+  std::string path_text = "No folder selected";
   if (folder) {
-    ImVec2 button_pos = ImVec2(position.x + 14.0f, position.y + 13.0f);
-    if (ImGui::GetIO().MousePos.x >= button_pos.x &&
-        ImGui::GetIO().MousePos.x <= button_pos.x + 20.0f &&
-        ImGui::GetIO().MousePos.y >= button_pos.y &&
-        ImGui::GetIO().MousePos.y <= button_pos.y + 20.0f) {
-
-      if (ImGui::IsMouseClicked(0)) {
-        uint32_t parent_id = folder->parent_id_;
-        if (parent_id)
-          SelectFolder(parent_id);
-      }
-    }
-  }
-
-  // Draw breadcrumb path
-  std::string path_text;
-  if (folder) {
-    // Get project name
-    std::string project_name = Runtime::Project().ProjectName();
-
-    // Make folder path relative to project root
     const std::filesystem::path project_root =
         Runtime::Project().AbsolutePath("").lexically_normal();
-    std::filesystem::path relative_path =
-        std::filesystem::relative(folder->path_, project_root);
-
-    // Build string
-    std::string formatted_path;
-    for (const auto& part : relative_path) {
-      if (part == "." || part == "..")  // ignore dirs
+    path_text = Runtime::Project().ProjectName();
+    for (const auto& part :
+         std::filesystem::relative(folder->path_, project_root)) {
+      if (part == "." || part == "..")
         continue;
-
-      if (!formatted_path.empty())
-        formatted_path += " > ";
-
-      formatted_path += part.string();
+      path_text += "/" + part.string();
     }
-
-    // Combine project name with formatted path
-    path_text = formatted_path.empty() ? project_name
-                                       : project_name + " > " + formatted_path;
-
-  } else {
-    // No folder selected
-    path_text = "No folder selected";
   }
 
-  // TODO: replace later with DynamicText()
-  ImFont* f = ImGui::GetFont();
-  const float big = f->FontSize * 1.15f;
-
+  // PATH FIELD (read-only)
+  const float path_w = (right - x - gap) * 0.5f;
+  const ImVec2 path_min = ImVec2(x, y);
+  const ImVec2 path_max = ImVec2(x + path_w, y + control_h);
+  draw_list.AddRectFilled(path_min, path_max, EditorColor::input_bg,
+                          EditorSizes::control_radius);
+  draw_list.PushClipRect(path_min, ImVec2(path_max.x - 6.0f, path_max.y), true);
   draw_list.AddText(
-      f, big, ImVec2(position.x + padding, position.y + (height - big) * 0.5f),
-      IM_COL32(230, 230, 230, 255), path_text.c_str());
+      ImVec2(x + 8.0f, y + (control_h - ImGui::GetFontSize()) * 0.5f),
+      EditorColor::text, path_text.c_str());
+  draw_list.PopClipRect();
+  x += path_w + gap;
 
-  // Subtle separator line under the breadcrumb bar (UE style)
-  draw_list.AddLine(ImVec2(p0.x, p1.y), ImVec2(p1.x, p1.y),
-                    IM_COL32(30, 30, 30, 255), 2.0f);
+  // FILTER FIELD
+  IMComponents::SearchField(draw_list, "##AssetFilter", filter_,
+                            IM_ARRAYSIZE(filter_), ImVec2(x, y),
+                            ImVec2(right - x, control_h));
 
   return size;
 }
@@ -250,36 +280,23 @@ ImVec2 AssetBrowserPanel::RenderBreadcrumbBar(ImDrawList& draw_list,
 // --------------------- LEFT CONTAINER ---------------------
 ImVec2 AssetBrowserPanel::RenderSideFolders(ImDrawList& draw_list,
                                             ImVec2 position) {
-  const float width = 220.0f;  // slightly wider for deep trees
+  ImGui::SetCursorScreenPos(position);
+  ImVec2 size = ImVec2(tree_width_, ImGui::GetContentRegionAvail().y);
 
-  ImVec2 size = ImVec2(width, ImGui::GetContentRegionAvail().y);
-  ImVec2 p0 = position;
-  ImVec2 p1 = ImVec2(p0.x + size.x, p0.y + size.y);
-
-  // --- Folder tree ---
-  ImVec2 list_pos = ImVec2(position.x, position.y);
-  ImVec2 list_size = ImVec2(size.x, size.y);
-  ImGui::SetCursorScreenPos(list_pos);
-  ImGui::BeginChild("FolderTree", list_size, false);
-
+  ImGui::BeginChild("FolderTree", size, false);
   ImDrawList& tree_draw = *ImGui::GetWindowDrawList();
 
-  // background color (UE5 outliner dark gray)
-  tree_draw.AddRectFilled(p0, p1, IM_COL32(20, 20, 20, 255));
-
-  // Right border separator
-  tree_draw.AddLine(ImVec2(p1.x, p0.y), ImVec2(p1.x, p1.y),
-                    IM_COL32(30, 30, 30, 255), 2.0f);
-
-  ImGui::Dummy(ImVec2(0, 8));
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                      ImVec2(ImGui::GetStyle().ItemSpacing.x, 0.0f));
+  ImGui::Dummy(ImVec2(0.0f, 4.0f));
 
   auto root = observer_.RootNode();
   if (root)
-    for (auto& sub : root->subfolders_)
-      RenderSideFolder(tree_draw, sub, 0);
+    RenderSideFolder(tree_draw, root, 0);
 
+  ImGui::PopStyleVar();
   ImGui::EndChild();
-  ImGui::SetCursorScreenPos(p0);
+  ImGui::SetCursorScreenPos(position);
 
   return size;
 }
@@ -290,124 +307,111 @@ void AssetBrowserPanel::RenderSideFolder(ImDrawList& draw_list,
   if (!folder)
     return;
 
-  // Calculate indentation offset
-  const float indent_width = 16.0f;
-  const float item_height =
-      ImGui::GetFrameHeight() + 4.0f;  // More breathing room
-  const float text_padding = 4.0f;
+  const float row_h = tree_row_height_;
+  const float caret_w = 14.0f;
+  const float icon_size = 14.0f;
+  const float pad_x = 6.0f;
+  ImFont* small = EditorStyles::GetFonts().s;
 
-  // Get current cursor position
-  ImVec2 cursor_pos = ImGui::GetCursorScreenPos();
-  cursor_pos.x += indent_width * indentation + 4.0f;  // slight left padding
+  const ImVec2 row_min = ImGui::GetCursorScreenPos();
+  const ImVec2 row_max =
+      ImVec2(row_min.x + ImGui::GetContentRegionAvail().x, row_min.y + row_h);
+  const float x0 = row_min.x + pad_x + indentation * tree_indent_;
 
-  // Item properties
   const bool has_children = !folder->subfolders_.empty();
   const bool selected = folder->id_ == selected_folder_id_;
-  ImVec2 item_size = ImVec2(
-      ImGui::GetContentRegionAvail().x - indent_width * indentation - 8.0f,
-      item_height);
 
-  // Draw item background with UE5 colors and rounded corners
-  ImU32 bg_color = selected ? IM_COL32(0, 112, 224, 200) : IM_COL32(0, 0, 0, 0);
-  if (ImGui::IsMouseHoveringRect(
-          cursor_pos,
-          ImVec2(cursor_pos.x + item_size.x, cursor_pos.y + item_size.y)) &&
-      !selected) {
-    bg_color = IM_COL32(50, 50, 50, 150);
-  }
-
-  draw_list.AddRectFilled(
-      cursor_pos,
-      ImVec2(cursor_pos.x + item_size.x, cursor_pos.y + item_size.y), bg_color,
-      4.0f);
-
-  // Draw folder icon
-  float icon_size = item_height * 0.6f;
-  ImVec2 icon_pos =
-      ImVec2(cursor_pos.x + text_padding + 16.0f,  // shift right for caret
-             cursor_pos.y + (item_height - icon_size) * 0.5f);
-
-  // Use IconLoader for folder icon
-  uint32_t icon_handle = IconLoader::GetIconHandle("folder");
-  draw_list.AddImage((ImTextureID)(intptr_t)icon_handle, icon_pos,
-                     ImVec2(icon_pos.x + icon_size, icon_pos.y + icon_size));
-
-  // Draw folder name
-  ImVec2 text_pos =
-      ImVec2(icon_pos.x + icon_size + 8.0f,
-             cursor_pos.y + (item_height - ImGui::GetTextLineHeight()) * 0.5f);
-
-  // Evaluate and set icon caret
-  const char* caret = has_children ? (folder->expanded_ ? ICON_FA_CARET_DOWN
-                                                        : ICON_FA_CARET_RIGHT)
-                                   : "";
-
-  if (has_children) {
-    draw_list.AddText(ImVec2(cursor_pos.x + 4.0f, text_pos.y),
-                      IM_COL32(180, 180, 180, 255), caret);
-  }
-
-  draw_list.AddText(
-      text_pos,
-      selected ? IM_COL32(255, 255, 255, 255) : IM_COL32(200, 200, 200, 255),
-      folder->name_.c_str());
-
-  // Handle interactions
-  ImGui::SetCursorScreenPos(cursor_pos);
-  ImGui::InvisibleButton(("folder_" + std::to_string(folder->id_)).c_str(),
-                         item_size);
-
-  if (ImGui::IsItemClicked()) {
-    // Select this folder
-    SelectFolder(folder->id_);
-    // TODO: emit signal here?
-
-    // Toggle expansion if clicking on a folder with children
-    if (has_children) {
-      const_cast<ProjectObserver::Folder*>(folder.get())->expanded_ =
-          !folder->expanded_;
-    }
-
-  } else if (ImGui::IsItemClicked(1) && has_children) {
-    // Right-click to toggle expansion
+  auto toggle = [&]() {
     const_cast<ProjectObserver::Folder*>(folder.get())->expanded_ =
         !folder->expanded_;
+  };
+
+  // INTERACTION (row selects, chevron or double-click toggles)
+  ImGui::InvisibleButton(("folder_" + std::to_string(folder->id_)).c_str(),
+                         ImVec2(row_max.x - row_min.x, row_h));
+  const bool hovered = ImGui::IsItemHovered();
+  const bool caret_hovered =
+      has_children &&
+      ImGui::IsMouseHoveringRect(ImVec2(x0, row_min.y),
+                                 ImVec2(x0 + caret_w, row_max.y));
+  if (ImGui::IsItemClicked()) {
+    if (caret_hovered)
+      toggle();
+    else
+      SelectFolder(folder->id_);
   }
+  if (hovered && has_children && !caret_hovered &&
+      ImGui::IsMouseDoubleClicked(0))
+    toggle();
 
-  // Advance cursor for next item
-  ImGui::SetCursorScreenPos(
-      ImVec2(cursor_pos.x - indent_width * indentation - 4.0f,
-             cursor_pos.y + item_height));
+  // ROW BACKGROUND
+  if (selected)
+    draw_list.AddRectFilled(row_min, row_max, EditorColor::control_selected,
+                            EditorSizes::control_radius);
+  else if (hovered)
+    draw_list.AddRectFilled(row_min, row_max, EditorColor::hover_overlay,
+                            EditorSizes::control_radius);
 
-  // Render subfolders if expanded
-  if (has_children && folder->expanded_) {
-    for (const auto& subfolder : folder->subfolders_) {
+  // CHEVRON
+  if (has_children)
+    IMComponents::Glyph(
+        draw_list, ImVec2(x0, row_min.y), ImVec2(caret_w, row_h),
+        folder->expanded_ ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
+        caret_hovered ? EditorColor::text_bright : EditorColor::text_dim,
+        small);
+
+  // FOLDER ICON (tinted)
+  const ImVec2 icon_min =
+      ImVec2(std::floor(x0 + caret_w + 2.0f),
+             std::floor(row_min.y + (row_h - icon_size) * 0.5f));
+  draw_list.AddImage(IconLoader::ToImGuiTexture("folder"), icon_min,
+                     ImVec2(icon_min.x + icon_size, icon_min.y + icon_size),
+                     ImVec2(0, 0), ImVec2(1, 1), EditorColor::folder);
+
+  // NAME
+  draw_list.AddText(ImVec2(icon_min.x + icon_size + 6.0f,
+                           row_min.y + (row_h - ImGui::GetFontSize()) * 0.5f),
+                    selected ? EditorColor::text_bright : EditorColor::text,
+                    folder->name_.c_str());
+
+  // CHILDREN
+  if (has_children && folder->expanded_)
+    for (const auto& subfolder : folder->subfolders_)
       RenderSideFolder(draw_list, subfolder, indentation + 1);
-    }
-  }
 }
 
 // --------------------- RIGHT CONTAINER ---------------------
 void AssetBrowserPanel::RenderNodes(ImDrawList& draw_list, ImVec2 position,
                                     ImVec2 size) {
+  // Recessed rounded area, drawn on the parent list
+  const ImVec2 box_min = ImVec2(position.x + 4.0f, position.y);
+  const ImVec2 box_max = ImVec2(position.x + size.x, position.y + size.y);
+  draw_list.AddRectFilled(box_min, box_max, EditorColor::strip,
+                          content_rounding_);
+
   // Get current folder
   auto folder = observer_.FetchFolder(selected_folder_id_);
   if (!folder)
     return;
 
-  // Make content area scrollable
-  ImGui::SetCursorScreenPos(position);
-  ImGui::BeginChild("ContentArea", size, false);
+  ImGui::SetCursorScreenPos(box_min);
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
+  ImGui::BeginChild("ContentArea",
+                    ImVec2(box_max.x - box_min.x, box_max.y - box_min.y),
+                    false);
+  ImGui::PopStyleColor();
+
+  // Cells must draw into the child's list to clip and scroll correctly
+  ImDrawList& content_draw = *ImGui::GetWindowDrawList();
 
   // Setup grid layout
-  const ImVec2 padding(16.0f, 16.0f);
-  const ImVec2 spacing(12.0f, 12.0f);
+  const ImVec2 padding(12.0f, 12.0f);
+  const ImVec2 spacing(4.0f, 8.0f);
 
-  // Start position with padding
   ImVec2 cursor_pos = ImGui::GetCursorPos();
   cursor_pos.x += padding.x;
   cursor_pos.y += padding.y;
-  ImVec2 grid_max = ImVec2(size.x - padding.x, 0);  // max width
+  ImVec2 grid_max = ImVec2(ImGui::GetContentRegionAvail().x - padding.x, 0);
 
   // Because multi-line text makes cards dynamic heights, we track the tallest
   // item in the current row to ensure the next row aligns cleanly below it
@@ -415,6 +419,8 @@ void AssetBrowserPanel::RenderNodes(ImDrawList& draw_list, ImVec2 position,
 
   // Render all folders first
   for (const auto& subfolder : folder->subfolders_) {
+    if (!MatchFilter(subfolder->name_))
+      continue;
     NodeUIData ui_data = MakeNodeUI(subfolder->name_);
 
     // Check if we need to wrap to next row
@@ -431,13 +437,15 @@ void AssetBrowserPanel::RenderNodes(ImDrawList& draw_list, ImVec2 position,
     ImGui::SetCursorPos(cursor_pos);
     ImVec2 screen_pos = ImGui::GetCursorScreenPos();
 
-    if (RenderNode(draw_list, subfolder, ui_data, screen_pos)) {
+    if (RenderNode(content_draw, subfolder, ui_data, screen_pos)) {
       cursor_pos.x += ui_data.total_size.x + spacing.x;
     }
   }
 
   // Then render all files
   for (const auto& file : folder->files_) {
+    if (!MatchFilter(file->name_))
+      continue;
     NodeUIData ui_data = MakeNodeUI(file->name_);
 
     // Check if we need to wrap to next row
@@ -454,7 +462,7 @@ void AssetBrowserPanel::RenderNodes(ImDrawList& draw_list, ImVec2 position,
     ImGui::SetCursorPos(cursor_pos);
     ImVec2 screen_pos = ImGui::GetCursorScreenPos();
 
-    if (RenderNode(draw_list, file, ui_data, screen_pos)) {
+    if (RenderNode(content_draw, file, ui_data, screen_pos)) {
       cursor_pos.x += ui_data.total_size.x + spacing.x;
     }
   }
@@ -490,7 +498,7 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
   bool selected = node->id_ == selected_node_id_;
   bool is_folder = node->IsFolder();
 
-  // visual highligting (UE5 style cards)
+  // visual highligting
   ImU32 card_bg_color =
       hovered ? IM_COL32(60, 60, 60, 255) : IM_COL32(35, 35, 35, 255);
   float rounding = 6.0f;

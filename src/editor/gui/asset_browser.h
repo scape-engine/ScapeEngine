@@ -5,6 +5,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 #include "editor/project/project_observer.h"
 #include "editor/systems/editor_asset.h"
@@ -60,6 +61,15 @@ private:
   static uint32_t selected_folder_id_;
   static uint32_t selected_node_id_;
 
+  // Navigation history (back - forward arrows)
+  static std::vector<uint32_t> history_;
+  static int history_pos_;
+  static void GoBack();
+  static void GoForward();
+
+  // True if name passes the filter field
+  bool MatchFilter(const std::string& name) const;
+
   // Prepare UI display data for node with specified name
   NodeUIData MakeNodeUI(const std::string& name) const;
 
@@ -87,6 +97,13 @@ private:
   static std::string Filename(
       const std::filesystem::directory_entry& e);  // Extract filename from path
 };
+
+// ----- LAYOUT (px) -----
+static constexpr float top_bar_height_ = 36.0f;
+static constexpr float tree_width_ = 200.0f;
+static constexpr float tree_row_height_ = 20.0f;
+static constexpr float tree_indent_ = 16.0f;
+static constexpr float content_rounding_ = 6.0f;
 
 // Singleton accessor for EditorUI
 void AssetBrowser();

@@ -114,6 +114,9 @@ struct EditorColor {
   static constexpr ImU32 axis_y = IM_COL32(105, 157, 21, 255);  // #699D15
   static constexpr ImU32 axis_z = IM_COL32(96, 121, 255, 255);  // #6079FF
 
+  static constexpr ImU32 folder =
+      IM_COL32(127, 166, 224, 255);  // #7FA6E0 folder
+
   // ---- Overlays ----
   static constexpr ImU32 hover_overlay = IM_COL32(255, 255, 255, 12);
   static constexpr ImU32 active_overlay = IM_COL32(255, 255, 255, 30);
