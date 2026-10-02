@@ -96,15 +96,14 @@ void EditorUI::Initialize() {
   // ADD DEFAULT EDITOR WINDOWS
   std::vector<TabEntry> property_tabs;
   property_tabs.push_back({ICON_FA_CIRCLE_INFO, "Project Info", "Project Info",
-                           std::make_unique<InfoPanel>(), 0});
+                           std::make_unique<InfoPanel>(), 0, "info"});
   property_tabs.push_back({ICON_FA_EARTH_AMERICAS, "Scene", "Scene",
                            std::make_unique<ScenePanel>(), 1, "world"});
   property_tabs.push_back({ICON_FA_CUBE, "Inspector", "Inspector",
-                           std::make_unique<InspectorPanel>(), 2});
+                           std::make_unique<InspectorPanel>(), 2, "inspector"});
   property_tabs.push_back({ICON_FA_MOUNTAIN, "Terrain Editor", "Terrain Editor",
-                           std::make_unique<TerrainEditorPanel>(), 2});
-  // property_tabs.push_back({ICON_FA_MOUNTAIN, "World Settings", "World",
-  // std::make_unique<WorldSettings>(), 2});
+                           std::make_unique<TerrainEditorPanel>(), 2,
+                           "editor"});
 
   TabContainer* properties =
       _AddWindow<TabContainer>("Properties", std::move(property_tabs));
