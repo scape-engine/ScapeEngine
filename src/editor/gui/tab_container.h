@@ -39,6 +39,8 @@ private:
   void RenderRail(ImDrawList& draw_list, ImVec2 rail_min, float height);
   void RenderActivePanel(ImVec2 position, ImVec2 size);
 
+  void ApplyCollapse();
+
   // Layout (px)
   static constexpr float header_height_ = 30.0f;
   static constexpr float header_pad_x_ = 10.0f;
@@ -48,6 +50,12 @@ private:
   static constexpr float rail_pad_y_ = 8.0f;
   static constexpr float rail_gap_ = 2.0f;
   static constexpr float rail_group_gap_ = 12.0f;
+
+  // Collapse state
+  bool collapsed_ = true;
+  bool animating_ = false;
+  float expanded_width_ = 300.0f;
+  float current_width_ = rail_width_;
 
   std::string name_;
   std::vector<TabEntry> entries_;

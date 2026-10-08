@@ -39,8 +39,6 @@
 
 #include <SDL.h>
 
-// static AssetGraphEditor g_asset_graph_editor;
-
 // Window base class
 std::vector<WindowBase*> g_windows_;
 
@@ -63,7 +61,7 @@ void EditorUI::Initialize() {
   ImGui::CreateContext();
 
   // Bump stale ini file
-  static constexpr const char* layout_ini = "editor_v2.ini";
+  static constexpr const char* layout_ini = "editor_v3.ini";
   ImGui::GetIO().IniFilename = layout_ini;
 
   EditorStyles::Initialize();
@@ -390,14 +388,11 @@ void EditorUI::RenderUI() {
                                                  nullptr, &center);
       ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.25f,
                                                    nullptr, &center);
-      ImGuiID right = ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.20f,
-                                                  nullptr, &center);
       ImGuiID top = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up, 0.15f,
                                                 nullptr, &center);
 
       // docked Panels
       ImGui::DockBuilderDockWindow("Hierarchy", left);
-      ImGui::DockBuilderDockWindow("Properties", right);
       ImGui::DockBuilderDockWindow("Viewport", center);
       ImGui::DockBuilderDockWindow("Model View", center);
       ImGui::DockBuilderDockWindow("Toolbar", center);

@@ -1,5 +1,9 @@
 #include "tab_container.h"
 
+#include "imgui_internal.h"
+
+#include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #include "engine/renderer/icons/icon_loader.h"
@@ -17,28 +21,71 @@ void TabContainer::Select(const char* window_name) {
   for (size_t i = 0; i < entries_.size(); ++i) {
     if (std::strcmp(entries_[i].window_name, window_name) == 0) {
       active_ = i;
+      collapsed_ = false;
       return;
     }
   }
 }
 
 void TabContainer::Render() {
-  GUIUtils::HideDockTabBar();
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  ImGui::Begin(name_.c_str(), nullptr, EditorFlag::standard);
-  ImGui::PopStyleVar();
+  ApplyCollapse();
 
+  // Reserve the right edge of the main viewport, like the menu and status
+  // bars; the dockspace (sized from WorkPos/WorkSize) shrinks to make room
+  const float margin = EditorSizes::panel_margin;
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, IM_COL32(0, 0, 0, 0));
+  const bool open = ImGui::BeginViewportSideBar(
+      name_.c_str(), ImGui::GetMainViewport(), ImGuiDir_Right,
+      current_width_ + margin,
+      EditorFlag::standard | ImGuiWindowFlags_NoScrollbar);
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar();
+  if (!open) {
+    ImGui::End();
+    return;
+  }
+
+  // Card inside the reserved strip: margin on the right, top and bottom
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+  const ImVec2 strip_pos = ImGui::GetWindowPos();
+  const ImVec2 strip_size = ImGui::GetWindowSize();
+  const ImVec2 win_min = ImVec2(strip_pos.x, strip_pos.y + margin);
+  const ImVec2 win_size = ImVec2(current_width_, strip_size.y - margin * 2.0f);
+  draw_list.AddRectFilled(win_min, win_min + win_size, EditorColor::panel,
+                          EditorSizes::panel_radius);
+
+  // RESIZE EDGE (left side, only while expanded)
+  if (!collapsed_) {
+    ImGui::SetCursorScreenPos(win_min);
+    ImGui::InvisibleButton("##ResizeEdge", ImVec2(4.0f, win_size.y));
+    if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    if (ImGui::IsItemActive()) {
+      expanded_width_ = std::clamp(
+          expanded_width_ - ImGui::GetIO().MouseDelta.x, 200.0f, 600.0f);
+      current_width_ = expanded_width_;
+    }
+  }
+
+  // RAIL spans the full height (chevron on top, tabs below)
+  RenderRail(draw_list, win_min, win_size.y);
+
+  dock_id_ = ImGui::GetID("##HostedPanels");
+  if (collapsed_ || animating_) {
+    // Keep the hosted dockspace alive so the panel stays docked
+    ImGui::DockSpace(dock_id_, ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
+    ImGui::End();
+    return;
+  }
+
+  // HEADER sits to the right of the rail
+  ImGui::SetCursorScreenPos(ImVec2(win_min.x + rail_width_, win_min.y));
   RenderHeader(draw_list);
 
-  const ImVec2 body_min = ImGui::GetCursorScreenPos();
-  const ImVec2 body_size = ImGui::GetContentRegionAvail();
-  RenderRail(draw_list, body_min, body_size.y);
-
-  const ImVec2 host_pos = ImVec2(body_min.x + rail_width_, body_min.y);
-  const ImVec2 host_size = ImVec2(body_size.x - rail_width_, body_size.y);
-  ImGui::SetCursorScreenPos(host_pos);
-  dock_id_ = ImGui::GetID("##HostedPanels");
+  const ImVec2 host_pos = ImGui::GetCursorScreenPos();
+  const ImVec2 host_size = ImVec2(win_min.x + win_size.x - host_pos.x,
+                                  win_min.y + win_size.y - host_pos.y);
   GUIUtils::HostDockSpace(dock_id_, host_size);
 
   ImGui::End();
@@ -99,7 +146,26 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
                               float height) {
   const float x = rail_min.x + (rail_width_ - rail_button_) * 0.5f;
   const ImVec2 button_size = ImVec2(rail_button_, rail_button_);
-  float y = rail_min.y + rail_pad_y_;
+
+  // COLLAPSE TOGGLE
+  {
+    const ImVec2 p0 = ImVec2(x, rail_min.y + rail_pad_y_);
+    ImGui::SetCursorScreenPos(p0);
+    if (ImGui::InvisibleButton("##CollapseToggle", button_size))
+      collapsed_ = !collapsed_;
+    const bool hovered = ImGui::IsItemHovered();
+    if (hovered) {
+      IMComponents::Tooltip(collapsed_ ? "Expand panel" : "Collapse panel");
+      draw_list.AddRectFilled(p0, p0 + button_size, EditorColor::hover_overlay,
+                              EditorSizes::control_radius);
+    }
+    IMComponents::Glyph(
+        draw_list, p0, button_size,
+        collapsed_ ? ICON_FA_CHEVRON_LEFT : ICON_FA_CHEVRON_RIGHT,
+        EditorColor::text_dim, EditorStyles::GetFonts().s);
+  }
+
+  float y = rail_min.y + rail_pad_y_ + rail_button_ + rail_group_gap_;
   int last_group = entries_.empty() ? 0 : entries_.front().group;
 
   for (size_t i = 0; i < entries_.size(); ++i) {
@@ -115,8 +181,10 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
     ImGui::SetCursorScreenPos(p0);
     ImGui::InvisibleButton(entry.window_name, button_size);
     const bool hovered = ImGui::IsItemHovered();
-    if (ImGui::IsItemClicked())
+    if (ImGui::IsItemClicked()) {
+      collapsed_ = (i == active_ && !collapsed_);
       active_ = i;
+    }
     if (hovered)
       IMComponents::Tooltip(entry.tooltip);
 
@@ -151,4 +219,13 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
   draw_list.AddLine(ImVec2(divider_x, rail_min.y),
                     ImVec2(divider_x, rail_min.y + height),
                     EditorColor::panel_stroke, 1.0f);
+}
+
+void TabContainer::ApplyCollapse() {
+  const float target = collapsed_ ? rail_width_ : expanded_width_;
+  const float t = 1.0f - std::exp(-14.0f * ImGui::GetIO().DeltaTime);
+  current_width_ += (target - current_width_) * t;
+  animating_ = std::fabs(target - current_width_) >= 0.5f;
+  if (!animating_)
+    current_width_ = target;
 }
