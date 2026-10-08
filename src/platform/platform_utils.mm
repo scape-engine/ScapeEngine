@@ -38,6 +38,7 @@ void* CreateMetalLayer(void* cocoaWindow) {
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     metalLayer.framebufferOnly = YES;
     metalLayer.contentsScale = [nsWindow backingScaleFactor];
+    metalLayer.contentsGravity = kCAGravityTopLeft;
 
     [contentView setLayer:metalLayer];
 

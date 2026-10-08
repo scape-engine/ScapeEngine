@@ -86,6 +86,18 @@ void EditorUI::Initialize() {
   ApplyImGuiShaders();
   ImGui_ImplSDL2_InitForOther(WindowManager::GetWindow());
 
+  // keep rendering during the drag
+  SDL_AddEventWatch(
+      [](void* user, SDL_Event* e) -> int {
+        if (e->type == SDL_WINDOWEVENT &&
+            e->window.event == SDL_WINDOWEVENT_EXPOSED) {
+          auto* self = static_cast<EditorUI*>(user);
+          // self->RenderFrame();  // extracted loop body
+        }
+        return 1;
+      },
+      this);
+
   io.DisplaySize = ImVec2((float)WindowManager::GetWidth(),
                           (float)WindowManager::GetHeight());
   io.DisplayFramebufferScale =
