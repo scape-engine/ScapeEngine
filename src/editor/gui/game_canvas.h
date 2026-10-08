@@ -6,6 +6,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include <imgui.h>
+#include <algorithm>
 
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/toolbar.h"
@@ -66,6 +67,10 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   ImVec2 scale = ImGui::GetIO().DisplayFramebufferScale;
 
   // Always update position immediately
+  const uint16_t rendered_w = canvasViewportW;
+  const uint16_t rendered_h = canvasViewportH;
+  const ImVec2 rendered_size(rendered_w / scale.x, rendered_h / scale.y);
+
   canvasViewportX = static_cast<uint16_t>(pos.x * scale.x);
   canvasViewportY = static_cast<uint16_t>(pos.y * scale.y);
 
@@ -73,6 +78,9 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   ImVec2 proposedSize = size;
   ImVec2 scaledSize =
       ImVec2(proposedSize.x * scale.x, proposedSize.y * scale.y);
+
+  canvasViewportW = static_cast<uint16_t>(scaledSize.x);
+  canvasViewportH = static_cast<uint16_t>(scaledSize.y);
 
   // Update if dimensions have stabilized
   static ImVec2 lastSize = ImVec2(0, 0);
@@ -108,12 +116,18 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     ImTextureID texId = renderer->GetSceneTexId();
     if (texId) {
 
+      // Rendered region is top-left sub-rect of FBO.
+      const float u1 =
+          std::min(1.0f, (float)rendered_w / renderer->GetFramebufferWidth());
+      const float v1 =
+          std::min(1.0f, (float)rendered_h / renderer->GetFramebufferHeight());
+
       // Draw scene image, round the corners that touch the panel edge
       ImGui::GetWindowDrawList()->AddImageRounded(
-          texId, pos, ImVec2(pos.x + size.x, pos.y + size.y), ImVec2(0, 1),
-          ImVec2(1, 0), IM_COL32_WHITE, EditorSizes::panel_radius,
-          ImDrawFlags_RoundCornersBottom);
-      ImGui::Dummy(size);
+          texId, pos, ImVec2(pos.x + rendered_size.x, pos.y + rendered_size.y),
+          ImVec2(0, v1), ImVec2(u1, 0), IM_COL32_WHITE,
+          EditorSizes::panel_radius, ImDrawFlags_RoundCornersBottom);
+      ImGui::Dummy(size);  // layout still uses the panel size
 
       // ImGuizmo transform manipulation
       auto& state = Runtime::State();
@@ -138,10 +152,10 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       // Setup ImGuizmo viewport
       ImGuizmo::SetOrthographic(false);
       ImGuizmo::SetDrawlist();
-      ImGuizmo::SetRect(pos.x, pos.y, size.x, size.y);
+      ImGuizmo::SetRect(pos.x, pos.y, rendered_size.x, rendered_size.y);
 
       // Build projection matrix for ImGuizmo
-      float gizmoAspect = size.x / size.y;
+      float gizmoAspect = rendered_size.x / rendered_size.y;
 
       // Rebuild projection
       float tanHalfFov = glm::tan(glm::radians(camera_component.fov_) * 0.5f);

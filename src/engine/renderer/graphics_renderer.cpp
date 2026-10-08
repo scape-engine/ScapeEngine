@@ -115,10 +115,20 @@ void GraphicsRenderer::PrepareFrame() {
   const uint16_t fbw = canvasViewportW ? canvasViewportW : 1;
   const uint16_t fbh = canvasViewportH ? canvasViewportH : 1;
 
-  // Avoid resizing to placeholder dimensions
-  if (fbw > 1 && fbh > 1 &&
-      (fbw != last_framebuffer_width_ || fbh != last_framebuffer_height_))
-    CreateFramebuffers(fbw, fbh);
+  // Grow-only allocation, rounded up, so drag-resizing rarely reallocates.
+  // Views render into the top-left fbw x fbh sub-rect.
+  constexpr int kFramebufferGranularity = 256;
+  auto round_up = [](int v) {
+    return ((v + kFramebufferGranularity - 1) / kFramebufferGranularity) *
+           kFramebufferGranularity;
+  };
+  const bool too_small =
+      fbw > last_framebuffer_width_ || fbh > last_framebuffer_height_;
+  const bool too_big =
+      fbw * 2 < last_framebuffer_width_ && fbh * 2 < last_framebuffer_height_;
+  if (fbw > 1 && fbh > 1 && (too_small || too_big))
+    CreateFramebuffers(static_cast<uint16_t>(round_up(fbw)),
+                       static_cast<uint16_t>(round_up(fbh)));
 
   // Common clear for the scene_framebuffer_ (done by the first view using it)
   // GraphicsRenderer::PrepareFrame()
