@@ -153,20 +153,24 @@ bool _BeginComponent(const std::string& identifier,
   ImGui::BeginChild(
       ("##body_" + identifier).c_str(), ImVec2(0.0f, 0.0f),
       ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
-  ImGui::PopStyleColor();
-  ImGui::PopStyleVar();
+
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
   return true;
 }
 
 void _EndComponent() {
+  ImGui::PopStyleVar();
   ImGui::EndChild();
+
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar();
 
   // Drawn on the parent list, which renders before the child: ends up behind
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
   const float radius = 6.0f;
   const ImVec2 body_min = ImGui::GetItemRectMin();
   const ImVec2 body_max = ImGui::GetItemRectMax();
-  draw_list.AddRectFilled(body_min, body_max, EditorColor::strip, radius,
+  draw_list.AddRectFilled(body_min, body_max, EditorColor::panel, radius,
                           ImDrawFlags_RoundCornersBottom);
   draw_list.AddRect(ImVec2(body_min.x, g_component_top.y), body_max,
                     EditorColor::panel_stroke, radius, 0, 1.0f);

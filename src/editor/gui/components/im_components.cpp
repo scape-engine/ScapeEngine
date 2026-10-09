@@ -144,17 +144,18 @@ void ToggleButton(ImDrawList& draw_list, std::string text, bool& value,
 bool ButtonBig(std::string label, std::string _tooltip) {
   bool pressed = false;
 
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 8));
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 4.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::control_radius);
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,
                         GUIUtils::Darken(EditorColor::element_active, 0.3f));
+  ImGui::PushStyleColor(ImGuiCol_Border, EditorColor::control_border);
 
   pressed = ImGui::Button(label.c_str());
 
   Tooltip(_tooltip);
 
   ImGui::PopStyleVar(2);
-  ImGui::PopStyleColor();
+  ImGui::PopStyleColor(2);
 
   return pressed;
 }
@@ -326,10 +327,10 @@ void Input(std::string label, glm::vec3& value, float speed) {
   const float strip_width = 3.0f;
   const float axis_gap = 6.0f;
   const float x_region_avail = ImGui::GetContentRegionAvail().x;
-  const float label_width = x_region_avail * 0.3f;
-  const float axis_width = ImGui::CalcTextSize("X").x + axis_gap;
+  const float label_width = std::floor(x_region_avail * 0.3f);
+  const float axis_width = std::floor(ImGui::CalcTextSize("X").x + axis_gap);
   const float field_width =
-      ImMax(x_region_avail - label_width - axis_width, 40.0f);
+      std::floor(ImMax(x_region_avail - label_width - axis_width, 40.0f));
 
   const char* axis_names[3] = {"X", "Y", "Z"};
   const ImU32 axis_colors[3] = {EditorColor::axis_x, EditorColor::axis_y,
@@ -338,7 +339,8 @@ void Input(std::string label, glm::vec3& value, float speed) {
 
   ImGui::PushID(EditorUI::Get()->GenerateId());
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
-  const ImVec2 origin = ImGui::GetCursorScreenPos();
+  const ImVec2 cursor = ImGui::GetCursorScreenPos();
+  const ImVec2 origin = ImVec2(std::floor(cursor.x), std::floor(cursor.y));
 
   // LABEL
   ImGui::AlignTextToFramePadding();

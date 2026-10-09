@@ -54,17 +54,17 @@ struct EditorFontPath {
 struct EditorColor {
   // ---- Surfaces ----
   static constexpr ImU32 void_bg =
-      IM_COL32(15, 15, 15, 255);  // #0F0F0F app bg behind cards
+      IM_COL32(18, 18, 18, 255);  // #121212 app bg behind cards
   static constexpr ImU32 panel =
-      IM_COL32(24, 24, 24, 255);  // #181818 panel cards / bars
+      IM_COL32(32, 32, 32, 255);  // #202020 panel cards / bars
   static constexpr ImU32 panel_stroke =
-      IM_COL32(40, 40, 40, 255);  // #303030 hairline under headers
+      IM_COL32(48, 48, 48, 255);  // #303030 hairline under headers
   static constexpr ImU32 strip =
-      IM_COL32(19, 19, 19, 255);  // #131313 rulers / list strips
+      IM_COL32(23, 23, 23, 255);  // #171717 rulers / list strips
   static constexpr ImU32 recessed =
-      IM_COL32(14, 14, 14, 255);  // #0E0E0E sunken zones
+      IM_COL32(17, 17, 17, 255);  // #111111 sunken zones
   static constexpr ImU32 input_bg =
-      IM_COL32(21, 21, 21, 255);  // #151515 text fields
+      IM_COL32(27, 27, 27, 255);  // #1B1B1B text fields
   static constexpr ImU32 control =
       IM_COL32(48, 48, 48, 255);  // #303030 buttons / dropdowns
   static constexpr ImU32 control_hovered =
@@ -80,7 +80,7 @@ struct EditorColor {
   static constexpr ImU32 tree_guide =
       IM_COL32(211, 211, 211, 153);  // #D3D3D3 @ 0.6
   static constexpr ImU32 section_header =
-      IM_COL32(32, 32, 32, 255);  // #202020 component header strip
+      IM_COL32(39, 39, 39, 255);  // #272727 component header strip
   static constexpr ImU32 row_alt =
       IM_COL32(0, 0, 0, 45);  // black @ ~0.18, zebra stripe
 
