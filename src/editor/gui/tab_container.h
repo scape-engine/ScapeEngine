@@ -35,7 +35,7 @@ public:
   void Select(const char* window_name);
 
 private:
-  void RenderHeader(ImDrawList& draw_list);
+  void RenderHeader(ImDrawList& draw_list, float width);
   void RenderRail(ImDrawList& draw_list, ImVec2 rail_min, float height);
   void RenderActivePanel(ImVec2 position, ImVec2 size);
 

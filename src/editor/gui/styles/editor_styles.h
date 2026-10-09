@@ -64,7 +64,7 @@ struct EditorColor {
   static constexpr ImU32 recessed =
       IM_COL32(17, 17, 17, 255);  // #111111 sunken zones
   static constexpr ImU32 input_bg =
-      IM_COL32(27, 27, 27, 255);  // #1B1B1B text fields
+      IM_COL32(25, 25, 25, 255);  // #191919 text fields
   static constexpr ImU32 control =
       IM_COL32(48, 48, 48, 255);  // #303030 buttons / dropdowns
   static constexpr ImU32 control_hovered =
@@ -83,6 +83,7 @@ struct EditorColor {
       IM_COL32(39, 39, 39, 255);  // #272727 component header strip
   static constexpr ImU32 row_alt =
       IM_COL32(0, 0, 0, 45);  // black @ ~0.18, zebra stripe
+  static constexpr ImU32 chevron = IM_COL32(188, 188, 188, 255);  // #BCBCBC
 
   // ---- Text ----
   static constexpr ImU32 text = IM_COL32(211, 211, 211, 255);      // #D3D3D3
@@ -123,7 +124,8 @@ struct EditorColor {
   static constexpr ImU32 hover_overlay = IM_COL32(255, 255, 255, 12);
   static constexpr ImU32 active_overlay = IM_COL32(255, 255, 255, 30);
 
-  // ---- Legacy aliases (replace during the layout pass) ----
+  // ---- Legacy aliases ----
+  // TODO: replace with new aliases
   static constexpr ImU32 background = panel;
   static constexpr ImU32 text_transparent = IM_COL32(211, 211, 211, 153);
   static constexpr ImU32 element_transparent = IM_COL32(32, 32, 32, 130);

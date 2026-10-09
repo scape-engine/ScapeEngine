@@ -176,7 +176,7 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
 
   const float x0 = rect_min.x + row_pad_x_;
   DrawChevron(draw_list, ImVec2(x0, rect_min.y), root_expanded_, true,
-              EditorColor::text);
+              EditorColor::chevron);
 
   const ImVec2 icon_min =
       ImVec2(std::floor(x0 + caret_slot_ + (icon_slot_ - icon_size_) * 0.5f),
@@ -273,8 +273,7 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   // FOREGROUND COLORS
   const ImU32 text_color =
       selected ? EditorColor::accent_border : EditorColor::text;
-  const ImU32 chevron_color =
-      selected ? EditorColor::accent_border : EditorColor::text;
+  const ImU32 chevron_color = EditorColor::chevron;
 
   // RIGHT-ALIGNED ICONS (data / eye / camera) — drawn before hit-testing the
   // row so clicking a toggle doesn't also select

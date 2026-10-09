@@ -81,7 +81,7 @@ void TabContainer::Render() {
 
   // HEADER sits to the right of the rail
   ImGui::SetCursorScreenPos(ImVec2(win_min.x + rail_width_, win_min.y));
-  RenderHeader(draw_list);
+  RenderHeader(draw_list, win_size.x - rail_width_);
 
   const ImVec2 host_pos = ImGui::GetCursorScreenPos();
   const ImVec2 host_size = ImVec2(win_min.x + win_size.x - host_pos.x,
@@ -109,9 +109,8 @@ void TabContainer::RenderActivePanel(ImVec2 position, ImVec2 size) {
 //=============================================================================
 // HEADER   [icon v]
 //=============================================================================
-void TabContainer::RenderHeader(ImDrawList& draw_list) {
+void TabContainer::RenderHeader(ImDrawList& draw_list, float width) {
   const ImVec2 strip_min = ImGui::GetCursorScreenPos();
-  const float width = ImGui::GetContentRegionAvail().x;
   const ImVec2 strip_max =
       ImVec2(strip_min.x + width, strip_min.y + header_height_);
   const float y = strip_min.y + (header_height_ - control_height_) * 0.5f;
@@ -162,7 +161,7 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
     IMComponents::Glyph(
         draw_list, p0, button_size,
         collapsed_ ? ICON_FA_CHEVRON_LEFT : ICON_FA_CHEVRON_RIGHT,
-        EditorColor::text_dim, EditorStyles::GetFonts().s);
+        EditorColor::chevron, EditorStyles::GetFonts().s);
   }
 
   float y = rail_min.y + rail_pad_y_ + rail_button_ + rail_group_gap_;

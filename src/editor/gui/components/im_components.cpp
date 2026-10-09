@@ -148,14 +148,13 @@ bool ButtonBig(std::string label, std::string _tooltip) {
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::control_radius);
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,
                         GUIUtils::Darken(EditorColor::element_active, 0.3f));
-  ImGui::PushStyleColor(ImGuiCol_Border, EditorColor::control_border);
 
   pressed = ImGui::Button(label.c_str());
 
   Tooltip(_tooltip);
 
   ImGui::PopStyleVar(2);
-  ImGui::PopStyleColor(2);
+  ImGui::PopStyleColor();
 
   return pressed;
 }
@@ -696,9 +695,11 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
   ImGui::PopStyleVar(2);
   ImGui::PopFont();
 
-  draw_list.AddRect(position, p1, EditorColor::control_border, radius, 0, 1.0f);
-  draw_list.AddLine(ImVec2(split.x, position.y), split,
-                    EditorColor::control_border, 1.0f);
+  // Draw outline and separator line
+  // draw_list.AddRect(position, p1, EditorColor::control_border, radius,
+  // 0, 1.0f);
+  // draw_list.AddLine(ImVec2(split.x, position.y), split,
+  // EditorColor::control_border, 1.0f);
   return changed;
 }
 
@@ -727,8 +728,10 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
       position, p1,
       hovered ? EditorColor::control_hovered : EditorColor::control,
       EditorSizes::control_radius);
-  draw_list.AddRect(position, p1, EditorColor::control_border,
-                    EditorSizes::control_radius, 0, 1.0f);
+
+  // Draw outline
+  // draw_list.AddRect(position, p1, EditorColor::control_border,
+  // EditorSizes::control_radius, 0, 1.0f);
 
   float x = position.x + pad;
   if (icon) {
@@ -767,8 +770,10 @@ bool IconDropdownButton(ImDrawList& draw_list, const char* id,
       position, p1,
       hovered ? EditorColor::control_hovered : EditorColor::control,
       EditorSizes::control_radius);
-  draw_list.AddRect(position, p1, EditorColor::control_border,
-                    EditorSizes::control_radius, 0, 1.0f);
+
+  // Draw outline
+  // draw_list.AddRect(position, p1, EditorColor::control_border,
+  // EditorSizes::control_radius, 0, 1.0f);
 
   const ImVec2 icon_min =
       ImVec2(position.x + pad, position.y + (height - icon_size) * 0.5f);
@@ -856,8 +861,6 @@ bool Checkbox(const char* label, bool* value) {
     draw_list->AddRectFilled(
         box_min, box_max,
         hovered ? EditorColor::control : EditorColor::input_bg, rounding);
-    draw_list->AddRect(box_min, box_max, EditorColor::control_border, rounding,
-                       0, 1.0f);
   }
 
   if (label_size.x > 0.0f)

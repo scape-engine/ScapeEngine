@@ -357,8 +357,7 @@ void AssetBrowserPanel::RenderSideFolder(ImDrawList& draw_list,
     IMComponents::Glyph(
         draw_list, ImVec2(x0, row_min.y), ImVec2(caret_w, row_h),
         folder->expanded_ ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
-        caret_hovered ? EditorColor::text_bright : EditorColor::text_dim,
-        small);
+        caret_hovered ? EditorColor::text_bright : EditorColor::chevron, small);
 
   // FOLDER ICON (tinted)
   const ImVec2 icon_min =

@@ -321,7 +321,14 @@ void EditorUI::DockSpace() {
 
   dock_flags_ = ImGuiDockNodeFlags_NoUndocking;
   dock_id_ = ImGui::GetID(root_dock);
-  ImGui::DockSpace(dock_id_, ImVec2(0, 0), dock_flags_);
+
+  const ImVec2 avail = ImGui::GetContentRegionAvail();
+  ImGui::DockSpace(
+      dock_id_,
+      ImVec2(avail.x + EditorSizes::panel_margin - EditorSizes::panel_gap,
+             avail.y),
+      dock_flags_);
+
   ImGui::End();
   ImGui::PopStyleVar(3);
 

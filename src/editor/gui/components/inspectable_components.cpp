@@ -86,7 +86,7 @@ bool _BeginComponent(const std::string& identifier,
   IMComponents::Glyph(
       draw_list, ImVec2(x, p0.y), ImVec2(12.0f, header_height),
       opened ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
-      always_opened ? EditorColor::text_disabled : EditorColor::text, small);
+      always_opened ? EditorColor::text_disabled : EditorColor::chevron, small);
   x += 12.0f + 8.0f;
 
   // ENABLED CHECKBOX
@@ -154,16 +154,13 @@ bool _BeginComponent(const std::string& identifier,
       ("##body_" + identifier).c_str(), ImVec2(0.0f, 0.0f),
       ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysUseWindowPadding);
 
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+  ImGui::PopStyleColor();
+  ImGui::PopStyleVar();
   return true;
 }
 
 void _EndComponent() {
-  ImGui::PopStyleVar();
   ImGui::EndChild();
-
-  ImGui::PopStyleColor();
-  ImGui::PopStyleVar();
 
   // Drawn on the parent list, which renders before the child: ends up behind
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();

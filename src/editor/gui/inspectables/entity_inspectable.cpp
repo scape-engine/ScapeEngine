@@ -22,9 +22,11 @@ void EntityInspectable::RenderStaticContent(ImDrawList& draw_list) {
   IMComponents::Label(item.entity.Name(), EditorStyles::GetFonts().h3_bold);
   ImGui::Dummy(ImVec2(0.0f, 3.0f));
 
-  ImVec2 search_position = ImGui::GetCursorScreenPos() + ImVec2(0.0f, 38.0f);
-  if (IMComponents::ButtonBig("Add Component"))
+  if (IMComponents::ButtonBig("Add Component")) {
+    const ImVec2 search_position =
+        ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4.0f);
     SearchPopup::SearchComponents(search_position, item.entity.Handle());
+  }
 }
 
 void EntityInspectable::RenderDynamicContent(ImDrawList& draw_list) {

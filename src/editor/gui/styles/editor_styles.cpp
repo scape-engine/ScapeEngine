@@ -199,7 +199,7 @@ void SetupStyle() {
   colors[ImGuiCol_DockingEmptyBg] = ImVec4(0, 0, 0, 0);
 
   // === Style vars ===
-  style.FrameBorderSize = 1.0f;  // control outline (#424242)
+  style.FrameBorderSize = 0.0f;  // control outline (#424242)
   style.WindowBorderSize = 0.0f;
   style.ChildBorderSize = 0.0f;
   style.PopupBorderSize = 1.0f;
