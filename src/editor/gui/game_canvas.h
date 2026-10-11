@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <algorithm>
 
+#include "editor/gui/axis_gizmo.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/toolbar.h"
 #include "editor/runtime/runtime.h"
@@ -411,11 +412,22 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     ImGui::SameLine();
     GizmoBtn(ICON_FA_MAXIMIZE, ImGuizmo::SCALE);
 
-    ImGui::PopStyleColor(3);  // transparent button colors
+    ImGui::PopStyleColor(3);
     IMComponents::EndOverlay();
     gizmo_width = ImGui::GetItemRectSize().x;
 
-    ImGui::PopStyleVar();  // tight item spacing
+    ImGui::PopStyleVar();
+
+    // --- View axis gizmo: right-aligned ---
+    const float axis_radius = 34.0f;
+    const float axis_extent = axis_radius + std::floor(axis_radius * 0.24f);
+    const ImVec2 axis_center =
+        ImVec2(pos.x + size.x - overlay_padding.x - axis_extent,
+               pos.y + overlay_padding.y + ImGui::GetFrameHeight() + 12.0f +
+                   axis_extent);
+    auto& scene_pipeline = Runtime::GetSceneViewPipeline();
+    ViewAxisGizmo(axis_center, axis_radius, scene_pipeline.GetView(),
+                  std::get<0>(scene_pipeline.GetGodCamera()));
   }
 
   // --- Center Tools: Play / Stop (Toolbar) ---
@@ -425,7 +437,6 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   Panels::Toolbar(cb);
   toolbar_width = ImGui::GetItemRectSize().x;
 
-  // Pop global styles
   ImGui::PopStyleVar(3);
 
   ImGui::EndChild();

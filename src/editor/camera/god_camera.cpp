@@ -1,13 +1,17 @@
 #include "god_camera.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <glm/common.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include "engine/time/time.h"
 #include "engine/transform/transform.h"
 
-void GodCameraUpdateMovement(GodCameraState& state,
-                             TransformComponent& transform,
-                             const GodCameraFrameInput& input) {
+void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
+                          const GodCameraFrameInput& input) {
   // Timing
   const float dt = Time::UnscaledDeltaf();
 
@@ -107,9 +111,21 @@ void GodCameraUpdateMovement(GodCameraState& state,
                            pan * state.move_speed * dt * 0.1f;
     Transform::SetPosition(transform, pos2, Space::WORLD);
   }
-
-  // (TODO) moving flag
-  // const float eps = 0.001f;
-  // const bool moving = (fabs(move_dir.x) > eps) || (fabs(move_dir.y) > eps) ||
-  // (fabs(move_dir.z) > eps); (void)moving;
 }
+
+// Snap the camera to look at the origin from the +axis side, keeping distance
+void SnapCameraToAxis(TransformComponent& camera, const glm::vec3& axis) {
+  const glm::vec3 pos = Transform::GetPosition(camera, Space::WORLD);
+  const float distance = std::max(glm::length(pos), 1.0f);
+  const glm::vec3 up = std::fabs(axis.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f)
+                                                 : glm::vec3(0.0f, 1.0f, 0.0f);
+
+  Transform::SetPosition(camera, axis * distance, Space::WORLD);
+  Transform::SetRotation(camera, glm::quatLookAtLH(-axis, up), Space::WORLD);
+  Transform::Evaluate(camera);
+}
+
+// (TODO) moving flag
+// const float eps = 0.001f;
+// const bool moving = (fabs(move_dir.x) > eps) || (fabs(move_dir.y) > eps) ||
+// (fabs(move_dir.z) > eps); (void)moving;

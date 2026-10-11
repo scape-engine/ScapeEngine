@@ -38,6 +38,8 @@ void LoadFonts(ImGuiIO& io);
 void SetupStyle();
 void Initialize();
 
+void SetupGizmoStyle();
+
 }  // namespace EditorStyles
 
 // FONT PATHS

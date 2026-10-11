@@ -598,7 +598,7 @@ void EditorUI::UpdateMovement() {
   TransformComponent& CameraTransform = std::get<0>(pipeline.GetGodCamera());
 
   // Run update
-  GodCameraUpdateMovement(god_state_, CameraTransform, input);
+  CameraUpdateMovement(god_state_, CameraTransform, input);
 
   // Rebuild model matrix
   Transform::Evaluate(CameraTransform);

@@ -1,5 +1,6 @@
 #include "editor_styles.h"
 
+#include "editor/vendor/imguizmo/ImGuizmo.h"
 #include "platform/paths.h"
 
 namespace {
@@ -233,10 +234,33 @@ void SetupStyle() {
 #endif
 }
 
+void SetupGizmoStyle() {
+  using EC = EditorColor;
+  ImVec4* colors = ImGuizmo::GetStyle().Colors;
+
+  // Axes match the inspector's XYZ fields
+  colors[ImGuizmo::DIRECTION_X] = C(EC::axis_x);
+  colors[ImGuizmo::DIRECTION_Y] = C(EC::axis_y);
+  colors[ImGuizmo::DIRECTION_Z] = C(EC::axis_z);
+
+  // Plane handles: same hues, translucent (ImGuizmo's default alpha)
+  colors[ImGuizmo::PLANE_X] = C(EC::axis_x, 0.38f);
+  colors[ImGuizmo::PLANE_Y] = C(EC::axis_y, 0.38f);
+  colors[ImGuizmo::PLANE_Z] = C(EC::axis_z, 0.38f);
+
+  // Hovered / dragged handle
+  colors[ImGuizmo::SELECTION] = C(EC::orange);
+  colors[ImGuizmo::ROTATION_USING_BORDER] = C(EC::orange);
+  colors[ImGuizmo::ROTATION_USING_FILL] = C(EC::orange, 0.5f);
+
+  colors[ImGuizmo::TEXT] = C(EC::text);
+}
+
 void Initialize() {
   ImGuiIO& io = ImGui::GetIO();
   LoadFonts(io);
   SetupStyle();
+  SetupGizmoStyle();
 }
 
 }  // namespace EditorStyles

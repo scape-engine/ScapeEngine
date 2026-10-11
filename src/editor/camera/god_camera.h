@@ -28,8 +28,9 @@ struct GodCameraFrameInput {
   bool hold_shift = false;
 };
 
-void GodCameraUpdateMovement(GodCameraState& state,
-                             TransformComponent& transform,
-                             const GodCameraFrameInput& input);
+void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
+                          const GodCameraFrameInput& input);
+
+void SnapCameraToAxis(TransformComponent& camera, const glm::vec3& axis);
 
 #endif  // GOD_CAMERA_H
