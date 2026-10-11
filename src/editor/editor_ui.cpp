@@ -464,7 +464,7 @@ void EditorUI::RenderUI() {
   ImGui::Begin("Viewport", nullptr);
   ImGui::PopStyleVar();
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
-                     game_canvas_focused_, cb);
+                     game_canvas_focused_, cb, god_state_);
   UpdateMovement();
   ImGui::End();
 

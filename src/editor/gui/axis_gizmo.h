@@ -6,17 +6,16 @@
 #include <cmath>
 
 #include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
 
 #include "editor/camera/god_camera.h"
 #include "editor/gui/styles/editor_styles.h"
-#include "engine/transform/transform.h"
 
 namespace Panels {
 
 // Blender-style navigation gizmo: shows world axes as seen by the camera,
 // click a ball to look along that axis
 inline void ViewAxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
+                          GodCameraState& camera_state,
                           TransformComponent& camera) {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   const glm::mat3 rotation = glm::mat3(view);  // world -> camera
@@ -86,7 +85,7 @@ inline void ViewAxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
       const float dx = mouse.x - axes[i].screen.x;
       const float dy = mouse.y - axes[i].screen.y;
       if (dx * dx + dy * dy <= ball_r * ball_r) {
-        SnapCameraToAxis(camera, axes[i].dir);
+        SnapCameraToAxis(camera_state, camera, axes[i].dir);
         break;
       }
     }

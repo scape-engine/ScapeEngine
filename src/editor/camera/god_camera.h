@@ -2,6 +2,7 @@
 #define GOD_CAMERA_H
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 struct TransformComponent;
 
@@ -14,6 +15,15 @@ struct GodCameraState {
   float keyboard_look_speed = 100.0f;
 
   glm::vec2 smoothed_axis = glm::vec2(0.0f);
+
+  // Animated view snap
+  bool snapping = false;
+  float snap_time = 0.0f;
+  float snap_duration = 0.25f;  // seconds
+  glm::vec3 snap_from_pos{0.0f};
+  glm::vec3 snap_to_pos{0.0f};
+  glm::quat snap_from_rot{1.0f, 0.0f, 0.0f, 0.0f};
+  glm::quat snap_to_rot{1.0f, 0.0f, 0.0f, 0.0f};
 };
 
 // Per-frame inputs gathered by EditorUI
@@ -31,6 +41,7 @@ struct GodCameraFrameInput {
 void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
                           const GodCameraFrameInput& input);
 
-void SnapCameraToAxis(TransformComponent& camera, const glm::vec3& axis);
+void SnapCameraToAxis(GodCameraState& state, TransformComponent& camera,
+                      const glm::vec3& axis);
 
 #endif  // GOD_CAMERA_H

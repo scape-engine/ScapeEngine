@@ -57,7 +57,8 @@ inline float DistanceSqr(const ImVec2& delta) {
 
 // Resize is deferred until the viewport has stabilized
 inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
-                       const ToolbarCallbacks& cb) {
+                       const ToolbarCallbacks& cb,
+                       GodCameraState& camera_state) {
   static TransformGizmoState gizmo_state;
 
   ImGui::BeginChild("GameCanvas", ImVec2(0, ImGui::GetContentRegionAvail().y),
@@ -427,7 +428,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                    axis_extent);
     auto& scene_pipeline = Runtime::GetSceneViewPipeline();
     ViewAxisGizmo(axis_center, axis_radius, scene_pipeline.GetView(),
-                  std::get<0>(scene_pipeline.GetGodCamera()));
+                  camera_state, std::get<0>(scene_pipeline.GetGodCamera()));
   }
 
   // --- Center Tools: Play / Stop (Toolbar) ---
