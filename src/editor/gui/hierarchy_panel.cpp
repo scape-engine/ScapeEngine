@@ -9,6 +9,8 @@
 #include "engine/renderer/icons/icon_loader.h"
 #include "engine/transform/transform.h"
 
+#include "editor/events.h"
+
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/gui/inspector_panel.h"
 #include "editor/gui/utils/gui_utils.h"
@@ -31,9 +33,6 @@ HierarchyPanel::HierarchyPanel()
       last_selected(nullptr),
       last_hovered(nullptr),
       dragging_hierarchy(false),
-      camera_moving(false),
-      camera_movement_time(0.0f),
-      camera_target(nullptr),
       hierarchy_dirty_(true) {
 
   /* TODO: setup drag rect here */
@@ -132,6 +131,14 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
     hierarchy_dirty_ = false;
   }
 
+  // FOCUS SHORTCUT: F; once per frame
+  if (GUIUtils::WindowFocused() && !ImGui::GetIO().WantTextInput &&
+      ImGui::IsKeyChordPressed(ImGuiKey_F)) {
+    const Entity selected = Runtime::State().selected_entity;
+    if (selected != entt::null)
+      EditorEvents::focus_entity(selected);
+  }
+
   ImGui::PushFont(EditorStyles::GetFonts().p);
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
 
@@ -154,8 +161,6 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
                       ImVec2(guide_x, children_end.y), EditorColor::tree_guide,
                       1.0f);
   }
-
-  UpdateCameraMovement();
 
   ImGui::PopStyleVar();
   ImGui::PopFont();
@@ -343,12 +348,9 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
     last_selected = &item;
   }
 
-  // FOCUS CAMERA (unchanged)
+  // FOCUS CAMERA
   if (double_clicked)
-    SetCameraTarget(&item.entity.Transform());
-  if (selected && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F))
-    SetCameraTarget(&item.entity.Transform());
-
+    EditorEvents::focus_entity(item.entity.Handle());
   // ADVANCE CURSOR
   ImGui::Dummy(ImVec2(0.0f, row_height_));
 
@@ -626,56 +628,6 @@ void HierarchyPanel::BuildHierarchyChildren(HierarchyItem& parent) {
     HierarchyItem item = HierarchyItem(EntityContainer(child_entity));
     BuildHierarchyChildren(item);
     parent.children.push_back(item);
-  }
-}
-
-void HierarchyPanel::SetCameraTarget(TransformComponent* target) {
-  camera_target = target;
-  camera_moving = true;
-  camera_movement_time = 0.0f;
-}
-
-void HierarchyPanel::UpdateCameraMovement() {
-  if (!camera_moving || !camera_target)
-    return;
-
-  // Get god camera transform
-  TransformComponent& camera_transform =
-      std::get<0>(Runtime::GetSceneViewPipeline().GetGodCamera());
-
-  // Get target transform
-  TransformComponent& target_transform = *camera_target;
-
-  // Get targets
-  float distance = 5.0f + Transform::GetScale(target_transform, Space::WORLD).z;
-  glm::vec3 target_position =
-      Transform::GetPosition(target_transform, Space::WORLD) +
-      glm::vec3(0.0f, 0.0f, -1.0f) * distance;
-
-  float duration = 0.5f;
-  if (camera_movement_time < duration) {
-    // Calculate position delta
-    float t = glm::clamp(camera_movement_time / duration, 0.0f, 1.0f);
-
-    // Get smoother targets
-    glm::vec3 new_position =
-        glm::mix(camera_transform.position_, target_position, t);
-    // TODO: get rotation targets
-
-    // Apply new position
-    camera_transform.position_ = new_position;
-    // TODO: apply new rotation
-
-    // Add to elapsed camera movement time
-    camera_movement_time += Time::Deltaf();
-  } else {
-    // Stop camera movement
-    camera_transform.position_ = target_position;
-    // TODO: stop rotation
-
-    // Reset
-    camera_moving = false;
-    camera_movement_time = 0.0f;
   }
 }
 

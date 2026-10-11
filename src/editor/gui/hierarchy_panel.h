@@ -84,10 +84,6 @@ private:
   void BuildSceneHierarchy();
   void BuildHierarchyChildren(HierarchyItem& parent);
 
-  // Camera movement to entity
-  void SetCameraTarget(TransformComponent* target);
-  void UpdateCameraMovement();
-
   // Auto-scroll when dragging
   void PerformAutoScroll();
 

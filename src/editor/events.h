@@ -23,6 +23,8 @@ inline boost::signals2::signal<void()> selection_cleared;
 
 inline boost::signals2::signal<void(int)> item_selected;
 
+inline boost::signals2::signal<void(Entity)> focus_entity;
+
 }  // namespace EditorEvents
 
 #endif  // EDITOR_EVENTS_H

@@ -39,6 +39,24 @@ struct TransformGizmoState {
   ImGuizmo::MODE mode = ImGuizmo::WORLD;
   float scale_min = 0.1f;
 
+  // Snapping (toolbar toggle)
+  bool snap_enabled = false;
+  float snap_translate = 0.5f;  // world units
+  float snap_rotate = 45.0f;    // degrees
+  float snap_scale = 0.1f;      // scale factor step
+
+  // Increment for the current operation
+  float SnapValue() const {
+    switch (operation) {
+      case ImGuizmo::ROTATE:
+        return snap_rotate;
+      case ImGuizmo::SCALE:
+        return snap_scale;
+      default:
+        return snap_translate;
+    }
+  }
+
   void HandleKeyboardShortcuts() {
     if (ImGui::IsKeyPressed(ImGuiKey_W))
       operation = ImGuizmo::TRANSLATE;
@@ -46,6 +64,11 @@ struct TransformGizmoState {
       operation = ImGuizmo::ROTATE;
     if (ImGui::IsKeyPressed(ImGuiKey_R))
       operation = ImGuizmo::SCALE;
+    if (ImGui::IsKeyChordPressed(ImGuiKey_F)) {
+      const Entity selected = Runtime::State().selected_entity;
+      if (selected != entt::null)
+        EditorEvents::focus_entity(selected);
+    }
   }
 };
 
@@ -190,11 +213,11 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
           auto& transform = world.Get<TransformComponent>(selected_entity);
           glm::mat4 modelMatrix = transform.model_;
 
-          // Snapping (hold Ctrl)
-          bool snapping = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ||
-                          ImGui::IsKeyDown(ImGuiKey_RightCtrl);
-          float snapValue =
-              (gizmo_state.operation == ImGuizmo::ROTATE) ? 45.0f : 0.5f;
+          // Snapping: toolbar toggle
+          const bool modifier = ImGui::IsKeyDown(ImGuiKey_LeftCtrl) ||
+                                ImGui::IsKeyDown(ImGuiKey_RightCtrl);
+          bool snapping = gizmo_state.snap_enabled != modifier;
+          float snapValue = gizmo_state.SnapValue();
           float snapValues[3] = {snapValue, snapValue, snapValue};
 
           // Manipulate
@@ -412,6 +435,25 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     GizmoBtn(ICON_FA_ROTATE, ImGuizmo::ROTATE);
     ImGui::SameLine();
     GizmoBtn(ICON_FA_MAXIMIZE, ImGuizmo::SCALE);
+
+    // Snap toggle
+    ImGui::SameLine(0.0f, 8.0f);
+    {
+      const bool on = gizmo_state.snap_enabled;
+      if (on) {
+        ImGui::PushStyleColor(ImGuiCol_Text, active_accent);
+        ImGui::PushStyleColor(ImGuiCol_Button,
+                              ImGui::ColorConvertU32ToFloat4(
+                                  (EditorColor::accent & ~IM_COL32_A_MASK) |
+                                  (60u << IM_COL32_A_SHIFT)));
+      }
+      if (ImGui::Button(ICON_FA_MAGNET, ImVec2(btn_w, 0)))
+        gizmo_state.snap_enabled = !on;
+      if (on)
+        ImGui::PopStyleColor(2);
+      IMComponents::Tooltip(on ? "Snapping on (hold Ctrl to move freely)"
+                               : "Snapping off (hold Ctrl to snap)");
+    }
 
     ImGui::PopStyleColor(3);
     IMComponents::EndOverlay();

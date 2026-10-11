@@ -15,7 +15,7 @@ void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
   // Timing
   const float dt = Time::UnscaledDeltaf();
 
-  // Animated snap
+  // Animated camera transition (snap, focus)
   if (state.snapping) {
     const bool user_input = input.right_mouse || input.middle_mouse ||
                             input.move_axis != glm::vec2(0.0f) ||
@@ -35,9 +35,18 @@ void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
           transform, glm::slerp(state.snap_from_rot, state.snap_to_rot, s),
           Space::WORLD);
 
-      if (t >= 1.0f)
+      if (t >= 1.0f) {
         state.snapping = false;
-      return;  // UpdateMovement evaluates transform after this
+
+        // Store final orientation as (pitch, yaw, 0)
+        const glm::vec3 f = state.snap_to_rot * glm::vec3(0.0f, 0.0f, 1.0f);
+        Transform::SetEulerAngles(
+            transform,
+            glm::vec3(glm::degrees(std::asin(-f.y)),
+                      glm::degrees(std::atan2(f.x, f.z)), 0.0f),
+            Space::WORLD);
+      }
+      return;
     }
   }
 
@@ -139,20 +148,38 @@ void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
   }
 }
 
+void StartCameraTransition(GodCameraState& state, TransformComponent& camera,
+                           const glm::vec3& to_pos, const glm::quat& to_rot) {
+  state.snap_from_pos = Transform::GetPosition(camera, Space::WORLD);
+  state.snap_from_rot = Transform::GetRotation(camera, Space::WORLD);
+  state.snap_to_pos = to_pos;
+  state.snap_to_rot = to_rot;
+  state.snap_time = 0.0f;
+  state.snapping = true;
+  state.smoothed_axis = glm::vec2(0.0f);
+}
+
 // Snap the camera to look at the origin from the +axis side, keeping distance
 void SnapCameraToAxis(GodCameraState& state, TransformComponent& camera,
                       const glm::vec3& axis) {
-  state.snap_from_pos = Transform::GetPosition(camera, Space::WORLD);
-  state.snap_from_rot = Transform::GetRotation(camera, Space::WORLD);
-
-  const float distance = std::max(glm::length(state.snap_from_pos), 1.0f);
+  const glm::vec3 pos = Transform::GetPosition(camera, Space::WORLD);
+  const float distance = std::max(glm::length(pos), 1.0f);
   const glm::vec3 up = std::fabs(axis.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f)
                                                  : glm::vec3(0.0f, 1.0f, 0.0f);
-  state.snap_to_pos = axis * distance;
-  state.snap_to_rot = glm::quatLookAtLH(-axis, up);
+  StartCameraTransition(state, camera, axis * distance,
+                        glm::quatLookAtLH(-axis, up));
+}
 
-  state.snap_time = 0.0f;
-  state.snapping = true;
+void SetCameraTarget(GodCameraState& state, TransformComponent& camera,
+                     const glm::vec3& target, float distance) {
+  const glm::vec3 pos = Transform::GetPosition(camera, Space::WORLD);
+  glm::vec3 dir = target - pos;
+  dir = glm::length(dir) > 1e-4f ? glm::normalize(dir)
+                                 : Transform::Forward(camera, Space::WORLD);
+  const glm::vec3 up = std::fabs(dir.y) > 0.99f ? glm::vec3(0.0f, 0.0f, 1.0f)
+                                                : glm::vec3(0.0f, 1.0f, 0.0f);
+  StartCameraTransition(state, camera, target - dir * distance,
+                        glm::quatLookAtLH(dir, up));
 }
 
 // (TODO) moving flag

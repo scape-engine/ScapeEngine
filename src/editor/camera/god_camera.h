@@ -44,4 +44,8 @@ void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
 void SnapCameraToAxis(GodCameraState& state, TransformComponent& camera,
                       const glm::vec3& axis);
 
+// Animate the camera to look at target from its current direction
+void SetCameraTarget(GodCameraState& state, TransformComponent& camera,
+                     const glm::vec3& target, float distance);
+
 #endif  // GOD_CAMERA_H

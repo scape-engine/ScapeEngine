@@ -38,6 +38,7 @@
 #include "editor/vendor/imgui/imgui_impl_bgfx.h"
 
 #include <SDL.h>
+#include <algorithm>
 
 // Window base class
 std::vector<WindowBase*> g_windows_;
@@ -134,6 +135,20 @@ void EditorUI::Initialize() {
   // events
   EditorEvents::entity_selected.connect(
       [properties](Entity) { properties->Select("Inspector"); });
+
+  EditorEvents::focus_entity.connect([this](Entity entity) {
+    auto& world = ECS::Main();
+    if (!world.Reg().valid(entity) || !world.Has<TransformComponent>(entity))
+      return;
+
+    auto& target = world.Get<TransformComponent>(entity);
+    const glm::vec3 scale = Transform::GetScale(target, Space::WORLD);
+    auto& camera = std::get<0>(Runtime::GetSceneViewPipeline().GetGodCamera());
+
+    const float distance = 5.0f + std::max({scale.x, scale.y, scale.z});
+    SetCameraTarget(god_state_, camera,
+                    Transform::GetPosition(target, Space::WORLD), distance);
+  });
 }
 
 // TODO: refactor loop, should be split into EditorUI::NewFrame() /
