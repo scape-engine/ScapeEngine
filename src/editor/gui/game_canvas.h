@@ -340,24 +340,21 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     }
   }
 
-  // === 3. UE5 STYLE OVERLAYS (ALWAYS DRAWN) ===
-  // These are drawn at the end so they overlay both the rendered game image
-  // AND the dark background when the game is stopped.
-  ImVec2 overlay_padding = ImVec2(15.0f, 15.0f);
+  // === OVERLAYS ===
+  ImVec2 overlay_padding = ImVec2(8.0f, 8.0f);  // closer to the panel edge
   float overlay_y = start_cursor_pos.y + overlay_padding.y;
 
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::panel_radius);
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 6.0f));
 
-  // Pull dynamically from EditorStyles
-  ImVec4 bg_pill =
-      ImGui::GetStyle().Colors[ImGuiCol_PopupBg];  // The #212121 color
-  bg_pill.w = 0.90f;                               // Add slight transparency
-
-  ImVec4 bg_pill_hover = ImGui::GetStyle().Colors[ImGuiCol_HeaderHovered];
+  // Section background: panel color, translucent so the scene shows through
+  const ImVec4 bg_pill =
+      ImGui::ColorConvertU32ToFloat4(EditorColor::overlay_bg);
+  const ImVec4 bg_pill_hover =
+      ImGui::ColorConvertU32ToFloat4(EditorColor::overlay_hover);
   ImVec4 active_accent =
-      ImGui::GetStyle().Colors[ImGuiCol_HeaderActive];  // The Slate Blue
+      ImGui::ColorConvertU32ToFloat4(EditorColor::accent_border);
 
   // Tools we only want visible when playing
   if (isGameRunning) {
@@ -380,30 +377,20 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     // --- Right Tools: Gizmos (Connected Pill) ---
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2.0f, 0.0f));
 
-    // Calculate dimensions for the background pill
+    // Equal-width buttons; section is right-aligned using last frame's width
     float btn_w = ImGui::CalcTextSize(ICON_FA_ARROW_POINTER).x + 24.0f;
-    float gizmo_width = btn_w * 4.0f;
-    ImVec2 gizmo_pos =
+    static float gizmo_width = 0.0f;
+    ImGui::SetCursorPos(
         ImVec2(start_cursor_pos.x + size.x - gizmo_width - overlay_padding.x,
-               overlay_y);
+               overlay_y));
 
-    // Draw background pill manually behind the buttons
-    ImVec2 screen_pos = ImVec2(pos.x + gizmo_pos.x, pos.y + gizmo_pos.y);
-    ImGui::GetWindowDrawList()->AddRectFilled(
-        screen_pos,
-        ImVec2(screen_pos.x + gizmo_width,
-               screen_pos.y + ImGui::GetFrameHeight()),
-        ImGui::ColorConvertFloat4ToU32(bg_pill), 12.0f);
+    IMComponents::BeginOverlay();
 
-    ImGui::SetCursorPos(gizmo_pos);
-    ImGui::BeginGroup();
-
-    // Override button backgrounds to be completely transparent for this group
+    // Transparent buttons; the section draws the background
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
 
-    // Helper lambda to draw active state easily
     auto GizmoBtn = [&](const char* icon, ImGuizmo::OPERATION op) {
       bool is_active = (gizmo_state.operation == op);
       if (is_active)
@@ -424,19 +411,19 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     ImGui::SameLine();
     GizmoBtn(ICON_FA_MAXIMIZE, ImGuizmo::SCALE);
 
-    ImGui::EndGroup();
-    ImGui::PopStyleColor(3);  // pop transparent button colors
-    ImGui::PopStyleVar();     // pop tight item spacing
+    ImGui::PopStyleColor(3);  // transparent button colors
+    IMComponents::EndOverlay();
+    gizmo_width = ImGui::GetItemRectSize().x;
+
+    ImGui::PopStyleVar();  // tight item spacing
   }
 
   // --- Center Tools: Play / Stop (Toolbar) ---
-  // Drawn OUTSIDE the isGameRunning check so it's always persistent!
-  float toolbar_width = 200.0f;
+  static float toolbar_width = 0.0f;
   ImGui::SetCursorPos(
       ImVec2(start_cursor_pos.x + (size.x - toolbar_width) * 0.5f, overlay_y));
-  ImGui::BeginGroup();
   Panels::Toolbar(cb);
-  ImGui::EndGroup();
+  toolbar_width = ImGui::GetItemRectSize().x;
 
   // Pop global styles
   ImGui::PopStyleVar(3);

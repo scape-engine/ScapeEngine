@@ -870,4 +870,20 @@ bool Checkbox(const char* label, bool* value) {
   return pressed;
 }
 
+void BeginOverlay() {
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  draw_list->ChannelsSplit(2);
+  draw_list->ChannelsSetCurrent(1);  // content in front
+  ImGui::BeginGroup();
+}
+
+void EndOverlay() {
+  ImGui::EndGroup();
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+  draw_list->ChannelsSetCurrent(0);  // background behind, sized to content
+  draw_list->AddRectFilled(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+                           EditorColor::overlay_bg, EditorSizes::panel_radius);
+  draw_list->ChannelsMerge();
+}
+
 }  // namespace IMComponents

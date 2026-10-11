@@ -123,6 +123,10 @@ struct EditorColor {
   // ---- Overlays ----
   static constexpr ImU32 hover_overlay = IM_COL32(255, 255, 255, 12);
   static constexpr ImU32 active_overlay = IM_COL32(255, 255, 255, 30);
+  static constexpr ImU32 overlay_bg =
+      IM_COL32(32, 32, 32, 179);  // viewport sections ~0.70
+  static constexpr ImU32 overlay_hover =
+      IM_COL32(58, 58, 58, 204);  // hovered overlay ~0.80
 
   // ---- Legacy aliases ----
   // TODO: replace with new aliases

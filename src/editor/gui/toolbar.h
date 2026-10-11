@@ -3,10 +3,12 @@
 
 #include <imgui.h>
 #include <functional>
+
+#include "editor/gui/components/im_components.h"
+#include "editor/gui/styles/editor_styles.h"
+
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
-
 namespace Panels {
-
 struct ToolbarCallbacks {
   std::function<void()> onStart;
   std::function<void()> onStop;
@@ -17,12 +19,14 @@ struct ToolbarCallbacks {
 
 // Now it just draws buttons, no ImGui::Begin() window wrapper
 inline void Toolbar(const ToolbarCallbacks& cb) {
+  IMComponents::BeginOverlay();
+
   ImGui::PushStyleColor(ImGuiCol_Button,
                         ImVec4(0, 0, 0, 0));  // Transparent default
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::panel_radius);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 6.0f));
-  ImGui::PushFont(EditorStyles::GetFonts().h2);
+  ImGui::PushFont(EditorStyles::GetFonts().p);
 
   // UE5 Green Play
   ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(90, 200, 90, 255));
@@ -47,6 +51,8 @@ inline void Toolbar(const ToolbarCallbacks& cb) {
   ImGui::PopFont();
   ImGui::PopStyleVar(2);
   ImGui::PopStyleColor(2);
+
+  IMComponents::EndOverlay();
 }
 }  // namespace Panels
 

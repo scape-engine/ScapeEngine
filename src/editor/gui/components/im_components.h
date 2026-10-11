@@ -107,6 +107,10 @@ void KeyValue(const char* key, const std::string& value,
 // Accent fill + white check when on, subtle bordered box when off
 bool Checkbox(const char* label, bool* value);
 
+// Viewport overlays: widgets drawn over a translucent rounded background
+void BeginOverlay();
+void EndOverlay();
+
 }  // namespace IMComponents
 
 #endif  // IM_COMPONENTS_H
