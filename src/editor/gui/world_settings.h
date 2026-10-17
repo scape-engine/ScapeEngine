@@ -15,7 +15,7 @@ inline void WorldSettings() {
   if (!skybox) {
     ImGui::SetCursorPosY(ImGui::GetWindowHeight() * 0.4f);
     ImGui::TextDisabled("No skybox available");
-    ImGui::End();
+    ImGui::EndChild();
     return;
   }
 
@@ -26,72 +26,49 @@ inline void WorldSettings() {
                               ImGuiTreeNodeFlags_DefaultOpen)) {
     ImGui::Indent();
 
-    // Time of Day controls
     ImGui::SeparatorText("Time of Day");
-
-    // Display current time
     ImGui::Text("Current Time: %s", skybox->GetTimeString().c_str());
 
-    // Time slider (0-24 hours)
-    float timeOfDay = skybox->GetTimeOfDay();
-    float hours = timeOfDay * 24.0f;
-    if (ImGui::SliderFloat("##TimeSlider", &hours, 0.0f, 24.0f, "%.1f h")) {
+    float hours = skybox->GetTimeOfDay() * 24.0f;
+    if (ImGui::SliderFloat("##TimeSlider", &hours, 0.0f, 24.0f, "%.1f h"))
       skybox->SetTimeOfDay(hours / 24.0f);
-    }
 
     ImGui::Spacing();
 
-    // Cycle controls
     bool paused = skybox->IsCyclePaused();
-    if (IMComponents::Checkbox("Pause Cycle", &paused)) {
+    if (IMComponents::Checkbox("Pause Cycle", &paused))
       skybox->SetCyclePaused(paused);
-    }
 
     if (!paused) {
       float speed = skybox->GetCycleSpeed();
-      if (ImGui::SliderFloat("Cycle Speed", &speed, 0.0f, 1.0f, "%.3f")) {
+      if (ImGui::SliderFloat("Cycle Speed", &speed, 0.0f, 1.0f, "%.3f"))
         skybox->SetCycleSpeed(speed);
-      }
       ImGui::SameLine();
-      if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Speed")) {
+      if (ImGui::Button(ICON_FA_ROTATE_LEFT "##Speed"))
         skybox->SetCycleSpeed(0.05f);
-      }
       if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Reset Speed");
     }
 
-    // Time presets
     ImGui::Spacing();
     ImGui::Text("Presets:");
     ImGui::SameLine();
     if (ImGui::SmallButton("Dawn"))
       skybox->SetTimeOfDay(0.25f);
-    if (ImGui::SmallButton("Dawn"))
-      skybox->SetTimeOfDay(0.25f);
     ImGui::SameLine();
-    if (ImGui::SmallButton("Noon"))
-      skybox->SetTimeOfDay(0.5f);
     if (ImGui::SmallButton("Noon"))
       skybox->SetTimeOfDay(0.5f);
     ImGui::SameLine();
     if (ImGui::SmallButton("Dusk"))
       skybox->SetTimeOfDay(0.75f);
-    if (ImGui::SmallButton("Dusk"))
-      skybox->SetTimeOfDay(0.75f);
     ImGui::SameLine();
-    if (ImGui::SmallButton("Midnight"))
-      skybox->SetTimeOfDay(0.0f);
-
     if (ImGui::SmallButton("Midnight"))
       skybox->SetTimeOfDay(0.0f);
 
     ImGui::Separator();
 
-    // Advanced sky parameters
     if (ImGui::TreeNode("Advanced Sky Parameters")) {
       const auto& params = skybox->GetParams();
-
-      // Get mutable copy for editing
       float sunRadius = params._parametersArray[0];
       float bloom = params._parametersArray[1];
       float exposure = params._parametersArray[2];
@@ -101,83 +78,60 @@ inline void WorldSettings() {
                                     0.05f, "%.4f");
       changed |= ImGui::SliderFloat("Bloom", &bloom, 0.0f, 5.0f);
       changed |= ImGui::SliderFloat("Exposure", &exposure, 0.01f, 2.0f);
-
-      if (changed) {
+      if (changed)
         skybox->SetParams(sunRadius, bloom, exposure);
 
-        if (ImGui::Button(ICON_FA_ROTATE_LEFT " Reset Defaults")) {
-          skybox->SetParams(0.00465f, 1.0f, 0.25f);
-        }
+      if (ImGui::Button(ICON_FA_ROTATE_LEFT " Reset Defaults"))
+        skybox->SetParams(0.0465f, 1.0f, 0.25f);  // matches Skybox::Create
 
-        ImGui::TreePop();
-      }
-
-      ImGui::Unindent();
+      ImGui::TreePop();
     }
 
-    // ═══════════════════════════════════════════════════════════
-    //  LIGHTING
-    // ═══════════════════════════════════════════════════════════
-    if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting")) {
-      ImGui::Indent();
-
-      const auto& params = skybox->GetParams();
-
-      ImGui::Text("Sun Direction: (%.2f, %.2f, %.2f)", params.sunDirShader[0],
-                  params.sunDirShader[1], params.sunDirShader[2]);
-
-      ImGui::ColorEdit3(
-          "Sun Color", (float*)params._sunColorArray,
-          ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-
-      ImGui::Text("Sun Intensity: %.2f", params._sunColorArray[3]);
-
-      ImGui::Spacing();
-      ImGui::ColorEdit3(
-          "Ambient Color", (float*)params._skyAmbientArray,
-          ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
-      ImGui::TextDisabled("(Computed from time of day)");
-      ImGui::Unindent();
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    //  RENDERING
-    // ═══════════════════════════════════════════════════════════
-    if (ImGui::CollapsingHeader(ICON_FA_DESKTOP " Rendering")) {
-      ImGui::Indent();
-
-      auto& pipeline = Runtime::GetSceneViewPipeline();
-
-      bool wireframe = pipeline.wireframe_;
-      if (IMComponents::Checkbox("Wireframe Mode", &wireframe)) {
-        pipeline.wireframe_ = wireframe;
-      }
-
-      bool showSkybox = pipeline.show_skybox_;
-      if (IMComponents::Checkbox("Show Skybox", &showSkybox)) {
-        pipeline.show_skybox_ = showSkybox;
-      }
-
-      bool showGizmos = pipeline.show_gizmos_;
-      if (IMComponents::Checkbox("Show Gizmos", &showGizmos)) {
-        pipeline.show_gizmos_ = showGizmos;
-      }
-
-      ImGui::Unindent();
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    //  POST-PROCESSING
-    // ═══════════════════════════════════════════════════════════
-    if (ImGui::CollapsingHeader(ICON_FA_WAND_MAGIC_SPARKLES
-                                " Post-Processing")) {
-      ImGui::Indent();
-      ImGui::TextDisabled("Coming soon...");
-      ImGui::Unindent();
-    }
-
-    ImGui::EndChild();
+    ImGui::Unindent();
   }
+
+  // ═══════════════════════════════════════════════════════════
+  //  LIGHTING
+  // ═══════════════════════════════════════════════════════════
+  if (ImGui::CollapsingHeader(ICON_FA_LIGHTBULB " Lighting")) {
+    ImGui::Indent();
+    const auto& params = skybox->GetParams();
+    ImGui::Text("Sun Direction: (%.2f, %.2f, %.2f)", params.sunDirShader[0],
+                params.sunDirShader[1], params.sunDirShader[2]);
+    ImGui::ColorEdit3(
+        "Sun Color", (float*)params._sunColorArray,
+        ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+    ImGui::Text("Sun Intensity: %.2f", params._sunColorArray[3]);
+    ImGui::Spacing();
+    ImGui::ColorEdit3(
+        "Ambient Color", (float*)params._skyAmbientArray,
+        ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_NoInputs);
+    ImGui::TextDisabled("(Computed from time of day)");
+    ImGui::Unindent();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  RENDERING
+  // ═══════════════════════════════════════════════════════════
+  if (ImGui::CollapsingHeader(ICON_FA_DESKTOP " Rendering")) {
+    ImGui::Indent();
+    auto& pipeline = Runtime::GetSceneViewPipeline();
+    IMComponents::Checkbox("Wireframe Mode", &pipeline.wireframe_);
+    IMComponents::Checkbox("Show Skybox", &pipeline.show_skybox_);
+    IMComponents::Checkbox("Show Gizmos", &pipeline.show_gizmos_);
+    ImGui::Unindent();
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  POST-PROCESSING
+  // ═══════════════════════════════════════════════════════════
+  if (ImGui::CollapsingHeader(ICON_FA_WAND_MAGIC_SPARKLES " Post-Processing")) {
+    ImGui::Indent();
+    ImGui::TextDisabled("Coming soon...");
+    ImGui::Unindent();
+  }
+
+  ImGui::EndChild();
 }
 
 }  // namespace Panels

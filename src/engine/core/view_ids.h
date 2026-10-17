@@ -9,6 +9,7 @@ constexpr uint8_t UI_BACKGROUND = 1;    // back-buffer UI
 
 // scene FBO (colour+depth)
 constexpr uint8_t SCENE_TERRAIN = 2;
+constexpr uint8_t SCENE_CLEAR = 3;  // clears the stencil of the whole scene FBO
 constexpr uint8_t WATER_PASS = 4;
 constexpr uint8_t DEBUG_PASS = 5;
 

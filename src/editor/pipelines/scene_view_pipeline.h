@@ -27,13 +27,10 @@ public:
 
   // TODO: void CreateFrameGraph();
 
-  // TODO: void RenderSelectedEntity(EntityContainer* entity, const glm::mat4&
-  // view_projection, const SceneCamera& camera);
-
   // Entity selection in game canvas
-  void SetSelectedEntities(const std::vector<Entity>& entities) {
-    selected_entities_ = entities;
-  }
+  // Children are selected with their parent, so selecting a model's root
+  // outlines all of its meshes
+  void SetSelectedEntities(const std::vector<Entity>& entities);
 
   // Pipeline settings
   void SetWireframe(bool enabled) { wireframe_ = enabled; }
@@ -70,9 +67,11 @@ private:
   void RenderGizmosNode(const Node::Context& context);
   void RenderShadowNode(const Node::Context& context);
 
-  // Outline helper
-  void RenderSelectedEntityOutline(EntityContainer* entity,
-                                   const glm::mat4& view_projection);
+  // Mesh helpers
+  void RenderMesh(TransformComponent& transform,
+                  MeshRendererComponent& renderer);
+  void RenderSelectedEntity(EntityContainer* entity);
+  void RenderSelectedEntityOutline(EntityContainer* entity);
 
   void BuildReferenceGrid(const glm::mat4& view_projection);
 

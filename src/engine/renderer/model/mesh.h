@@ -45,6 +45,7 @@ private:
 
   uint32_t material_index_{0};
 
+  // Vertex layout: VertexData + smoothed normal (TexCoord1) for outlines
   static bgfx::VertexLayout layout_;
   static void EnsureLayout();
 };

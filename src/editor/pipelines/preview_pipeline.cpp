@@ -197,6 +197,11 @@ void PreviewPipeline::Render() {
         Light::ApplyUniforms();
 
         mesh->Bind();
+
+        auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
+        bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
+                         graphics->GetWhiteTexture());
+
         bgfx::setState(BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW);
         bgfx::submit(view_id, preview_program_);
       }

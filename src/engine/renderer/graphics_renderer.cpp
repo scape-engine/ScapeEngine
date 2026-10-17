@@ -73,6 +73,14 @@ bool GraphicsRenderer::InitBgfx() {
   u_meshColor = bgfx::createUniform("u_meshColor", bgfx::UniformType::Vec4);
   u_albedoMap = bgfx::createUniform("u_AlbedoMap",  // must match fs_gltf.sc
                                     bgfx::UniformType::Vec4);
+  u_outlineParams =
+      bgfx::createUniform("u_outlineParams", bgfx::UniformType::Vec4);
+  // fs_gltf samples s_albedo at stage 0: Metal requires a texture bound there
+  s_albedo = bgfx::createUniform("s_albedo", bgfx::UniformType::Sampler);
+  const uint32_t white = 0xffffffff;
+  white_texture_ =
+      bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
+                            bgfx::copy(&white, sizeof(white)));
 
   ConfigureViews();
 
@@ -130,6 +138,18 @@ void GraphicsRenderer::PrepareFrame() {
   if (fbw > 1 && fbh > 1 && (too_small || too_big))
     CreateFramebuffers(static_cast<uint16_t>(round_up(fbw)),
                        static_cast<uint16_t>(round_up(fbh)));
+
+  // ! bgfx (Metal) only clears via the render pass when the view rect covers
+  // the whole framebuffer. Scene views use a sub-rect, so their clear quad
+  // leaves the stencil untouched and selection stencil piles up across frames.
+  if (bgfx::isValid(scene_framebuffer_)) {
+    bgfx::setViewRect(ViewID::SCENE_CLEAR, 0, 0,
+                      static_cast<uint16_t>(last_framebuffer_width_),
+                      static_cast<uint16_t>(last_framebuffer_height_));
+    bgfx::setViewFrameBuffer(ViewID::SCENE_CLEAR, scene_framebuffer_);
+    bgfx::setViewClear(ViewID::SCENE_CLEAR, BGFX_CLEAR_STENCIL, 0, 1.0f, 0);
+    bgfx::touch(ViewID::SCENE_CLEAR);
+  }
 
   // No clear here: SCENE_FORWARD clears the scene framebuffer itself.
   // (A clear on SCENE_SKYBOX would run *after* SCENE_FORWARD and wipe it.)
@@ -241,9 +261,9 @@ void GraphicsRenderer::CreateFramebuffers(uint16_t w, uint16_t h) {
       bgfx::createFrameBuffer(BX_COUNTOF(attachments), attachments,
                               true);  // true = destroy attachments with FBO
 
-  if (bgfx::isValid(new_fbh) &&
-      new_fbh.idx !=
-          0) {  // Explicitly check for non-zero handle for off-screen FBO
+  // Handle 0 is a valid bgfx framebuffer (the backbuffer is
+  // BGFX_INVALID_HANDLE), so only validity is checked
+  if (bgfx::isValid(new_fbh)) {
     snprintf(log_buffer, sizeof(log_buffer),
              "SUCCESS: Created new_framebuffer. Handle: %u, ColorTex: %u, "
              "DepthTex: %u",
@@ -333,6 +353,15 @@ void GraphicsRenderer::Destroy() {
 
   if (bgfx::isValid(u_albedoMap))
     bgfx::destroy(u_albedoMap);
+
+  if (bgfx::isValid(u_outlineParams))
+    bgfx::destroy(u_outlineParams);
+
+  if (bgfx::isValid(s_albedo))
+    bgfx::destroy(s_albedo);
+
+  if (bgfx::isValid(white_texture_))
+    bgfx::destroy(white_texture_);
 
   // 3. Clear ImGui texture ID before shutdown
   scene_tex_id_ = 0;

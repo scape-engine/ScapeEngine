@@ -76,6 +76,11 @@ public:
   bgfx::UniformHandle GetViewPosUniform() const { return u_viewPos; }
   bgfx::UniformHandle GetMeshColorUniform() const { return u_meshColor; }
   bgfx::UniformHandle GetAlbedoUniform() const { return u_albedoMap; }
+  bgfx::UniformHandle GetOutlineParamsUniform() const {
+    return u_outlineParams;
+  }
+  bgfx::UniformHandle GetAlbedoSamplerUniform() const { return s_albedo; }
+  bgfx::TextureHandle GetWhiteTexture() const { return white_texture_; }
 
 private:
   SDL_Window* window_;
@@ -103,7 +108,9 @@ private:
   bgfx::UniformHandle u_viewPos = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_meshColor = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_albedoMap = BGFX_INVALID_HANDLE;
-
+  bgfx::UniformHandle u_outlineParams = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle s_albedo = BGFX_INVALID_HANDLE;
+  bgfx::TextureHandle white_texture_ = BGFX_INVALID_HANDLE;
   // ! Track uniforms (not used yet)
   std::unordered_map<std::string, bgfx::UniformHandle> uniform_registry_;
 

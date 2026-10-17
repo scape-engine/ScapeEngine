@@ -1,7 +1,7 @@
-
 #include "common.sh"
 
-void main() {
-      gl_FragColor = vec4(0.95, 0.6, 0.0, 1.0);
-}
+uniform vec4 u_meshColor;  // outline color
 
+void main() {
+      gl_FragColor = u_meshColor;
+}

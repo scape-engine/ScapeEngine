@@ -117,12 +117,12 @@ void SceneViewPipeline::RegisterNodes() {
                              RenderForwardNode(context);
                            }});
 
-  // Node 3: Selection outline (reads depth from forward pass)
+  // Node 3: Selected entities and their outline
   frame_graph.AddNode(Node{.name = "selection_outline",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
                            .execute = [this](const Node::Context& context) {
-                             if (show_gizmos_ && !selected_entities_.empty()) {
+                             if (!selected_entities_.empty()) {
                                RenderSelectionOutlineNode(context);
                              }
                            }});
@@ -177,8 +177,7 @@ void SceneViewPipeline::RenderReflectionNode(const Node::Context& context) {
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(camera_component, projMatrix,
-                                  CanvasAspect());
+  CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
 
   // Build reflected view (Y-plane mirror)
   float reflect[16];
@@ -231,8 +230,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(camera_component, projMatrix,
-                                  CanvasAspect());
+  CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
 
   /* Logger::getInstance().Log(
       LogLevel::Debug, "BGFX view[0]: " + std::to_string(viewMatrix[0]) + ", " +
@@ -359,56 +357,14 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
                      glm::value_ptr(light_space));
   }
 
-  // Render all scene meshes (selected ones too; the selection node only adds
-  // the outline on top)
+  // Render each entity except selected ones (rendered with outline in the
+  // selection node)
   for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
-    if (!renderer_comp.enabled_ || !renderer_comp.mesh_)
+    if (std::find(selected_entities_.begin(), selected_entities_.end(),
+                  entity) != selected_entities_.end())
       continue;
 
-    // Textures are per-draw in bgfx
-    if (render_shadows_)
-      bgfx::setTexture(4, shadow_map.GetSamplerUniform(),
-                       shadow_map.GetTexture());
-
-    // Submit mesh
-    bgfx::setTransform(glm::value_ptr(transform.model_));
-    renderer_comp.mesh_->Bind();
-
-    // Set material uniforms via material registry
-    const Content::MaterialData* mat =
-        Renderer::MaterialRegistry::Instance().Get(renderer_comp.material_);
-
-    float has_albedo[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-
-    if (mat && !mat->albedo_map.empty()) {
-      // ! texture upload not yet implemented - placeholder
-      // bgfx::setTexture(0, s_albedo_sampler, albedo_texture_handle);
-      // has_albedo[0] = 1.0f;
-    }
-
-    bgfx::setUniform(renderer->GetAlbedoUniform(), has_albedo);
-
-    if (mat) {
-      float mesh_color[4] = {mat->base_color.r, mat->base_color.g,
-                             mat->base_color.b, mat->base_color.a};
-      bgfx::setUniform(renderer->GetMeshColorUniform(), mesh_color);
-    } else {
-      // Fallback gray material
-      float default_color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-      bgfx::setUniform(renderer->GetMeshColorUniform(), default_color);
-    }
-
-    // Set culling/state
-    // ? Create a method for handling render states?
-    uint64_t render_state = BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW;
-
-    // Enable wireframe
-    if (wireframe_) {
-      render_state |= BGFX_STATE_PT_LINES;
-    }
-
-    bgfx::setState(render_state);
-    bgfx::submit(ViewID::SCENE_FORWARD, default_program_);
+    RenderMesh(transform, renderer_comp);
   }
 
   // Render skybox (after opaque meshes so depth test rejects covered pixels)
@@ -439,9 +395,6 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
 
 void SceneViewPipeline::RenderSelectionOutlineNode(
     const Node::Context& context) {
-  if (wireframe_)
-    return;  // No outline in wireframe mode
-
   // Get Camera
   TransformComponent& camera_transform = std::get<0>(god_camera_);
   CameraComponent& camera_component = std::get<1>(god_camera_);
@@ -449,25 +402,25 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(camera_component, projMatrix,
-                                  CanvasAspect());
-
-  // Build view_projection matrix
-  glm::mat4 view = glm::make_mat4(viewMatrix);
-  glm::mat4 projection = glm::make_mat4(projMatrix);
-  glm::mat4 view_projection = projection * view;
+  CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
 
   bgfx::setViewTransform(ViewID::SCENE_FORWARD, viewMatrix, projMatrix);
 
-  // Render outline for each selected entity (base mesh is drawn by the
-  // forward node; RenderSelectedEntityOutline handles enabled/mesh checks)
-  auto& world = ECS::Main();
+  // Render every selected entity and write to stencil first, so one mesh's
+  // outline never covers another selected mesh
   for (auto selection : selected_entities_) {
-    if (selection == entt::null || !world.Has<MeshRendererComponent>(selection))
-      continue;
-
     EntityContainer container(selection);
-    RenderSelectedEntityOutline(&container, view_projection);
+    RenderSelectedEntity(&container);
+  }
+
+  // Don't render outlines if wireframe is enabled
+  if (wireframe_)
+    return;
+
+  // Render outlines around the whole selection
+  for (auto selection : selected_entities_) {
+    EntityContainer container(selection);
+    RenderSelectedEntityOutline(&container);
   }
 }
 
@@ -544,11 +497,24 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
   }
 }
 
-void SceneViewPipeline::RenderSelectedEntityOutline(
-    EntityContainer* entity, const glm::mat4& view_projection) {
+void SceneViewPipeline::RenderSelectedEntity(EntityContainer* entity) {
   // Render selected entity gizmos if needed
   // TODO: if (gizmos) ComponentGizmos::drawEntityGizmos(*gizmos, *entity);
 
+  // Make sure selected entity is renderable
+  if (!entity || !entity->Has<MeshRendererComponent>())
+    return;
+
+  // Render the selected entity and write to stencil
+  // Always pass, write 1 to stencil buffer
+  bgfx::setStencil(
+      BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) |
+      BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_REPLACE |
+      BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE);
+  RenderMesh(entity->Transform(), entity->Get<MeshRendererComponent>());
+}
+
+void SceneViewPipeline::RenderSelectedEntityOutline(EntityContainer* entity) {
   // Make sure selected entity is renderable
   if (!entity || !entity->Has<MeshRendererComponent>())
     return;
@@ -565,52 +531,94 @@ void SceneViewPipeline::RenderSelectedEntityOutline(
   if (!renderer.mesh_)
     return;
 
-  // Outline = world matrix scaled up slightly in local space (works for
-  // parented entities, unlike rebuilding from local TRS)
-  TransformComponent outline_transform = transform;
-  const float thickness = 0.02f;
-  outline_transform.model_ =
-      transform.model_ *
-      glm::scale(glm::mat4(1.0f), glm::vec3(1.0f + thickness));
+  auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
-  // Get camera transform
-  TransformComponent& cameraTransform = std::get<0>(god_camera_);
+  // Outline settings
+  const float thickness = 3.0f;  // framebuffer pixels
+  const float outline_params[4] = {thickness, 0.0f, 0.0f, 0.0f};
+  const float outline_color[4] = {0.95f, 0.6f, 0.0f, 1.0f};
+  bgfx::setUniform(graphics->GetOutlineParamsUniform(), outline_params);
+  bgfx::setUniform(graphics->GetMeshColorUniform(), outline_color);
 
-  // Render the selected entity and write to stencil
-  // TODO: Set BGFX stencil state for outline rendering
-
-  // Forward render entity's base mesh
-  // TODO: Set shader uniforms (mvp, model, normal)
-  // TODO: should use Shader and Material systems once implemented
-  bgfx::setStencil(
-      BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) |
-      BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_REPLACE |
-      BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE);
-  bgfx::setTransform(glm::value_ptr(transform.model_));
-  renderer.mesh_->Bind();
-  bgfx::setState(BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW);
-  bgfx::submit(ViewID::SCENE_FORWARD, default_program_);
-
-  // Render outline of selected entity
-  // TODO: Set BGFX stencil state for outline rendering
-  // TODO: Enable blending for outline
-
-  // Transform::UpdateMVP(outline_transform, view_projection);
-
-  // Render mesh as outline
-  // TODO: should use Shader and Material systems once implemented?
-  // TODO: Use stencil test to only draw outline edges
+  // Render mesh as outline: vs_selection pushes vertices out along their
+  // normals by a fixed pixel width, so the mesh keeps its own transform
+  // Pass if stencil value is NOT 1, no stencil writes
   bgfx::setStencil(BGFX_STENCIL_TEST_NOTEQUAL | BGFX_STENCIL_FUNC_REF(1) |
                    BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_KEEP |
                    BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP);
-  bgfx::setTransform(glm::value_ptr(outline_transform.model_));
+  bgfx::setTransform(glm::value_ptr(transform.model_));
   renderer.mesh_->Bind();
 
+  // Pass depth test if less or equal, with blending
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                 BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_CULL_CW);
-
+                 BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_CULL_CW |
+                 BGFX_STATE_BLEND_ALPHA);
   bgfx::submit(ViewID::SCENE_FORWARD, selection_program_);
-  // TODO: Reset BGFX blend and stencil state if needed
+}
+
+void SceneViewPipeline::RenderMesh(TransformComponent& transform,
+                                   MeshRendererComponent& renderer) {
+  // Transform model must have been evaluated beforehand
+
+  // Renderer must be enabled
+  if (!renderer.enabled_)
+    return;
+
+  // Make sure mesh is available
+  if (!renderer.mesh_)
+    return;
+
+  auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
+
+  // Textures are per-draw in bgfx
+  if (render_shadows_) {
+    auto& shadow_map = Runtime::MainShadowMap();
+    bgfx::setTexture(4, shadow_map.GetSamplerUniform(),
+                     shadow_map.GetTexture());
+  }
+
+  // Set material uniforms via material registry
+  const Content::MaterialData* mat =
+      Renderer::MaterialRegistry::Instance().Get(renderer.material_);
+
+  float has_albedo[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+
+  if (mat && !mat->albedo_map.empty()) {
+    // ! texture upload not yet implemented - placeholder
+    // bgfx::setTexture(0, s_albedo_sampler, albedo_texture_handle);
+    // has_albedo[0] = 1.0f;
+  }
+
+  bgfx::setUniform(graphics->GetAlbedoUniform(), has_albedo);
+
+  if (mat) {
+    float mesh_color[4] = {mat->base_color.r, mat->base_color.g,
+                           mat->base_color.b, mat->base_color.a};
+    bgfx::setUniform(graphics->GetMeshColorUniform(), mesh_color);
+  } else {
+    // Fallback gray material
+    float default_color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
+    bgfx::setUniform(graphics->GetMeshColorUniform(), default_color);
+  }
+
+  // Bind mesh
+  bgfx::setTransform(glm::value_ptr(transform.model_));
+  renderer.mesh_->Bind();
+
+  // Set culling/state
+  uint64_t render_state = BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW;
+
+  // Enable wireframe
+  if (wireframe_) {
+    render_state |= BGFX_STATE_PT_LINES;
+  }
+
+  bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
+                   graphics->GetWhiteTexture());
+
+  // Render mesh
+  bgfx::setState(render_state);
+  bgfx::submit(ViewID::SCENE_FORWARD, default_program_);
 }
 
 void SceneViewPipeline::BuildReferenceGrid(const glm::mat4& view_projection) {
@@ -642,8 +650,7 @@ void SceneViewPipeline::RenderGizmosNode(const Node::Context& context) {
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(camera_component, projMatrix,
-                                  CanvasAspect());
+  CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
 
   // Setup BGFX view for gizmo rendering
   bgfx::setViewTransform(ViewID::SCENE_FORWARD, viewMatrix, projMatrix);
@@ -796,6 +803,29 @@ void SceneViewPipeline::DestroyPasses() {
   scene_view_forward_pass_.Destroy();
   // make frame graph destory passes?
 }*/
+
+void SceneViewPipeline::SetSelectedEntities(
+    const std::vector<Entity>& entities) {
+  auto& world = ECS::Main();
+  selected_entities_.clear();
+
+  // Collect selected entities and all of their descendants
+  std::vector<Entity> stack = entities;
+  while (!stack.empty()) {
+    Entity entity = stack.back();
+    stack.pop_back();
+
+    if (entity == entt::null || !world.Reg().valid(entity))
+      continue;
+
+    selected_entities_.push_back(entity);
+
+    if (world.Has<TransformComponent>(entity)) {
+      for (Entity child : world.Get<TransformComponent>(entity).children_)
+        stack.push_back(child);
+    }
+  }
+}
 
 Camera& SceneViewPipeline::GetGodCamera() {
   return god_camera_;

@@ -1,9 +1,44 @@
 #include "mesh.h"
 
 #include <cstring>
+#include <unordered_map>
+
+#ifndef GLM_ENABLE_EXPERIMENTAL
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
+#include <glm/gtx/hash.hpp>
+
 #include "engine/core/logger.h"
 
 bgfx::VertexLayout Mesh::layout_;
+
+// GPU vertex: source vertex + smoothed normal for outline extrusion
+struct MeshVertex {
+  Geometry::VertexData vertex;
+  glm::vec3 smooth_normal;
+};
+
+// Averages the normals of all vertices sharing a position, so vertices split
+// at hard edges and UV seams get one shared normal. Extruding along these keeps
+// outlines closed. (Smooth mesh outlines, solution 2: duplicates are merged by
+// position and the smoothed normal is stored in an extra vertex channel)
+static std::vector<MeshVertex> BuildVertices(const Geometry::MeshData& src) {
+  std::unordered_map<glm::vec3, glm::vec3> normal_sums;
+  normal_sums.reserve(src.vertices.size());
+  for (const auto& vertex : src.vertices)
+    normal_sums[vertex.position] += vertex.normal;
+
+  std::vector<MeshVertex> vertices;
+  vertices.reserve(src.vertices.size());
+  for (const auto& vertex : src.vertices) {
+    const glm::vec3& sum = normal_sums[vertex.position];
+    // Opposing normals (e.g. double-sided planes) cancel out: keep the own one
+    vertices.push_back(
+        {vertex, glm::length(sum) > 0.0001f ? glm::normalize(sum)
+                                            : vertex.normal});
+  }
+  return vertices;
+}
 
 void Mesh::EnsureLayout() {
   if (layout_.getStride() != 0)
@@ -16,19 +51,19 @@ void Mesh::EnsureLayout() {
       .add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float)
       .add(bgfx::Attrib::Tangent, 3, bgfx::AttribType::Float)
       .add(bgfx::Attrib::Bitangent, 3, bgfx::AttribType::Float)
+      .add(bgfx::Attrib::TexCoord1, 3, bgfx::AttribType::Float)  // smoothed
       .end();
 }
 
 Mesh::Mesh(const Geometry::MeshData& src) {
   EnsureLayout();
 
-  static_assert(
-      sizeof(Geometry::VertexData) == (3 + 3 + 2 + 3 + 3) * sizeof(float),
-      "VertexData has unexpected padding");
+  static_assert(sizeof(MeshVertex) == (3 + 3 + 2 + 3 + 3 + 3) * sizeof(float),
+                "MeshVertex has unexpected padding");
 
-  // VertexData is already interleaved — pass directly to bgfx
-  const bgfx::Memory* vmem = bgfx::copy(
-      src.vertices.data(), sizeof(Geometry::VertexData) * src.vertices.size());
+  const std::vector<MeshVertex> vertices = BuildVertices(src);
+  const bgfx::Memory* vmem =
+      bgfx::copy(vertices.data(), sizeof(MeshVertex) * vertices.size());
   vbo_ = bgfx::createVertexBuffer(vmem, layout_);
 
   const bgfx::Memory* imem =

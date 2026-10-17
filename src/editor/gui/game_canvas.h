@@ -276,8 +276,16 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                 if (!mesh)
                   continue;
 
+                // Single mesh: keep it on the root so selecting the model
+                // selects (and outlines) the mesh. Multiple meshes: one child
+                // entity each, since an entity can only hold one MeshRenderer
+                Entity mesh_entity = entity;
+                if (model->NLoadedMeshes() > 1)
+                  mesh_entity = std::get<0>(
+                      world.CreateEntity("Mesh " + std::to_string(i), entity));
+
                 MeshRendererComponent& mr =
-                    world.Add<MeshRendererComponent>(entity);
+                    world.Add<MeshRendererComponent>(mesh_entity);
                 mr.mesh_ = mesh;
                 mr.enabled_ = true;
 
