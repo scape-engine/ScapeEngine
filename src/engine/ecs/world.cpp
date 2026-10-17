@@ -17,70 +17,13 @@ ECS& ECS::Main() {
 }
 
 /* ───────── constructor ───────── */
-ECS::ECS() : registry_(), id_counter_(0), render_queue_() {
-  // Register mesh renderer events
-  registry_.on_construct<MeshRendererComponent>()
-      .connect<&ECS::InsertMeshRenderer>(this);
-  registry_.on_destroy<MeshRendererComponent>()
-      .connect<&ECS::PurgeMeshRenderer>(this);
-}
+// The render queue used to be a vector of component references rebuilt on
+// every MeshRenderer add/remove: O(n^2) on load, and references dangled when
+// entt swap-and-popped storage. GetRenderQueue() is now a live view.
+ECS::ECS() : registry_(), id_counter_(0) {}
 
 uint32_t ECS::GetId() {
   return ++id_counter_;
-}
-
-/* ---------- render queue ---------- */
-void ECS::InsertMeshRenderer(Entity target) {
-  // gather
-  std::vector<Entity> targets;
-  View<MeshRendererComponent>().each(
-      [&](auto e, const auto&) { targets.push_back(e); });
-
-  // sort by shader-id then material-id
-  // TODO: Use once Shader and Material are implemented
-  /* std::sort(targets.begin(), targets.end(), [&](auto lhs, auto rhs) {
-    auto& lmr = Get<MeshRendererComponent>(lhs);
-    auto& rmr = Get<MeshRendererComponent>(rhs);
-    auto ls = lmr.material ? lmr.material->GetShaderId() : -1;
-    auto rs = rmr.material ? rmr.material->GetShaderId() : -1;
-    if (ls != rs)
-      return ls < rs;
-    auto lm = lmr.material ? lmr.material->GetId() : -1;
-    auto rm = rmr.material ? rmr.material->GetId() : -1;
-    return lm < rm;
-  });*/
-
-  // rebuild queue
-  render_queue_.clear();
-  for (auto e : targets)
-    render_queue_.emplace_back(e, Get<TransformComponent>(e),
-                               Get<MeshRendererComponent>(e));
-}
-
-void ECS::PurgeMeshRenderer(Entity target) {
-  std::vector<Entity> targets;
-  View<MeshRendererComponent>().each([&](auto e, const auto&) {
-    if (e != target)
-      targets.push_back(e);
-  });
-
-  // TODO: Use once Shader and Material are implemented
-  /* std::sort(targets.begin(), targets.end(), [&](auto lhs, auto rhs) {
-    auto& lmr = Get<MeshRendererComponent>(lhs);
-    auto& rmr = Get<MeshRendererComponent>(rhs);
-    auto ls = lmr.material ? lmr.material->GetShaderId() : -1;
-    auto rs = rmr.material ? rmr.material->GetShaderId() : -1;
-    if (ls != rs)
-      return ls < rs;
-    auto lm = lmr.material ? lmr.material->GetId() : -1;
-    auto rm = rmr.material ? rmr.material->GetId() : -1;
-    return lm < rm;
-  });*/
-
-  render_queue_.clear();
-  for (auto e : targets)
-    render_queue_.emplace_back(e, Get<TransformComponent>(e),
-                               Get<MeshRendererComponent>(e));
 }
 
 /* ---------- entity creation ---------- */

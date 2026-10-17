@@ -30,7 +30,12 @@ void ModelViewer::Render() {
     Init();
 
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
-  ImGui::Begin("Model View", nullptr, EditorFlag::standard);
+  if (!ImGui::Begin("Model View", nullptr, EditorFlag::standard)) {
+    // Hidden tab/collapsed: no UI, no preview render
+    ImGui::End();
+    ImGui::PopStyleVar();
+    return;
+  }
 
   RenderViewport();
 

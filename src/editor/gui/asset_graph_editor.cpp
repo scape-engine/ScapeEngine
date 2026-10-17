@@ -302,7 +302,12 @@ void AssetGraphEditor::SaveGraph(const std::string& filepath) {
 
 void AssetGraphEditor::Render() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  ImGui::Begin("Asset Graph", nullptr);
+  if (!ImGui::Begin("Asset Graph", nullptr)) {
+    // Hidden tab/collapsed: skip the node editor entirely
+    ImGui::End();
+    ImGui::PopStyleVar();
+    return;
+  }
 
   // Toolbar area
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));

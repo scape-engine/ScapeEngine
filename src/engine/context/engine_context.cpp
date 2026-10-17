@@ -125,6 +125,14 @@ void Destroy() {
   resource_manager_.reset();
   input_device_instance_.reset();
   shader_manager_instance_.reset();
+
+  // Release renderer GPU handles
+  // ! No bgfx::shutdown() yet: static objects holding GPU handles (e.g. the
+  // ! asset_cache in game_canvas.h, icon textures) are destroyed during
+  // ! std::exit, after this, and would call bgfx::destroy on a dead context.
+  // ! Move those into owned objects first, then add bgfx::shutdown() here.
+  if (graphics_renderer_instance_)
+    graphics_renderer_instance_->Destroy();
   graphics_renderer_instance_.reset();
 
   SoundManager::Instance().terminate();

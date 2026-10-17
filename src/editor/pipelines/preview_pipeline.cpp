@@ -1,5 +1,6 @@
 #include "preview_pipeline.h"
 
+#include <cstdint>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "editor/runtime/runtime.h"
@@ -206,6 +207,15 @@ void PreviewPipeline::Render() {
 }
 
 size_t PreviewPipeline::CreateOutput() {
+  // Out of view IDs: fail instead of overlapping other passes' views.
+  // Every PreviewPipeline accessor bounds-checks the returned index.
+  if (ViewID::PREVIEW_PASS_BASE + s_global_preview_view_offset >
+      ViewID::PREVIEW_PASS_MAX) {
+    Logger::getInstance().Log(LogLevel::Error,
+                              "PreviewPipeline: Exceeded maximum View IDs!");
+    return SIZE_MAX;
+  }
+
   PreviewOutput output;
   output.width = 250;
   output.height = 250;
@@ -231,10 +241,6 @@ size_t PreviewPipeline::CreateOutput() {
   }
 
   output.view_id = ViewID::PREVIEW_PASS_BASE + s_global_preview_view_offset++;
-  if (output.view_id > ViewID::PREVIEW_PASS_MAX) {
-    Logger::getInstance().Log(LogLevel::Error,
-                              "PreviewPipeline: Exceeded maximum View IDs!");
-  }
 
   outputs_.push_back(output);
   return outputs_.size() - 1;

@@ -15,8 +15,6 @@
 
 using Entity = entt::entity;
 using Registry = entt::registry;
-using RenderQueue = std::vector<
-    std::tuple<Entity, TransformComponent&, MeshRendererComponent&>>;
 using Camera = std::tuple<TransformComponent&, CameraComponent&>;
 
 class ECS {
@@ -37,7 +35,12 @@ public:
 
   /* ---------- queries ---------- */
   std::optional<Camera> GetActiveCamera();
-  const RenderQueue& GetRenderQueue() const { return render_queue_; }
+  // Iterable of (Entity, TransformComponent&, MeshRendererComponent&).
+  // Bind by value: for (auto [e, transform, renderer] : GetRenderQueue())
+  // TODO: sort by shader/material once those systems exist
+  auto GetRenderQueue() {
+    return registry_.view<TransformComponent, MeshRendererComponent>().each();
+  }
 
   /* ---------- per-frame ---------- */
   void UpdateTransforms();
@@ -79,12 +82,8 @@ public:
 private:
   Registry registry_;
   uint32_t id_counter_ = 0;
-  RenderQueue render_queue_;
 
   uint32_t GetId();
-
-  void PurgeMeshRenderer(Entity target);
-  void InsertMeshRenderer(Entity target);
 };
 
 #endif  // WORLD_H

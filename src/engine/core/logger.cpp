@@ -72,6 +72,9 @@ void Logger::Log(LogLevel level, const std::string& message) {
   if (entries_.size() > MAX_ENTRIES)
     entries_.pop_front();
 
-  logfile_ << formatted << std::endl;
-  logfile_.flush();  // Ensure the message is written to the file
+  // Flushing every line is a sync disk write under the lock; only force it
+  // for errors (the stream flushes on its own and on close)
+  logfile_ << formatted << '\n';
+  if (level == LogLevel::Error)
+    logfile_.flush();
 }

@@ -1,5 +1,7 @@
 #include "light.h"
 
+#include <algorithm>
+
 #include "engine/core/logger.h"
 
 /**************************************************************************
@@ -235,9 +237,10 @@ void SetSpotLight(int index, const glm::vec3& position,
 }
 
 void SetLightCounts(int dirCount, int pointCount, int spotCount) {
-  lightCounts[0] = static_cast<float>(dirCount);
-  lightCounts[1] = static_cast<float>(pointCount);
-  lightCounts[2] = static_cast<float>(spotCount);
+  // Clamp so shaders never loop past the uniform arrays
+  lightCounts[0] = static_cast<float>(std::min(dirCount, (int)MAX_DIRECTIONAL_LIGHTS));
+  lightCounts[1] = static_cast<float>(std::min(pointCount, (int)MAX_POINT_LIGHTS));
+  lightCounts[2] = static_cast<float>(std::min(spotCount, (int)MAX_SPOT_LIGHTS));
 }
 
 void SetAmbient(const glm::vec3& color) {

@@ -136,7 +136,11 @@ void ModelPreview::Render() {
   TickGenerate();
 
   // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20.0f, 20.0f));
-  ImGui::Begin("Procedural Preview", nullptr, EditorFlag::standard);
+  if (!ImGui::Begin("Procedural Preview", nullptr, EditorFlag::standard)) {
+    // Hidden tab/collapsed: keep generating, defer thumbnail renders
+    ImGui::End();
+    return;
+  }
 
   RenderToolbar(ImGui::GetWindowDrawList());
 

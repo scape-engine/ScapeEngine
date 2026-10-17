@@ -340,6 +340,8 @@ int TERMINATE() {
 
   g_main_shadow_map.Destroy();
 
+  g_default_skybox.Destroy();
+
   Light::Destroy();
 
   EngineContext::Destroy();

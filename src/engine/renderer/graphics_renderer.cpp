@@ -59,19 +59,20 @@ bool GraphicsRenderer::InitBgfx() {
   Platform::SetupBGFXPlatformData(init, window_);
 
   init.type = bgfx::RendererType::Count;  // Auto-select backend
-  init.debug = true;
-  init.profile = true;
+  // debug/profile default to BGFX_CONFIG_DEBUG, don't force them in release
 
   if (!bgfx::init(init)) {
     Logger::getInstance().Log(LogLevel::Error, "Failed to initialize BGFX!");
     return false;
   }
 
-  // bgfx::setDebug(BGFX_DEBUG_TEXT | BGFX_DEBUG_STATS); // debug
+  // bgfx::setDebug(BGFX_DEBUG_TEXT | BGFX_DEBUG_STATS);  // debug
 
   // Create uniforms
   u_viewPos = bgfx::createUniform("u_viewPos", bgfx::UniformType::Vec4);
   u_meshColor = bgfx::createUniform("u_meshColor", bgfx::UniformType::Vec4);
+  u_albedoMap = bgfx::createUniform("u_AlbedoMap",  // must match fs_gltf.sc
+                                    bgfx::UniformType::Vec4);
 
   ConfigureViews();
 
@@ -130,11 +131,8 @@ void GraphicsRenderer::PrepareFrame() {
     CreateFramebuffers(static_cast<uint16_t>(round_up(fbw)),
                        static_cast<uint16_t>(round_up(fbh)));
 
-  // Common clear for the scene_framebuffer_ (done by the first view using it)
-  // GraphicsRenderer::PrepareFrame()
-  bgfx::setViewClear(ViewID::SCENE_SKYBOX, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-                     0x303030ff, 1.0f, 0);
-
+  // No clear here: SCENE_FORWARD clears the scene framebuffer itself.
+  // (A clear on SCENE_SKYBOX would run *after* SCENE_FORWARD and wipe it.)
   for (uint8_t vid : ViewID::kSceneViews) {
     bgfx::setViewRect(vid, 0, 0, fbw, fbh);
     bgfx::setViewFrameBuffer(vid, scene_framebuffer_);
@@ -301,22 +299,6 @@ void GraphicsRenderer::Render() {
   frame_count_++;
 }
 
-void GraphicsRenderer::ProcessEvents(bool& quit) {
-  SDL_Event event;
-  while (SDL_PollEvent(&event)) {
-    if (event.type == SDL_QUIT) {
-      quit = true;
-    }
-  }
-
-  // window size check
-  int w, h;
-  SDL_GetWindowSize(WindowManager::GetWindow(), &w, &h);
-  if (w != WindowManager::GetWidth() || h != WindowManager::GetHeight()) {
-    WindowManager::OnWindowResize(w, h);  // Will trigger the BGFX resize logic
-  }
-}
-
 void GraphicsRenderer::Destroy() {
   Logger::getInstance().Log(LogLevel::Info, "Shutting down GraphicsRenderer");
 
@@ -349,14 +331,16 @@ void GraphicsRenderer::Destroy() {
   if (bgfx::isValid(u_meshColor))
     bgfx::destroy(u_meshColor);
 
+  if (bgfx::isValid(u_albedoMap))
+    bgfx::destroy(u_albedoMap);
+
   // 3. Clear ImGui texture ID before shutdown
   scene_tex_id_ = 0;
 
   // 4. Final frame flush (optional but safe)
   bgfx::frame();
 
-  // 5. Shutdown BGFX
-  // bgfx::shutdown();
+  // 5. Shutdown BGFX: deferred, see EngineContext::Destroy()
 
   Logger::getInstance().Log(LogLevel::Info,
                             "GraphicsRenderer shutddown complete");
@@ -366,46 +350,9 @@ void GraphicsRenderer::BeginImGuiFrame() {}
 
 void GraphicsRenderer::EndImGuiFrame() {}
 
-// function to initialize shaders
-void GraphicsRenderer::CreateShaders() {
-
-  // Fullscreen quad vertices
-  struct FSVertex {
-    float x, y, z;
-    float u, v;
-  };
-
-  // use triangle strip topology
-  static FSVertex quad_vertices[] = {
-      // Triangle strip order: TL -> TR -> BL -> BR
-      {-1.0f, 1.0f, 0.0f, 0.0f, 1.0f},   // Top-left
-      {1.0f, 1.0f, 0.0f, 1.0f, 1.0f},    // Top-right
-      {-1.0f, -1.0f, 0.0f, 0.0f, 0.0f},  // Bottom-left
-      {1.0f, -1.0f, 0.0f, 1.0f, 0.0f},   // Bottom-right
-  };
-
-  // Submit as triangle strip
-  bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_MSAA |
-                 BGFX_STATE_PT_TRISTRIP);
-}
-
 // Getters for the SDL window and renderer.
 SDL_Window* GraphicsRenderer::GetWindow() const {
   return window_;
-}
-
-void GraphicsRenderer::UpdateCanvasSize(uint16_t w, uint16_t h) {
-  // Only update if significantly different or enough frames have passed since
-  // last resize
-  bool significant_change = (abs((int)w - (int)canvasViewportW) > 5 ||
-                             abs((int)h - (int)canvasViewportH) > 5);
-
-  if (significant_change ||
-      (frame_count_ - last_resize_frame_ > resize_throttle_)) {
-    canvasViewportW = w;
-    canvasViewportH = h;
-    last_resize_frame_ = frame_count_;
-  }
 }
 
 // UNIFORM METHODS

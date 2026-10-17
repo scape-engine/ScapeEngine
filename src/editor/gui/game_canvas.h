@@ -72,13 +72,6 @@ struct TransformGizmoState {
   }
 };
 
-// calculate squared distance between two vectors
-// Avoids rapid FBO recreation while resizing scene window
-inline float DistanceSqr(const ImVec2& delta) {
-  return delta.x * delta.x + delta.y * delta.y;
-}
-
-// Resize is deferred until the viewport has stabilized
 inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                        const ToolbarCallbacks& cb,
                        GodCameraState& camera_state) {
@@ -99,30 +92,10 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   canvasViewportX = static_cast<uint16_t>(pos.x * scale.x);
   canvasViewportY = static_cast<uint16_t>(pos.y * scale.y);
 
-  // Store raw size before applying
-  ImVec2 proposedSize = size;
-  ImVec2 scaledSize =
-      ImVec2(proposedSize.x * scale.x, proposedSize.y * scale.y);
-
-  canvasViewportW = static_cast<uint16_t>(scaledSize.x);
-  canvasViewportH = static_cast<uint16_t>(scaledSize.y);
-
-  // Update if dimensions have stabilized
-  static ImVec2 lastSize = ImVec2(0, 0);
-  static int stableFrames = 0;
-
-  if (DistanceSqr(ImVec2(scaledSize.x - lastSize.x,
-                         scaledSize.y - lastSize.y)) < 4.0f) {
-    stableFrames++;
-  } else {
-    stableFrames = 0;
-  }
-  lastSize = scaledSize;
-
-  if (stableFrames >= 2) {
-    canvasViewportW = static_cast<uint16_t>(scaledSize.x);
-    canvasViewportH = static_cast<uint16_t>(scaledSize.y);
-  }
+  // Apply size immediately: the scene FBO is grow-only and rounded up to
+  // 256px (GraphicsRenderer::PrepareFrame), so resizing rarely reallocates
+  canvasViewportW = static_cast<uint16_t>(size.x * scale.x);
+  canvasViewportH = static_cast<uint16_t>(size.y * scale.y);
 
   hovered = ImGui::IsWindowHovered();
   focused = ImGui::IsWindowFocused();

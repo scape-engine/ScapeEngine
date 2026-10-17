@@ -61,10 +61,13 @@ void ShadowMap::Destroy() {
   }
 
   if (bgfx::isValid(framebuffer_)) {
+    // Created with destroyTextures=true: this also destroys depth_texture_
     bgfx::destroy(framebuffer_);
     framebuffer_ = BGFX_INVALID_HANDLE;
+    depth_texture_ = BGFX_INVALID_HANDLE;
   }
 
+  // Only reached if the framebuffer was never created
   if (bgfx::isValid(depth_texture_)) {
     bgfx::destroy(depth_texture_);
     depth_texture_ = BGFX_INVALID_HANDLE;

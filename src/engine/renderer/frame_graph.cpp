@@ -72,38 +72,39 @@ void FrameGraph::Clear() {
 
 void FrameGraph::Render() {
   // Execute nodes in order
+  // Context is identical for every node (for now), build it once per frame
+  const Node::Context context{
+      .renderer = renderer_,
+      .view_id = 0,  // Will be set properly in future
+      .width = 0,    // Will be set properly in future
+      .height = 0,   // Will be set properly in future
+
+      // Lambda to get texture ID
+      .tex = [this](const std::string& name) -> uint32_t {
+        auto it = attachments_.find(name);
+        return (it != attachments_.end()) ? it->second.texture_id
+                                          : 0xFFFFFFFF;
+      },
+
+      // Lambda to get FBO ID
+      .fbo = [this](const std::string& name) -> uint32_t {
+        auto it = attachments_.find(name);
+        return (it != attachments_.end()) ? it->second.fbo_id : 0xFFFFFFFF;
+      },
+      .globals = globals_};
+
   for (Node* node : exec_order_) {
-    if (node && node->execute) {
-      // Create context for specified node
-      Node::Context context{
-          .renderer = renderer_,
-          .view_id = 0,  // Will be set properly in future
-          .width = 0,    // Will be set properly in future
-          .height = 0,   // Will be set properly in future
-
-          // Lambda to get texture ID
-          .tex = [this](const std::string& name) -> uint32_t {
-            auto it = attachments_.find(name);
-            return (it != attachments_.end()) ? it->second.texture_id
-                                              : 0xFFFFFFFF;
-          },
-
-          // Lambda to get FBO ID
-          .fbo = [this](const std::string& name) -> uint32_t {
-            auto it = attachments_.find(name);
-            return (it != attachments_.end()) ? it->second.fbo_id : 0xFFFFFFFF;
-          },
-          .globals = globals_
-        };
-
-      // Execute node
-      // context.globals = globals_;
+    if (node && node->execute)
       node->execute(context);
-    }
   }
 }
 
 void FrameGraph::Rebuild(uint16_t width, uint16_t height) {
+  // ! Sizes are only filled once: after the first Rebuild, width/height are
+  // ! non-zero, so later resizes don't update window-relative attachments.
+  // ! Harmless today (nothing reads desc.width/height). Fix when attachments
+  // ! get allocated: store a `relative` flag in AttachmentDesc and always
+  // ! overwrite those.
   // Update dimensions of attachments
   for (auto& [name, rt] : attachments_) {
     if (rt.desc.width == 0)

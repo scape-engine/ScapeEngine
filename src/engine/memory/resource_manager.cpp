@@ -16,8 +16,11 @@ ResourceManager::ResourceManager()
       context_task_(nullptr) {}
 
 ResourceManager::~ResourceManager() {
-  // Stop processor thread
-  processor_running_ = false;
+  // Stop processor thread (set under the lock so the wake-up can't be lost)
+  {
+    std::lock_guard lock(mtx_processor_);
+    processor_running_ = false;
+  }
   if (processor_.joinable()) {
     cv_next_pipe_.notify_all();  // Wake up the processor to check running flag
     processor_.join();
@@ -32,12 +35,17 @@ void ResourceManager::UpdateContext() {
   if (!context_next_)
     return;
 
-  // Execute the context thread task
-  if (context_task_) {
-    context_result_ = context_task_();
-  }
+  // The processor is blocked in cv_awaiting_context_.wait(), which released
+  // this mutex. Holding it here makes the handoff race-free.
+  std::lock_guard lock(mtx_processor_);
+  if (!context_next_)
+    return;
 
-  // Notify the pipe processor
+  // Execute the context thread task
+  context_result_ = context_task_ ? context_task_() : false;
+
+  // Clearing the flag is the wake-up condition (and stops re-running the task)
+  context_next_ = false;
   cv_awaiting_context_.notify_all();
 }
 
@@ -171,8 +179,9 @@ void ResourceManager::AsyncPipeProcessor() {
         if (task.flags & TaskFlags::UseRenderThread) {
           context_task_ = task.func;
           context_next_ = true;
-          cv_awaiting_context_.wait(lock);
-          context_next_ = false;
+          // Predicate guards against spurious and lost wake-ups
+          cv_awaiting_context_.wait(lock,
+                                    [this] { return !context_next_.load(); });
           context_task_ = nullptr;
           success = context_result_;
         } else {

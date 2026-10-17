@@ -19,6 +19,12 @@
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/transform/transform.h"
 
+// Guards against a 0-height canvas on the first frames
+static float CanvasAspect() {
+  return canvasViewportH ? float(canvasViewportW) / float(canvasViewportH)
+                         : 1.0f;
+}
+
 SceneViewPipeline::SceneViewPipeline()
     : wireframe_(false),
       show_skybox_(true),
@@ -31,7 +37,9 @@ SceneViewPipeline::SceneViewPipeline()
       god_camera_transform_(),
       god_camera_root_(),
       god_camera_(god_camera_transform_, god_camera_root_),
-      render_shadows_(true),
+      // ponytail: shadows off, the active gltf shader doesn't sample
+      // s_shadowMap; re-enable when the lit shader works
+      render_shadows_(false),
       default_program_(BGFX_INVALID_HANDLE),
       transform_system_(),
       selected_entities_(),
@@ -96,16 +104,14 @@ void SceneViewPipeline::RegisterNodes() {
       .execute = [this](const Node::Context& ctx) { RenderShadowNode(ctx); }});
 
   // Node 1: Reflection rendering (for water)
-  frame_graph.AddNode(Node{.name = "reflection",
-                           .reads = {},
-                           .writes = {"reflection"},
-                           .execute = [this](const Node::Context& context) {
-                             RenderReflectionNode(context);
-                           }});
+  // Disabled: nothing reads "reflection" until water is back, and it re-ran
+  // the full-res procedural sky every frame. RenderReflectionNode is also
+  // broken: reflect[5] must be -1.0f (it's identity now), and
+  // Skybox::Submit needs inverse view/proj, not the raw matrices.
 
   // Node 2: Forward opaque rendering
   frame_graph.AddNode(Node{.name = "forward_opaque",
-                           .reads = {"reflection", "shadow_map"},
+                           .reads = {"shadow_map"},
                            .writes = {"scene_color", "scene_depth"},
                            .execute = [this](const Node::Context& context) {
                              RenderForwardNode(context);
@@ -171,9 +177,8 @@ void SceneViewPipeline::RenderReflectionNode(const Node::Context& context) {
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(
-      camera_component, projMatrix,
-      float(canvasViewportW) / float(canvasViewportH));
+  CameraView::GetProjectionMatrix(camera_component, projMatrix,
+                                  CanvasAspect());
 
   // Build reflected view (Y-plane mirror)
   float reflect[16];
@@ -220,15 +225,14 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   view_ = Transformation::View(camera_transform.position_,
                                camera_transform.rotation_);
   projection_ = Transformation::Projection(
-      camera_component.fov_, float(canvasViewportW) / float(canvasViewportH),
-      camera_component.near_plane_, camera_component.far_plane_);
+      camera_component.fov_, CanvasAspect(), camera_component.near_plane_,
+      camera_component.far_plane_);
 
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(
-      camera_component, projMatrix,
-      float(canvasViewportW) / float(canvasViewportH));
+  CameraView::GetProjectionMatrix(camera_component, projMatrix,
+                                  CanvasAspect());
 
   /* Logger::getInstance().Log(
       LogLevel::Debug, "BGFX view[0]: " + std::to_string(viewMatrix[0]) + ", " +
@@ -248,6 +252,10 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
                      BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL,
                      wireframe_ ? 0xffffffff : 0x303030ff, 1.0f, 0);
 
+  // Submission order matters: the selection stencil write must precede the
+  // outline draw (default sort mode orders by program, not submit order)
+  bgfx::setViewMode(ViewID::SCENE_FORWARD, bgfx::ViewMode::Sequential);
+
   // Get shadows
   auto& shadow_map = Runtime::MainShadowMap();
 
@@ -260,8 +268,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   transform_system_.Perform(view_projection);
 
   // Bulk MVP update
-  const auto& render_queue = world.GetRenderQueue();
-  for (auto& [entity, transform, renderer_comp] : render_queue) {
+  for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
     Transform::UpdateMVP(transform, view_projection);
   }
 
@@ -345,28 +352,23 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   Light::SetLightCounts(dir_count, point_count, spot_count);
   Light::ApplyUniforms();
 
-  // Render all scene meshes
-  for (const auto& [entity, transform, renderer_comp] : render_queue) {
-    if (!renderer_comp.enabled_ || !renderer_comp.mesh_)
-      continue;
-
-    // Skip selected entities (rendered in selection pass)
-    bool is_selected = false;
-    for (auto selected : selected_entities_) {
-      if (selected == entity) {
-        is_selected = true;
-        break;
-      }
-    }
-    if (is_selected)
-      continue;
-
-    // Set shadow uniforms
+  // Shadow uniform is frame-constant, set once
+  if (render_shadows_) {
     glm::mat4 light_space = shadow_map.GetLightSpaceMatrix();
     bgfx::setUniform(shadow_map.GetLightMatrixUniform(),
                      glm::value_ptr(light_space));
-    bgfx::setTexture(4, shadow_map.GetSamplerUniform(),
-                     shadow_map.GetTexture());
+  }
+
+  // Render all scene meshes (selected ones too; the selection node only adds
+  // the outline on top)
+  for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
+    if (!renderer_comp.enabled_ || !renderer_comp.mesh_)
+      continue;
+
+    // Textures are per-draw in bgfx
+    if (render_shadows_)
+      bgfx::setTexture(4, shadow_map.GetSamplerUniform(),
+                       shadow_map.GetTexture());
 
     // Submit mesh
     bgfx::setTransform(glm::value_ptr(transform.model_));
@@ -409,47 +411,30 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
     bgfx::submit(ViewID::SCENE_FORWARD, default_program_);
   }
 
-  if (show_gizmos_) {
-    // Selection outline first (uses depth from the forward pass)
-    for (auto selected : selected_entities_) {
-      if (selected != entt::null &&
-          world.Has<MeshRendererComponent>(selected)) {
-        auto& mesh_renderer = world.Get<MeshRendererComponent>(selected);
-        if (!mesh_renderer.mesh_ || !mesh_renderer.enabled_)
-          continue;
-        EntityContainer container(selected);
-        RenderSelectedEntityOutline(&container, view_projection);
-      }
-      /* Entity selected_entity = EditorUI::Get()->GetSelectedEntity();
-      ComponentGizmos::DrawTransformGizmo(selected_entity, viewMatrix,
-                                          projMatrix);*/
-    }
-
-    // Render skybox
-    if (show_skybox_ && context.globals.skybox) {
-      context.globals.skybox->Submit(ViewID::SCENE_FORWARD, viewMatrix,
-                                     projMatrix,
-                                     /*useInverseViewProj=*/true);
-    }
-
-    // Terrain
-    /* if (context.globals.terrain) {
-      context.globals.terrain->Submit(ViewID::SCENE_FORWARD, viewMatrix,
-    projMatrix, camPos);
-    }*/
-
-    // TODO: make sure it uses reflection
-    // TODO: comment out code after adding water element
-    /* if (show_water_) {
-      auto* game = static_cast<GameTest*>(Runtime::Game());
-      game->RenderWater(viewMatrix, projMatrix, camPos);
-      // future: context.globals.water->SetReflectionTexture(... from
-      // context.tex("reflection") ...);
-      //         context.globals.water->Submit(ViewID::SCENE_FORWARD,
-    viewMatrix,
-      //         projMatrix, camPos);
-    }*/
+  // Render skybox (after opaque meshes so depth test rejects covered pixels)
+  if (show_skybox_ && context.globals.skybox) {
+    context.globals.skybox->Submit(ViewID::SCENE_FORWARD, viewMatrix,
+                                   projMatrix,
+                                   /*useInverseViewProj=*/true);
   }
+
+  // Terrain
+  /* if (context.globals.terrain) {
+    context.globals.terrain->Submit(ViewID::SCENE_FORWARD, viewMatrix,
+  projMatrix, camPos);
+  }*/
+
+  // TODO: make sure it uses reflection
+  // TODO: comment out code after adding water element
+  /* if (show_water_) {
+    auto* game = static_cast<GameTest*>(Runtime::Game());
+    game->RenderWater(viewMatrix, projMatrix, camPos);
+    // future: context.globals.water->SetReflectionTexture(... from
+    // context.tex("reflection") ...);
+    //         context.globals.water->Submit(ViewID::SCENE_FORWARD,
+  viewMatrix,
+    //         projMatrix, camPos);
+  }*/
 }
 
 void SceneViewPipeline::RenderSelectionOutlineNode(
@@ -464,9 +449,8 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(
-      camera_component, projMatrix,
-      float(canvasViewportW) / float(canvasViewportH));
+  CameraView::GetProjectionMatrix(camera_component, projMatrix,
+                                  CanvasAspect());
 
   // Build view_projection matrix
   glm::mat4 view = glm::make_mat4(viewMatrix);
@@ -475,36 +459,22 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
 
   bgfx::setViewTransform(ViewID::SCENE_FORWARD, viewMatrix, projMatrix);
 
-  // Render each selected entity with outline
+  // Render outline for each selected entity (base mesh is drawn by the
+  // forward node; RenderSelectedEntityOutline handles enabled/mesh checks)
   auto& world = ECS::Main();
   for (auto selection : selected_entities_) {
     if (selection == entt::null || !world.Has<MeshRendererComponent>(selection))
       continue;
 
-    auto& transform = world.Get<TransformComponent>(selection);
-    auto& renderer = world.Get<MeshRendererComponent>(selection);
-
-    if (!renderer.enabled_)
-      continue;
-
-    // Mesh must be assigned
-    if (!renderer.mesh_)
-      continue;
-
-    // Render base mesh
-    bgfx::setTransform(glm::value_ptr(transform.model_));
-    renderer.mesh_->Bind();
-
-    bgfx::setState(BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW);
-    bgfx::submit(ViewID::SCENE_FORWARD, default_program_);
-
-    // Render outline (scaled up)
     EntityContainer container(selection);
     RenderSelectedEntityOutline(&container, view_projection);
   }
 }
 
 void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
+  if (!render_shadows_)
+    return;
+
   auto& world = ECS::Main();
   auto& shadow_map = Runtime::MainShadowMap();
 
@@ -559,8 +529,7 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
   }
 
   // Render all meshes to shadow map
-  const auto& render_queue = world.GetRenderQueue();
-  for (const auto& [entity, transform, renderer_comp] : render_queue) {
+  for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
     if (!renderer_comp.enabled_ || !renderer_comp.mesh_)
       continue;
 
@@ -596,16 +565,13 @@ void SceneViewPipeline::RenderSelectedEntityOutline(
   if (!renderer.mesh_)
     return;
 
-  // Placeholder transform component for outline
+  // Outline = world matrix scaled up slightly in local space (works for
+  // parented entities, unlike rebuilding from local TRS)
   TransformComponent outline_transform = transform;
-  float thickness = 0.02f;
-  outline_transform.scale_ += glm::vec3(thickness);
-
-  // Recompute model matrix for outline
+  const float thickness = 0.02f;
   outline_transform.model_ =
-      glm::translate(glm::mat4(1.0f), outline_transform.position_) *
-      glm::mat4_cast(outline_transform.rotation_) *
-      glm::scale(glm::mat4(1.0f), outline_transform.scale_);
+      transform.model_ *
+      glm::scale(glm::mat4(1.0f), glm::vec3(1.0f + thickness));
 
   // Get camera transform
   TransformComponent& cameraTransform = std::get<0>(god_camera_);
@@ -676,9 +642,8 @@ void SceneViewPipeline::RenderGizmosNode(const Node::Context& context) {
   float viewMatrix[16];
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
-  CameraView::GetProjectionMatrix(
-      camera_component, projMatrix,
-      float(canvasViewportW) / float(canvasViewportH));
+  CameraView::GetProjectionMatrix(camera_component, projMatrix,
+                                  CanvasAspect());
 
   // Setup BGFX view for gizmo rendering
   bgfx::setViewTransform(ViewID::SCENE_FORWARD, viewMatrix, projMatrix);

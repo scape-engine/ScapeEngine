@@ -70,6 +70,7 @@ private:
   bool game_canvas_hovered_ = false;
   bool game_canvas_focused_ = false;
   bool built_layout_ = false;
+  bool text_input_off_ = true;  // WindowManager::Initialize disables it
 
   // Id counter
   uint32_t g_id_counter_;

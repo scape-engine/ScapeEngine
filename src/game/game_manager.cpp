@@ -77,8 +77,8 @@ void GameManager::Run() {
       }
       Logger::getInstance().Log(LogLevel::Debug,
                                 "Game thread entering sleep state...");
-      if (!is_terminating_ && gamestate_ == GameState::PAUSED ||
-          gamestate_ == GameState::ENDED) {
+      if (!is_terminating_ && (gamestate_ == GameState::PAUSED ||
+                               gamestate_ == GameState::ENDED)) {
         Logger::getInstance().Log(LogLevel::Debug, "Game thread Sleep");
         condition_.wait(lock, [this] {
           return is_terminating_ || (gamestate_ != GameState::ENDED &&

@@ -8,6 +8,7 @@
 #ifndef GAME_MANAGER_H
 #define GAME_MANAGER_H
 
+#include <atomic>
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -24,10 +25,11 @@ private:
   std::unique_ptr<GameBase> core_;
   std::unique_ptr<SceneManager> scene_manager_;
 
-  GameState gamestate_;
+  // Shared between the editor thread and the game thread
+  std::atomic<GameState> gamestate_;
   std::thread game_thread_;
-  uint64_t frame_count_;
-  bool is_terminating_ = false;
+  std::atomic<uint64_t> frame_count_;
+  std::atomic<bool> is_terminating_ = false;
 
   std::mutex state_mutex_;
   std::condition_variable condition_;

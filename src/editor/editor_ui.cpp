@@ -41,7 +41,7 @@
 #include <algorithm>
 
 // Window base class
-std::vector<WindowBase*> g_windows_;
+std::vector<std::unique_ptr<WindowBase>> g_windows_;
 
 EditorUI* EditorUI::s_instance_ = nullptr;
 
@@ -73,11 +73,8 @@ void EditorUI::Initialize() {
   Platform::StyleTitleBar(WindowManager::GetWindow(), bar.x, bar.y, bar.z);
 
   ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;    // Enable Docking
-  io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;  // Enable Multi-Viewport
-
-  io.ConfigViewportsNoAutoMerge = true;
-  io.ConfigViewportsNoTaskBarIcon = true;
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // Enable Docking
+  // No multi-viewport: imgui_impl_bgfx has no RendererHasViewports support
 
   // handle docking behavior
   // ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
@@ -191,11 +188,14 @@ void EditorUI::Run() {
             WindowManager::minimized = true;
             break;
 
-          case SDL_WINDOWEVENT_RESTORED:
+          case SDL_WINDOWEVENT_RESTORED: {
+            // RESTORED carries no size (data1/data2 are 0), query it
             WindowManager::minimized = false;
-            WindowManager::OnWindowResize(event.window.data1,
-                                          event.window.data2);
+            int w, h;
+            SDL_GetWindowSize(WindowManager::GetWindow(), &w, &h);
+            WindowManager::OnWindowResize(w, h);
             break;
+          }
 
           default:
             break;
@@ -241,7 +241,10 @@ void EditorUI::Run() {
     Runtime::GetFrameGraph().SetGlobalResources(
         Runtime::BuildGlobalResources());
 
-    Runtime::GetSceneViewPipeline().Render();
+    // The canvas only displays the scene while the game runs, skip the
+    // shadow/forward passes otherwise
+    if (is_game_started_)
+      Runtime::GetSceneViewPipeline().Render();
 
     RenderUI();
 
@@ -256,11 +259,7 @@ void EditorUI::Run() {
     /* 6 - Render ImGui elements */
     ImGui_Implbgfx_RenderDrawLists(ImGui::GetDrawData());  // main window UI
 
-    /* 7 - Handle multi-viewport (detached windows) */
-    ImGui::UpdatePlatformWindows();
-    ImGui::RenderPlatformWindowsDefault();
-
-    /* 8 - Submit frame to display */
+    /* 7 - Submit frame to display */
     renderer_->Render();  // finalize rendering
     bgfx::frame();        // submit to GPU and swap buffers
   }
@@ -271,6 +270,8 @@ void EditorUI::RequestUpdate() {}
 
 void EditorUI::Destroy() {
   Logger::getInstance().Log(LogLevel::Info, "Shutting down EditorUI");
+  // Window destructors release bgfx/ImGui resources: run them while both live
+  g_windows_.clear();
   ImGui_Implbgfx_Shutdown();
   ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();
@@ -529,7 +530,7 @@ void EditorUI::RenderUI() {
   // -------- Render all registered WindowBase windows --------
   // This automatically renders HierarchyPanel, InspectorPanel,
   // PCGGraphEditorPanel
-  for (auto* window : g_windows_) {
+  for (auto& window : g_windows_) {
     window->Render();
   }
 
@@ -566,11 +567,11 @@ void EditorUI::UpdateMovement() {
   GodCameraFrameInput input{};
   input.scene_hovered = game_canvas_hovered_;
 
-  // Enable/disable text input
-  if (input.scene_hovered) {
-    Platform::DisableTextInput();
-  } else {
-    Platform::EnableTextInput();
+  // Enable/disable text input only on change (each call hits Cocoa IME)
+  if (input.scene_hovered != text_input_off_) {
+    text_input_off_ = input.scene_hovered;
+    text_input_off_ ? Platform::DisableTextInput()
+                    : Platform::EnableTextInput();
   }
 
   input.right_mouse =
@@ -631,7 +632,8 @@ template <typename T, typename... Args>
 T* EditorUI::_AddWindow(Args&&... args) {
   static_assert(std::is_base_of<WindowBase, T>::value,
                 "Only classes deriving from WindowBase can be added!");
-  T* window = new T(std::forward<Args>(args)...);
-  g_windows_.emplace_back(window);
-  return window;
+  auto window = std::make_unique<T>(std::forward<Args>(args)...);
+  T* raw = window.get();
+  g_windows_.emplace_back(std::move(window));
+  return raw;
 }

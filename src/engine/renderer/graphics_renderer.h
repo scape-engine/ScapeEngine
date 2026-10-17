@@ -29,15 +29,9 @@ public:
   void EndImGuiFrame();
   void CreateFramebuffers(uint16_t w, uint16_t h);
   void OnResize(uint16_t w, uint16_t h);
-  void UpdateCanvasSize(uint16_t w, uint16_t h);
 
   // Called after drawing to present the frame.
   void Render() override;
-
-  // Processes SDL events, including quitting – called from the Editor loop.
-  void ProcessEvents(bool& quit);
-
-  void CreateShaders();
 
   void Destroy() override;
 
@@ -93,8 +87,6 @@ private:
   // bgfx::TextureHandle scene_color_texture_;
   int last_framebuffer_width_ = -1;
   int last_framebuffer_height_ = -1;
-  uint32_t last_resize_frame_ = 0;
-  const uint32_t resize_throttle_ = 5;
 
   // game FBO
   bgfx::FrameBufferHandle scene_framebuffer_ = BGFX_INVALID_HANDLE;
@@ -106,11 +98,11 @@ private:
   bgfx::TextureHandle reflection_color_tex_ = BGFX_INVALID_HANDLE;
 
   // Uniform handles
-  bgfx::UniformHandle sunDirUniform_;
-  bgfx::UniformHandle sunLumUniform_;
-  bgfx::UniformHandle u_viewPos;
-  bgfx::UniformHandle u_meshColor;
-  bgfx::UniformHandle u_albedoMap;
+  bgfx::UniformHandle sunDirUniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sunLumUniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle u_viewPos = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle u_meshColor = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle u_albedoMap = BGFX_INVALID_HANDLE;
 
   // ! Track uniforms (not used yet)
   std::unordered_map<std::string, bgfx::UniformHandle> uniform_registry_;
