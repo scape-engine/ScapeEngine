@@ -8,7 +8,8 @@
 #include "editor/gui/styles/editor_styles.h"
 
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
-namespace Panels {
+
+namespace Viewport {
 struct ToolbarCallbacks {
   std::function<void()> onStart;
   std::function<void()> onStop;
@@ -54,6 +55,6 @@ inline void Toolbar(const ToolbarCallbacks& cb) {
 
   IMComponents::EndOverlay();
 }
-}  // namespace Panels
+}  // namespace Viewport
 
 #endif  // TOOLBAR_H

@@ -36,6 +36,7 @@ add_headerfiles(
 	"gui/inspectables/*.h",
 	"gui/utils/*.h",
 	"gui/search/*.h",
+	"gui/viewport/*.h",
 	"gui/modals/*.h",
 	"gui/components/*.h",
 	"gui/styles/*.h",

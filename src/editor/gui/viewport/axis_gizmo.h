@@ -10,13 +10,13 @@
 #include "editor/camera/god_camera.h"
 #include "editor/gui/styles/editor_styles.h"
 
-namespace Panels {
+namespace Viewport {
 
 // Blender-style navigation gizmo: shows world axes as seen by the camera,
 // click a ball to look along that axis
-inline void ViewAxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
-                          GodCameraState& camera_state,
-                          TransformComponent& camera) {
+inline void AxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
+                      GodCameraState& camera_state,
+                      TransformComponent& camera) {
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   const glm::mat3 rotation = glm::mat3(view);  // world -> camera
   const float ball_r = std::floor(radius * 0.24f);
@@ -92,6 +92,6 @@ inline void ViewAxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
   }
 }
 
-}  // namespace Panels
+}  // namespace Viewport
 
 #endif  // AXIS_GIZMO_H

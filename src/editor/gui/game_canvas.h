@@ -8,9 +8,9 @@
 #include <imgui.h>
 #include <algorithm>
 
-#include "editor/gui/axis_gizmo.h"
 #include "editor/gui/styles/editor_styles.h"
-#include "editor/gui/toolbar.h"
+#include "editor/gui/viewport/axis_gizmo.h"
+#include "editor/gui/viewport/toolbar.h"
 #include "editor/runtime/runtime.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "editor/vendor/imguizmo/ImGuizmo.h"
@@ -73,7 +73,7 @@ struct TransformGizmoState {
 };
 
 inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
-                       const ToolbarCallbacks& cb,
+                       const Viewport::ToolbarCallbacks& cb,
                        GodCameraState& camera_state) {
   static TransformGizmoState gizmo_state;
 
@@ -450,15 +450,16 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                pos.y + overlay_padding.y + ImGui::GetFrameHeight() + 12.0f +
                    axis_extent);
     auto& scene_pipeline = Runtime::GetSceneViewPipeline();
-    ViewAxisGizmo(axis_center, axis_radius, scene_pipeline.GetView(),
-                  camera_state, std::get<0>(scene_pipeline.GetGodCamera()));
+    Viewport::AxisGizmo(axis_center, axis_radius, scene_pipeline.GetView(),
+                        camera_state,
+                        std::get<0>(scene_pipeline.GetGodCamera()));
   }
 
   // --- Center Tools: Play / Stop (Toolbar) ---
   static float toolbar_width = 0.0f;
   ImGui::SetCursorPos(
       ImVec2(start_cursor_pos.x + (size.x - toolbar_width) * 0.5f, overlay_y));
-  Panels::Toolbar(cb);
+  Viewport::Toolbar(cb);
   toolbar_width = ImGui::GetItemRectSize().x;
 
   ImGui::PopStyleVar(3);

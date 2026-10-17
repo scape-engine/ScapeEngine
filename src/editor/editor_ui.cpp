@@ -1,13 +1,10 @@
 #include "editor/editor_ui.h"
+
 #include "editor/events.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/runtime/runtime.h"
-#include "engine/context/engine_context.h"
-#include "engine/core/engine_globals.h"
-#include "engine/core/logger.h"
-#include "engine/core/view_ids.h"
-#include "engine/ecs/world.h"
-#include "engine/pcg/pcg_engine.h"
+#include "editor/vendor/imgui/imgui_impl_bgfx.h"
+
 #include "gui/asset_browser.h"
 #include "gui/asset_graph_editor.h"
 #include "gui/console_panel.h"
@@ -25,19 +22,26 @@
 #include "gui/status_bar.h"
 #include "gui/tab_container.h"
 #include "gui/terrain_editor_panel.h"
-#include "gui/toolbar.h"
+#include "gui/viewport/toolbar.h"
+
 #include "platform/platform_utils.h"
 #include "platform/window_manager.h"
+
 #include "resources/decorators/drop_shadows.h"
+
+#include "engine/context/engine_context.h"
+#include "engine/core/engine_globals.h"
+#include "engine/core/logger.h"
+#include "engine/core/view_ids.h"
+#include "engine/ecs/world.h"
+#include "engine/pcg/pcg_engine.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imgui_utils.h"
 
-#include <backends/imgui_impl_sdl2.h>
-#include "editor/vendor/imgui/imgui_impl_bgfx.h"
-
 #include <SDL.h>
+#include <backends/imgui_impl_sdl2.h>
 #include <algorithm>
 
 // Window base class
@@ -445,7 +449,7 @@ void EditorUI::RenderUI() {
   }
 
   //--------------------------- TOP TOOLBAR ----------------------------------
-  Panels::ToolbarCallbacks cb;
+  Viewport::ToolbarCallbacks cb;
 
   cb.onStart = [this]() {
     if (!is_game_started_) {
@@ -470,10 +474,6 @@ void EditorUI::RenderUI() {
     WindowManager::Quit();
     EditorEvents::editor_exit_pressed();
   };
-
-  // ImGui::Begin("Toolbar", nullptr);
-  // Panels::Toolbar(cb);
-  // ImGui::End();
 
   auto& world = ECS::Main();
 
