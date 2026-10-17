@@ -32,6 +32,7 @@
 #include "engine/audio/sound_manager.h"
 #include "engine/context/subsystem_list.h"
 #include "engine/core/logger.h"
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/renderer/graphics_renderer.h"
@@ -116,6 +117,8 @@ void NextFrame() {
   }
 
   dynamic_registry.TickAll(delta_time);
+
+  Diagnostics::UpdateStats();
 }
 
 void Destroy() {

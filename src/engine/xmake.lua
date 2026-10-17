@@ -22,6 +22,7 @@ add_files(
 	"time/*.cpp",
 	"math/*.cpp",
 	"pcg/*.cpp",
+	"diagnostics/*.cpp",
 
 	-- GEOMETRY FILES -------
 	"geometry/meshing/*.cpp",
@@ -79,6 +80,7 @@ add_headerfiles(
 	"time/*.h",
 	"math/*.h",
 	"pcg/*.h",
+	"diagnostics/*.h",
 
 	-- renderer files
 	"renderer/*.h",
