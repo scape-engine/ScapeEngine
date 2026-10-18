@@ -19,6 +19,7 @@ add_files(
 	"gui/utils/*.cpp",
 	"gui/modals/*.cpp",
 	"gui/components/*.cpp",
+	"gui/viewport/*.cpp",
 	"gui/styles/*.cpp",
 	"systems/*.cpp",
 	"project/*.cpp",

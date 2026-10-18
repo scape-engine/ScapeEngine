@@ -9,9 +9,12 @@
 #include <algorithm>
 
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/gui/viewport/action_overlay.h"
 #include "editor/gui/viewport/axis_gizmo.h"
+#include "editor/gui/viewport/stats_overlay.h"
 #include "editor/gui/viewport/toolbar.h"
 #include "editor/runtime/runtime.h"
+
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "editor/vendor/imguizmo/ImGuizmo.h"
 
@@ -57,17 +60,43 @@ struct TransformGizmoState {
     }
   }
 
+  static const char* OperationName(ImGuizmo::OPERATION op) {
+    switch (op) {
+      case ImGuizmo::TRANSLATE:
+        return "Translate mode";
+      case ImGuizmo::ROTATE:
+        return "Rotate mode";
+      case ImGuizmo::SCALE:
+        return "Scale mode";
+      case ImGuizmo::BOUNDS:
+        return "Bounds mode";
+      default:
+        return "Transform mode";
+    }
+  }
+
   void HandleKeyboardShortcuts() {
-    if (ImGui::IsKeyPressed(ImGuiKey_W))
+    if (ImGui::IsKeyPressed(ImGuiKey_W, false)) {
       operation = ImGuizmo::TRANSLATE;
-    if (ImGui::IsKeyPressed(ImGuiKey_E))
+      Viewport::PostAction(OperationName(operation), "W");
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_E, false)) {
       operation = ImGuizmo::ROTATE;
-    if (ImGui::IsKeyPressed(ImGuiKey_R))
+      Viewport::PostAction(OperationName(operation), "E");
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_R, false)) {
       operation = ImGuizmo::SCALE;
+      Viewport::PostAction(OperationName(operation), "R");
+    }
     if (ImGui::IsKeyChordPressed(ImGuiKey_F)) {
       const Entity selected = Runtime::State().selected_entity;
-      if (selected != entt::null)
+      if (selected != entt::null &&
+          ECS::Main().Has<TransformComponent>(selected)) {
         EditorEvents::focus_entity(selected);
+        Viewport::PostAction(
+            "Focus: " + ECS::Main().Get<TransformComponent>(selected).name_,
+            "F");
+      }
     }
   }
 };
@@ -168,7 +197,8 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
           -(camera_component.near_plane_ * camera_component.far_plane_) /
           (camera_component.far_plane_ - camera_component.near_plane_);
 
-      // Only show gizmos if: pipeline enabled, entity selected, not interacting
+      // Only show gizmos if: pipeline enabled, entity selected, not
+      // interacting
       bool show_gizmos = pipeline.show_gizmos_ && has_selection;
       bool right_click = ImGui::IsMouseDown(ImGuiMouseButton_Right);
       bool middle_click = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
@@ -248,7 +278,8 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
 
             // Load meshes
             // ! Synchronous loading
-            // TODO: replace implementation with LoadData() from model.h instead
+            // TODO: replace implementation with LoadData() from model.h
+            // instead
             std::shared_ptr<Model> model = Model::Load(abs_path.string());
 
             // debug
@@ -331,7 +362,8 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                          ICON_FA_TRIANGLE_EXCLAMATION " Texture ID invalid!");
     }
   } else {
-    // Draw Dark Background for stopped state so the canvas isn't entirely blank
+    // Draw Dark Background for stopped state so the canvas isn't entirely
+    // blank
     ImGui::GetWindowDrawList()->AddRectFilled(
         pos, ImVec2(pos.x + size.x, pos.y + size.y), IM_COL32(20, 20, 20, 255));
 
@@ -347,7 +379,8 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   }
 
   // === OVERLAYS ===
-  ImVec2 overlay_padding = ImVec2(8.0f, 8.0f);  // closer to the panel edge
+  ImVec2 overlay_padding =
+      ImVec2(EditorSizes::overlay_margin, EditorSizes::overlay_margin);
   float overlay_y = start_cursor_pos.y + overlay_padding.y;
 
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::panel_radius);
@@ -402,8 +435,10 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       if (is_active)
         ImGui::PushStyleColor(ImGuiCol_Text, active_accent);
 
-      if (ImGui::Button(icon, ImVec2(btn_w, 0)))
+      if (ImGui::Button(icon, ImVec2(btn_w, 0))) {
         gizmo_state.operation = op;
+        Viewport::PostAction(TransformGizmoState::OperationName(op));
+      }
 
       if (is_active)
         ImGui::PopStyleColor();
@@ -428,8 +463,11 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                                   (EditorColor::accent & ~IM_COL32_A_MASK) |
                                   (60u << IM_COL32_A_SHIFT)));
       }
-      if (ImGui::Button(ICON_FA_MAGNET, ImVec2(btn_w, 0)))
+      if (ImGui::Button(ICON_FA_MAGNET, ImVec2(btn_w, 0))) {
         gizmo_state.snap_enabled = !on;
+        Viewport::PostAction(gizmo_state.snap_enabled ? "Snapping on"
+                                                      : "Snapping off");
+      }
       if (on)
         ImGui::PopStyleColor(2);
       IMComponents::Tooltip(on ? "Snapping on (hold Ctrl to move freely)"
@@ -461,6 +499,12 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       ImVec2(start_cursor_pos.x + (size.x - toolbar_width) * 0.5f, overlay_y));
   Viewport::Toolbar(cb);
   toolbar_width = ImGui::GetItemRectSize().x;
+
+  // --- Stats (bottom-right) ---
+  Viewport::StatsOverlay(pos, size, camera_state.move_speed);
+
+  // --- Action feed (bottom-left) ---
+  Viewport::ActionOverlay(pos, size);
 
   ImGui::PopStyleVar(3);
 

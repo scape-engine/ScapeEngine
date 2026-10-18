@@ -80,7 +80,7 @@ void UpdateStats() {
   g_frames = 0;
 }
 
-const FrameStatsSnapshot& Snapshot() {
+const FrameStatsSnapshot& GetFrameStats() {
   return g_snapshot;
 }
 

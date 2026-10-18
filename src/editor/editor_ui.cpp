@@ -564,6 +564,9 @@ void EditorUI::BeginImGuiFrame(SDL_Window* window) {
   // ui::shadow::BeginFrame(shadowOn);
 }
 
+// TODO: W is also the translate-tool shortcut (TransformGizmoState::
+// HandleKeyboardShortcuts). Gate WASD flight behind RMB, like Unity and
+// Unreal, so tool shortcuts don't fire while flying
 void EditorUI::UpdateMovement() {
   // Build per-frame input
   GodCameraFrameInput input{};

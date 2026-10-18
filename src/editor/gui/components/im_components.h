@@ -109,7 +109,7 @@ bool Checkbox(const char* label, bool* value);
 
 // Viewport overlays: widgets drawn over a translucent rounded background
 void BeginOverlay();
-void EndOverlay();
+void EndOverlay(ImVec2 padding = ImVec2(0.0f, 0.0f));
 
 }  // namespace IMComponents
 

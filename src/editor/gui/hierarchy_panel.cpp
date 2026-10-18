@@ -14,6 +14,7 @@
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/gui/inspector_panel.h"
 #include "editor/gui/utils/gui_utils.h"
+#include "editor/gui/viewport/action_overlay.h"
 
 #include "engine/ecs/components/camera_component.h"
 #include "engine/ecs/components/light_component.h"
@@ -135,8 +136,12 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
   if (GUIUtils::WindowFocused() && !ImGui::GetIO().WantTextInput &&
       ImGui::IsKeyChordPressed(ImGuiKey_F)) {
     const Entity selected = Runtime::State().selected_entity;
-    if (selected != entt::null)
+    if (selected != entt::null &&
+        ECS::Main().Has<TransformComponent>(selected)) {
       EditorEvents::focus_entity(selected);
+      Viewport::PostAction(
+          "Focus: " + ECS::Main().Get<TransformComponent>(selected).name_, "F");
+    }
   }
 
   ImGui::PushFont(EditorStyles::GetFonts().p);
@@ -349,8 +354,11 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   }
 
   // FOCUS CAMERA
-  if (double_clicked)
+  if (double_clicked) {
     EditorEvents::focus_entity(item.entity.Handle());
+    Viewport::PostAction("Focus: " + item.entity.Name());
+  }
+
   // ADVANCE CURSOR
   ImGui::Dummy(ImVec2(0.0f, row_height_));
 

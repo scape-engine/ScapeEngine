@@ -29,7 +29,7 @@ struct FrameStatsSnapshot {
 void UpdateStats();
 
 // Latest published values (refreshed every publish interval)
-const FrameStatsSnapshot& Snapshot();
+const FrameStatsSnapshot& GetFrameStats();
 
 }  // namespace Diagnostics
 

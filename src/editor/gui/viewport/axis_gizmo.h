@@ -9,6 +9,7 @@
 
 #include "editor/camera/god_camera.h"
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/gui/viewport/action_overlay.h"
 
 namespace Viewport {
 
@@ -86,6 +87,12 @@ inline void AxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
       const float dy = mouse.y - axes[i].screen.y;
       if (dx * dx + dy * dy <= ball_r * ball_r) {
         SnapCameraToAxis(camera_state, camera, axes[i].dir);
+
+        // "+X", "-Y", etc from the axis direction
+        const glm::vec3& d = axes[i].dir;
+        const char letter = d.x != 0.0f ? 'X' : (d.y != 0.0f ? 'Y' : 'Z');
+        const char sign = (d.x + d.y + d.z) > 0.0f ? '+' : '-';
+        Viewport::PostAction(std::string("View: ") + sign + letter);
         break;
       }
     }

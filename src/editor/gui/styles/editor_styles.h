@@ -172,6 +172,8 @@ struct EditorSizes {
   // Layout
   static constexpr float window_padding = 10.0f;  // Reduced from 30.0f
   static constexpr float frame_padding = 4.0f;
+  static constexpr float overlay_margin =
+      8.0f;  // viewport overlays to canvas edge
 
   static constexpr float panel_radius = 8.0f;
   static constexpr float control_radius = 4.0f;

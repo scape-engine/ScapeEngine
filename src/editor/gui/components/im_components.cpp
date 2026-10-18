@@ -877,11 +877,14 @@ void BeginOverlay() {
   ImGui::BeginGroup();
 }
 
-void EndOverlay() {
+void EndOverlay(ImVec2 padding) {
   ImGui::EndGroup();
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   draw_list->ChannelsSetCurrent(0);  // background behind, sized to content
-  draw_list->AddRectFilled(ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const ImVec2 max = ImGui::GetItemRectMax();
+  draw_list->AddRectFilled(ImVec2(min.x - padding.x, min.y - padding.y),
+                           ImVec2(max.x + padding.x, max.y + padding.y),
                            EditorColor::overlay_bg, EditorSizes::panel_radius);
   draw_list->ChannelsMerge();
 }
