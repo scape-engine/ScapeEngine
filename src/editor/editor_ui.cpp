@@ -68,7 +68,7 @@ void EditorUI::Initialize() {
   ImGui::CreateContext();
 
   // Bump stale ini file
-  static constexpr const char* layout_ini = "editor_v3.ini";
+  static constexpr const char* layout_ini = "editor_v4.ini";
   ImGui::GetIO().IniFilename = layout_ini;
 
   EditorStyles::Initialize();
@@ -121,18 +121,25 @@ void EditorUI::Initialize() {
 
   TabContainer* properties = _AddWindow<TabContainer>(
       "Properties", std::move(property_tabs), ImGuiDir_Right, true);
-  _AddWindow<HierarchyPanel>();
 
+  // Bottom panels
+  std::vector<TabEntry> bottom_tabs;
+  bottom_tabs.push_back({ICON_FA_TERMINAL, "Console", "Console",
+                         std::make_unique<ConsoleWindow>(), 0});
+  bottom_tabs.push_back({ICON_FA_FOLDER_OPEN, "Asset Browser", "Asset Browser",
+                         std::make_unique<AssetBrowserWindow>(), 0});
+
+  _AddWindow<TabContainer>("Bottom Panels", std::move(bottom_tabs),
+                           ImGuiDir_Down, false);
+
+  _AddWindow<HierarchyPanel>();
   // _AddWindow<InfoPanel>();
   // _AddWindow<ScenePanel>();
   _AddWindow<PCGGraphEditorPanel>();
   // _AddWindow<InspectorPanel>();
-  _AddWindow<ModelPreview>(&procmodel_data_);
-  _AddWindow<ModelViewer>(&procmodel_data_);
-  _AddWindow<AssetGraphEditor>(&procmodel_data_);
-
-  _AddWindow<ConsoleWindow>();
-  _AddWindow<AssetBrowserWindow>();
+  // _AddWindow<ModelPreview>(&procmodel_data_);
+  // _AddWindow<ModelViewer>(&procmodel_data_);
+  // _AddWindow<AssetGraphEditor>(&procmodel_data_);
 
   // events
   EditorEvents::entity_selected.connect(
@@ -346,11 +353,9 @@ void EditorUI::DockSpace() {
   dock_id_ = ImGui::GetID(root_dock);
 
   const ImVec2 avail = ImGui::GetContentRegionAvail();
-  ImGui::DockSpace(
-      dock_id_,
-      ImVec2(avail.x + EditorSizes::panel_margin - EditorSizes::panel_gap,
-             avail.y),
-      dock_flags_);
+  const float inner = EditorSizes::panel_margin - EditorSizes::panel_gap;
+  ImGui::DockSpace(dock_id_, ImVec2(avail.x + inner, avail.y + inner),
+                   dock_flags_);
 
   ImGui::End();
   ImGui::PopStyleVar(3);
@@ -428,8 +433,6 @@ void EditorUI::RenderUI() {
       // splits:
       ImGuiID left = ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, 0.20f,
                                                  nullptr, &center);
-      ImGuiID bottom = ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.25f,
-                                                   nullptr, &center);
       ImGuiID top = ImGui::DockBuilderSplitNode(center, ImGuiDir_Up, 0.15f,
                                                 nullptr, &center);
 
@@ -438,11 +441,6 @@ void EditorUI::RenderUI() {
       ImGui::DockBuilderDockWindow("Viewport", center);
       ImGui::DockBuilderDockWindow("Model View", center);
       ImGui::DockBuilderDockWindow("Toolbar", center);
-      ImGui::DockBuilderDockWindow("Console", bottom);
-      ImGui::DockBuilderDockWindow("Asset Browser", bottom);
-      ImGui::DockBuilderDockWindow("PCG Graph Editor", bottom);
-      ImGui::DockBuilderDockWindow("Asset Graph", bottom);
-      ImGui::DockBuilderDockWindow("Procedural Preview", bottom);
 
       ImGui::DockBuilderFinish(dock_id_);
     }
