@@ -75,6 +75,8 @@ void Logger::Log(LogLevel level, const std::string& message) {
   // Flushing every line is a sync disk write under the lock; only force it
   // for errors (the stream flushes on its own and on close)
   logfile_ << formatted << '\n';
-  if (level == LogLevel::Error)
+  if (level == LogLevel::Error) {
     logfile_.flush();
+    error_count_.fetch_add(1, std::memory_order_relaxed);
+  }
 }

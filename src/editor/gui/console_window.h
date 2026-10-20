@@ -15,6 +15,15 @@ public:
     Panels::ConsolePanel();
     ImGui::End();
   }
+
+  // Errors logged since the console was last visible
+  uint32_t UnseenErrors() const {
+    return static_cast<uint32_t>(Logger::getInstance().GetErrorCount() -
+                                 seen_errors_);
+  }
+
+private:
+  uint32_t seen_errors_ = 0;
 };
 
 #endif  // CONSOLE_WINDOW_H

@@ -76,6 +76,10 @@ bool IconButton(const char* icon, ImDrawList& draw_list, ImVec2 position,
                 ImU32 color = IM_COL32(0, 0, 0, 0),
                 ImU32 hovered_color = IM_COL32(65, 65, 80, 120));
 
+// Icon centered in a slot: IconLoader PNG if icon_id is set, else font glyph
+void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,
+          ImVec2 slot_min, ImVec2 slot_size, ImU32 color);
+
 // Compact control button: optional icon + optional chevron. Returns clicked.
 // Width is derived from content; pass icon = nullptr for a chevron-only button.
 bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
@@ -94,6 +98,12 @@ void LoadingBuffer(ImDrawList& draw_list, ImVec2 position, float radius,
 void Glyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
            const char* glyph, ImU32 color, ImFont* font = nullptr);
 
+// Square button showing a font glyph, with hover background and optional
+// tooltip; returns true when clicked
+bool GlyphButton(ImDrawList& draw_list, const char* id, const char* glyph,
+                 ImVec2 pos, ImVec2 size, ImU32 color,
+                 const char* tooltip = nullptr);
+
 // Two-segment search field [ (q) | hint ]. Returns true when text changed
 bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
                  size_t buffer_size, ImVec2 position, ImVec2 size,
@@ -110,6 +120,11 @@ bool Checkbox(const char* label, bool* value);
 // Viewport overlays: widgets drawn over a translucent rounded background
 void BeginOverlay();
 void EndOverlay(ImVec2 padding = ImVec2(0.0f, 0.0f));
+
+// Count pill ("3", "99+"). Measure first to reserve space, then draw.
+// A count of 0 has zero size and draws nothing.
+ImVec2 CountBadgeSize(uint32_t count);
+void CountBadge(ImDrawList& draw_list, uint32_t count, ImVec2 pos);
 
 }  // namespace IMComponents
 

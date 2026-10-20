@@ -1,6 +1,8 @@
 #ifndef TAB_CONTAINER_H
 #define TAB_CONTAINER_H
 
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -12,7 +14,8 @@
 //---------------------------------------------------------------------------
 // TAB CONTAINER
 // - Owns a set of panels and shows exactly one of them, docked into a nested
-//   tab-less dockspace, selected through a Blender-style vertical icon rail.
+//   tab-less dockspace. Tabs are a vertical icon rail (right) or a
+//   horizontal icon + label strip (bottom).
 // - Hosted panels are ordinary WindowBase implementations; they don't know
 //   they're hosted.
 //---------------------------------------------------------------------------
@@ -21,8 +24,9 @@ struct TabEntry {
   const char* window_name;
   const char* tooltip;
   std::unique_ptr<WindowBase> panel;
-  int group = 0;  // consecutive entries with different groups get a wider gap
-  const char* icon_id = nullptr;  // IconLoader id;
+  int group = 0;
+  const char* icon_id = nullptr;    // IconLoader id;
+  std::function<uint32_t()> badge;  // optional: count shown on the tab
 };
 
 class TabContainer : public WindowBase {
@@ -43,6 +47,7 @@ private:
   void ActivateTab(size_t index);
   float CollapsedSize() const;
   bool Horizontal() const { return side_ == ImGuiDir_Down; }
+  const char* CollapseGlyph() const;
 
   ImGuiDir side_ = ImGuiDir_Right;
 

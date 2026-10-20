@@ -2,6 +2,7 @@
 #define WINDOW_BASE_H
 
 #define IMGUI_DEFINE_MATH_OPERATORS
+#include <cstdint>
 #include <glm/glm.hpp>
 #include "imgui.h"
 

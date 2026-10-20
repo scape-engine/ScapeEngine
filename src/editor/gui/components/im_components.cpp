@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -238,6 +239,22 @@ void TryIcon(const char* icon, ImU32 color, float y_padding) {
   ImGui::PushStyleColor(ImGuiCol_Text, color);
   TryIcon(icon, y_padding);
   ImGui::PopStyleColor();
+}
+
+void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,
+          ImVec2 slot_min, ImVec2 slot_size, ImU32 color) {
+  if (icon_id) {
+    const float size = EditorSizes::s_icon_size;
+    const ImVec2 min =
+        ImVec2(std::floor(slot_min.x + (slot_size.x - size) * 0.5f),
+               std::floor(slot_min.y + (slot_size.y - size) * 0.5f));
+    draw_list.AddImage(IconLoader::ToImGuiTexture(icon_id), min,
+                       min + ImVec2(size, size), ImVec2(0, 0), ImVec2(1, 1),
+                       color);
+  } else if (glyph) {
+    Glyph(draw_list, slot_min, slot_size, glyph, color,
+          EditorStyles::GetFonts().s);
+  }
 }
 
 //=============================================================================
@@ -659,6 +676,20 @@ void Glyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
   draw_list.AddText(font, font->FontSize, pos, color, glyph);
 }
 
+bool GlyphButton(ImDrawList& draw_list, const char* id, const char* glyph,
+                 ImVec2 pos, ImVec2 size, ImU32 color, const char* tooltip) {
+  ImGui::SetCursorScreenPos(pos);
+  const bool clicked = ImGui::InvisibleButton(id, size);
+  if (ImGui::IsItemHovered()) {
+    if (tooltip)
+      Tooltip(tooltip);
+    draw_list.AddRectFilled(pos, pos + size, EditorColor::hover_overlay,
+                            EditorSizes::control_radius);
+  }
+  Glyph(draw_list, pos, size, glyph, color, EditorStyles::GetFonts().s);
+  return clicked;
+}
+
 bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
                  size_t buffer_size, ImVec2 position, ImVec2 size,
                  const char* hint) {
@@ -887,6 +918,45 @@ void EndOverlay(ImVec2 padding) {
                            ImVec2(max.x + padding.x, max.y + padding.y),
                            EditorColor::overlay_bg, EditorSizes::panel_radius);
   draw_list->ChannelsMerge();
+}
+
+//=============================================================================
+// COUNT BADGE
+//=============================================================================
+namespace {
+void FormatCount(char* buffer, size_t size, uint32_t count) {
+  if (count > 99)
+    std::snprintf(buffer, size, "99+");
+  else
+    std::snprintf(buffer, size, "%u", count);
+}
+}  // namespace
+
+ImVec2 CountBadgeSize(uint32_t count) {
+  if (count == 0)
+    return ImVec2(0.0f, 0.0f);
+  char text[8];
+  FormatCount(text, sizeof(text), count);
+  ImFont* font = EditorStyles::GetFonts().s;
+  const ImVec2 ts = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, text);
+  return ImVec2(std::floor(std::max(ts.x + 8.0f, 16.0f)), 16.0f);
+}
+
+void CountBadge(ImDrawList& draw_list, uint32_t count, ImVec2 pos) {
+  if (count == 0)
+    return;
+  char text[8];
+  FormatCount(text, sizeof(text), count);
+  ImFont* font = EditorStyles::GetFonts().s;
+  const ImVec2 size = CountBadgeSize(count);
+  const ImVec2 min = ImVec2(std::floor(pos.x), std::floor(pos.y));
+
+  draw_list.AddRectFilled(min, min + size, EditorColor::error, size.y * 0.5f);
+  const ImVec2 ts = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, text);
+  draw_list.AddText(font, font->FontSize,
+                    ImVec2(std::floor(min.x + (size.x - ts.x) * 0.5f),
+                           std::floor(min.y + (size.y - ts.y) * 0.5f)),
+                    EditorColor::text_bright, text);
 }
 
 }  // namespace IMComponents

@@ -15,6 +15,17 @@
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/utils/gui_utils.h"
 
+namespace {
+
+// Tab button background: selected > hovered > none (0 = draw nothing)
+ImU32 TabBackground(bool selected, bool hovered) {
+  return selected  ? EditorColor::control_selected
+         : hovered ? EditorColor::hover_overlay
+                   : 0;
+}
+
+}  // namespace
+
 TabContainer::TabContainer(std::string name, std::vector<TabEntry> entries,
                            ImGuiDir side, bool start_collapsed)
     : name_(std::move(name)), entries_(std::move(entries)) {
@@ -188,22 +199,11 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
   const ImVec2 button_size = ImVec2(rail_button_, rail_button_);
 
   // COLLAPSE TOGGLE
-  {
-    const ImVec2 p0 = ImVec2(x, rail_min.y + rail_pad_y_);
-    ImGui::SetCursorScreenPos(p0);
-    if (ImGui::InvisibleButton("##CollapseToggle", button_size))
-      collapsed_ = !collapsed_;
-    const bool hovered = ImGui::IsItemHovered();
-    if (hovered) {
-      IMComponents::Tooltip(collapsed_ ? "Expand panel" : "Collapse panel");
-      draw_list.AddRectFilled(p0, p0 + button_size, EditorColor::hover_overlay,
-                              EditorSizes::control_radius);
-    }
-    IMComponents::Glyph(
-        draw_list, p0, button_size,
-        collapsed_ ? ICON_FA_CHEVRON_LEFT : ICON_FA_CHEVRON_RIGHT,
-        EditorColor::chevron, EditorStyles::GetFonts().s);
-  }
+  if (IMComponents::GlyphButton(draw_list, "##CollapseToggle", CollapseGlyph(),
+                                ImVec2(x, rail_min.y + rail_pad_y_),
+                                button_size, EditorColor::chevron,
+                                collapsed_ ? "Expand panel" : "Collapse panel"))
+    collapsed_ = !collapsed_;
 
   float y = rail_min.y + rail_pad_y_ + rail_button_ + rail_group_gap_;
   int last_group = entries_.empty() ? 0 : entries_.front().group;
@@ -226,29 +226,17 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
     if (hovered)
       IMComponents::Tooltip(entry.tooltip);
 
-    // Square: recessed dark by default, lifted when selected
     const bool selected = i == active_;
-    const ImU32 bg = selected  ? EditorColor::control_selected
-                     : hovered ? EditorColor::hover_overlay
-                               : IM_COL32(0, 0, 0, 0);
-    if (bg != 0)
+    if (const ImU32 bg = TabBackground(selected, hovered))
       draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
 
-    // Icon: small glyph centered in the square
-    const ImU32 icon_color =
-        selected ? EditorColor::text_bright : EditorColor::text;
-    if (entry.icon_id) {
-      const float icon_size = EditorSizes::s_icon_size;
-      const ImVec2 icon_min =
-          ImVec2(std::floor(p0.x + (rail_button_ - icon_size) * 0.5f),
-                 std::floor(p0.y + (rail_button_ - icon_size) * 0.5f));
-      draw_list.AddImage(IconLoader::ToImGuiTexture(entry.icon_id), icon_min,
-                         icon_min + ImVec2(icon_size, icon_size), ImVec2(0, 0),
-                         ImVec2(1, 1), icon_color);
-    } else {
-      IMComponents::Glyph(draw_list, p0, button_size, entry.icon, icon_color,
-                          EditorStyles::GetFonts().s);
-    }
+    IMComponents::Icon(draw_list, entry.icon_id, entry.icon, p0, button_size,
+                       selected ? EditorColor::text_bright : EditorColor::text);
+
+    // Badge: dot in the top-right corner, drawn last so nothing covers it
+    if (entry.badge && entry.badge() > 0)
+      draw_list.AddCircleFilled(ImVec2(p1.x - 4.0f, p0.y + 4.0f), 3.0f,
+                                EditorColor::error);
 
     y += rail_button_ + rail_gap_;
   }
@@ -273,29 +261,24 @@ void TabContainer::RenderStrip(ImDrawList& draw_list, ImVec2 strip_min,
 
   // COLLAPSE TOGGLE
   float x = strip_min.x + (rail_width_ - rail_button_) * 0.5f;
-  {
-    const ImVec2 p0 = ImVec2(x, y);
-    ImGui::SetCursorScreenPos(p0);
-    if (ImGui::InvisibleButton("##CollapseToggle", button_size))
-      collapsed_ = !collapsed_;
-    if (ImGui::IsItemHovered()) {
-      IMComponents::Tooltip(collapsed_ ? "Expand panel" : "Collapse panel");
-      draw_list.AddRectFilled(p0, p0 + button_size, EditorColor::hover_overlay,
-                              EditorSizes::control_radius);
-    }
-    IMComponents::Glyph(draw_list, p0, button_size,
-                        collapsed_ ? ICON_FA_CHEVRON_UP : ICON_FA_CHEVRON_DOWN,
-                        EditorColor::chevron, small);
-    x += rail_button_ + rail_group_gap_;
-  }
+  if (IMComponents::GlyphButton(draw_list, "##CollapseToggle", CollapseGlyph(),
+                                ImVec2(x, y), button_size, EditorColor::chevron,
+                                collapsed_ ? "Expand panel" : "Collapse panel"))
+    collapsed_ = !collapsed_;
+  x += rail_button_ + rail_group_gap_;
 
   // TABS: icon + label
   for (size_t i = 0; i < entries_.size(); ++i) {
     const TabEntry& entry = entries_[i];
+    const uint32_t count = entry.badge ? entry.badge() : 0;
+    const ImVec2 badge_size = IMComponents::CountBadgeSize(count);
+    const float badge_gap = 6.0f;
+    const float badge_w = count > 0 ? badge_gap + badge_size.x : 0.0f;
+
     const ImVec2 label_size =
         small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f, entry.window_name);
-    const float tab_w =
-        std::floor(tab_pad * 2.0f + icon_size + icon_gap + label_size.x);
+    const float tab_w = std::floor(tab_pad * 2.0f + icon_size + icon_gap +
+                                   label_size.x + badge_w);
     const ImVec2 p0 = ImVec2(x, y);
     const ImVec2 p1 = p0 + ImVec2(tab_w, rail_button_);
 
@@ -306,30 +289,23 @@ void TabContainer::RenderStrip(ImDrawList& draw_list, ImVec2 strip_min,
       ActivateTab(i);
 
     const bool selected = i == active_;
-    const ImU32 bg = selected  ? EditorColor::control_selected
-                     : hovered ? EditorColor::hover_overlay
-                               : IM_COL32(0, 0, 0, 0);
-    if (bg != 0)
+    if (const ImU32 bg = TabBackground(selected, hovered))
       draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
 
     const ImU32 fg = selected ? EditorColor::text_bright : EditorColor::text;
-    const ImVec2 icon_min =
-        ImVec2(std::floor(x + tab_pad),
-               std::floor(y + (rail_button_ - icon_size) * 0.5f));
-    if (entry.icon_id) {
-      draw_list.AddImage(IconLoader::ToImGuiTexture(entry.icon_id), icon_min,
-                         icon_min + ImVec2(icon_size, icon_size), ImVec2(0, 0),
-                         ImVec2(1, 1), fg);
-    } else {
-      IMComponents::Glyph(draw_list, ImVec2(x + tab_pad, y),
-                          ImVec2(icon_size, rail_button_), entry.icon, fg,
-                          small);
-    }
+    IMComponents::Icon(draw_list, entry.icon_id, entry.icon,
+                       ImVec2(x + tab_pad, y), ImVec2(icon_size, rail_button_),
+                       fg);
+
+    const float text_x = x + tab_pad + icon_size + icon_gap;
     draw_list.AddText(
         small, small->FontSize,
-        ImVec2(icon_min.x + icon_size + icon_gap,
-               std::floor(y + (rail_button_ - label_size.y) * 0.5f)),
+        ImVec2(text_x, std::floor(y + (rail_button_ - label_size.y) * 0.5f)),
         fg, entry.window_name);
+
+    IMComponents::CountBadge(draw_list, count,
+                             ImVec2(text_x + label_size.x + badge_gap,
+                                    y + (rail_button_ - badge_size.y) * 0.5f));
 
     x += tab_w + rail_gap_;
   }
@@ -349,4 +325,10 @@ void TabContainer::ApplyCollapse() {
   animating_ = std::fabs(target - current_width_) >= 0.5f;
   if (!animating_)
     current_width_ = target;
+}
+
+const char* TabContainer::CollapseGlyph() const {
+  if (Horizontal())
+    return collapsed_ ? ICON_FA_CHEVRON_UP : ICON_FA_CHEVRON_DOWN;
+  return collapsed_ ? ICON_FA_CHEVRON_LEFT : ICON_FA_CHEVRON_RIGHT;
 }

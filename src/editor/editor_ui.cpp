@@ -122,10 +122,14 @@ void EditorUI::Initialize() {
   TabContainer* properties = _AddWindow<TabContainer>(
       "Properties", std::move(property_tabs), ImGuiDir_Right, true);
 
+  auto console = std::make_unique<ConsoleWindow>();
+  ConsoleWindow* console_ptr = console.get();
+
   // Bottom panels
   std::vector<TabEntry> bottom_tabs;
-  bottom_tabs.push_back({ICON_FA_TERMINAL, "Console", "Console",
-                         std::make_unique<ConsoleWindow>(), 0});
+  bottom_tabs.push_back(
+      {ICON_FA_TERMINAL, "Console", "Console", std::move(console), 0, nullptr,
+       [console_ptr] { return console_ptr->UnseenErrors(); }});
   bottom_tabs.push_back({ICON_FA_FOLDER_OPEN, "Asset Browser", "Asset Browser",
                          std::make_unique<AssetBrowserWindow>(), 0});
 
@@ -411,6 +415,9 @@ void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
 
 void EditorUI::RenderUI() {
   ImGuiIO& io = ImGui::GetIO();
+
+  if (ImGui::IsKeyPressed(ImGuiKey_F9))  // DEBUG: remove before commit
+    Logger::getInstance().Log(LogLevel::Error, "Test error");
 
   ImGuiViewport* vp = ImGui::GetMainViewport();
   ImGui::GetBackgroundDrawList(vp)->AddRectFilled(
