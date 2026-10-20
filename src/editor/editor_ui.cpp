@@ -6,8 +6,10 @@
 #include "editor/vendor/imgui/imgui_impl_bgfx.h"
 
 #include "gui/asset_browser.h"
+#include "gui/asset_browser_window.h"
 #include "gui/asset_graph_editor.h"
 #include "gui/console_panel.h"
+#include "gui/console_window.h"
 #include "gui/file_explorer.h"
 #include "gui/game_canvas.h"
 #include "gui/hierarchy_panel.h"
@@ -129,9 +131,8 @@ void EditorUI::Initialize() {
   _AddWindow<ModelViewer>(&procmodel_data_);
   _AddWindow<AssetGraphEditor>(&procmodel_data_);
 
-  // TODO: Refactor these panels to EditorBase:
-  // _AddWindow<ConsolePanel>();
-  // _AddWindow<AssetBrowserPanel>();
+  _AddWindow<ConsoleWindow>();
+  _AddWindow<AssetBrowserWindow>();
 
   // events
   EditorEvents::entity_selected.connect(
@@ -485,16 +486,6 @@ void EditorUI::RenderUI() {
                      game_canvas_focused_, cb, god_state_);
   UpdateMovement();
   ImGui::End();
-
-  //--------------------------- Panels ------------------------------
-  ImGui::Begin("Console", nullptr);
-  Panels::ConsolePanel();
-  ImGui::End();
-
-  ImGui::Begin("Asset Browser", nullptr);
-  Panels::AssetBrowser();
-  ImGui::End();
-  // Panels::FileExplorer();
   //------------------------- SEARCH POPUP --------------------------
   SearchPopup::Render();
 
