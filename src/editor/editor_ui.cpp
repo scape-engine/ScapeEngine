@@ -119,8 +119,8 @@ void EditorUI::Initialize() {
                            std::make_unique<TerrainEditorPanel>(), 2,
                            "editor"});
 
-  TabContainer* properties =
-      _AddWindow<TabContainer>("Properties", std::move(property_tabs));
+  TabContainer* properties = _AddWindow<TabContainer>(
+      "Properties", std::move(property_tabs), ImGuiDir_Right, true);
   _AddWindow<HierarchyPanel>();
 
   // _AddWindow<InfoPanel>();

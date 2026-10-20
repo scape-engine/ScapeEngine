@@ -27,7 +27,8 @@ struct TabEntry {
 
 class TabContainer : public WindowBase {
 public:
-  TabContainer(std::string name, std::vector<TabEntry> entries);
+  TabContainer(std::string name, std::vector<TabEntry> entries,
+               ImGuiDir side = ImGuiDir_Right, bool start_collapsed = true);
 
   void Render() override;
 
@@ -38,6 +39,12 @@ private:
   void RenderHeader(ImDrawList& draw_list, float width);
   void RenderRail(ImDrawList& draw_list, ImVec2 rail_min, float height);
   void RenderActivePanel(ImVec2 position, ImVec2 size);
+  void RenderStrip(ImDrawList& draw_list, ImVec2 strip_min, float width);
+  void ActivateTab(size_t index);
+  float CollapsedSize() const;
+  bool Horizontal() const { return side_ == ImGuiDir_Down; }
+
+  ImGuiDir side_ = ImGuiDir_Right;
 
   void ApplyCollapse();
 
@@ -50,6 +57,7 @@ private:
   static constexpr float rail_pad_y_ = 8.0f;
   static constexpr float rail_gap_ = 2.0f;
   static constexpr float rail_group_gap_ = 12.0f;
+  static constexpr float strip_height_ = 30.0f;
 
   // Collapse state
   bool collapsed_ = true;
