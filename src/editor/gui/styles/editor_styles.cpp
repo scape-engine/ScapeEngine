@@ -122,40 +122,40 @@ void SetupStyle() {
   // === Surfaces ===
   colors[ImGuiCol_WindowBg] = ImVec4(0, 0, 0, 0);
   colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
-  colors[ImGuiCol_PopupBg] = C(EC::panel, 0.98f);
-  colors[ImGuiCol_MenuBarBg] = C(EC::panel);
+  colors[ImGuiCol_PopupBg] = C(EditorColor::surface_2, 0.98f);
+  colors[ImGuiCol_MenuBarBg] = C(EditorColor::surface_2);
 
   // === Text ===
-  colors[ImGuiCol_Text] = C(EC::text);
-  colors[ImGuiCol_TextDisabled] = C(EC::text_disabled);
-  colors[ImGuiCol_TextSelectedBg] = C(EC::accent_deep);
+  colors[ImGuiCol_Text] = C(EditorColor::text);
+  colors[ImGuiCol_TextDisabled] = C(EditorColor::text_disabled);
+  colors[ImGuiCol_TextSelectedBg] = C(EditorColor::accent_deep);
 
   // === Borders (1px control outline via FrameBorderSize) ===
-  colors[ImGuiCol_Border] = C(EC::void_bg);
+  colors[ImGuiCol_Border] = C(EditorColor::surface_0);
   colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
 
   // === Headers (tree rows, selectables, collapsing headers) ===
   colors[ImGuiCol_Header] = ImVec4(0, 0, 0, 0);
-  colors[ImGuiCol_HeaderHovered] = C(EC::hover_overlay);
-  colors[ImGuiCol_HeaderActive] = C(EC::orange_row);
+  colors[ImGuiCol_HeaderHovered] = C(EditorColor::hover_overlay);
+  colors[ImGuiCol_HeaderActive] = C(EditorColor::orange_row);
 
   // === Inputs ===
-  colors[ImGuiCol_FrameBg] = C(EC::input_bg);
-  colors[ImGuiCol_FrameBgHovered] = C(EC::control);
-  colors[ImGuiCol_FrameBgActive] = C(EC::control);
+  colors[ImGuiCol_FrameBg] = C(EditorColor::surface_1);
+  colors[ImGuiCol_FrameBgHovered] = C(EditorColor::surface_4);
+  colors[ImGuiCol_FrameBgActive] = C(EditorColor::surface_4);
 
   // === Buttons ===
-  colors[ImGuiCol_Button] = C(EC::control);
-  colors[ImGuiCol_ButtonHovered] = C(EC::control_hovered);
-  colors[ImGuiCol_ButtonActive] = C(EC::accent);
+  colors[ImGuiCol_Button] = C(EditorColor::surface_4);
+  colors[ImGuiCol_ButtonHovered] = C(EditorColor::surface_5);
+  colors[ImGuiCol_ButtonActive] = C(EditorColor::accent);
 
   // === Tabs (no accent overline in mockup) ===
-  colors[ImGuiCol_Tab] = C(EC::void_bg);
-  colors[ImGuiCol_TabHovered] = C(EC::control_hovered);
-  colors[ImGuiCol_TabSelected] = C(EC::control_selected);
+  colors[ImGuiCol_Tab] = C(EditorColor::surface_0);
+  colors[ImGuiCol_TabHovered] = C(EditorColor::surface_5);
+  colors[ImGuiCol_TabSelected] = C(EditorColor::surface_4);
   colors[ImGuiCol_TabSelectedOverline] = ImVec4(0, 0, 0, 0);
-  colors[ImGuiCol_TabDimmed] = C(EC::void_bg);
-  colors[ImGuiCol_TabDimmedSelected] = C(EC::control_selected);
+  colors[ImGuiCol_TabDimmed] = C(EditorColor::surface_0);
+  colors[ImGuiCol_TabDimmedSelected] = C(EditorColor::surface_4);
   colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4(0, 0, 0, 0);
 
   // === Title bars (docked tab-bar strip + floating windows) ===
@@ -164,39 +164,39 @@ void SetupStyle() {
   colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0, 0, 0, 0);
 
   // === Separators (dock gaps are painted by the host; these are in-panel) ===
-  colors[ImGuiCol_Separator] = C(EC::void_bg);
-  colors[ImGuiCol_SeparatorHovered] = C(EC::accent, 0.6f);
-  colors[ImGuiCol_SeparatorActive] = C(EC::accent);
+  colors[ImGuiCol_Separator] = C(EditorColor::surface_0);
+  colors[ImGuiCol_SeparatorHovered] = C(EditorColor::accent, 0.6f);
+  colors[ImGuiCol_SeparatorActive] = C(EditorColor::accent);
 
   // === Scrollbars ===
-  colors[ImGuiCol_ScrollbarBg] = C(EC::strip);
-  colors[ImGuiCol_ScrollbarGrab] = C(EC::control);
-  colors[ImGuiCol_ScrollbarGrabHovered] = C(EC::control_border);
-  colors[ImGuiCol_ScrollbarGrabActive] = C(EC::accent);
+  colors[ImGuiCol_ScrollbarBg] = C(EditorColor::surface_1);
+  colors[ImGuiCol_ScrollbarGrab] = C(EditorColor::surface_4);
+  colors[ImGuiCol_ScrollbarGrabHovered] = C(EditorColor::line_strong);
+  colors[ImGuiCol_ScrollbarGrabActive] = C(EditorColor::accent);
 
   // === Widgets ===
-  colors[ImGuiCol_CheckMark] = C(EC::accent);
-  colors[ImGuiCol_SliderGrab] = C(EC::accent);
-  colors[ImGuiCol_SliderGrabActive] = C(EC::accent_hover);
-  colors[ImGuiCol_PlotLines] = C(EC::accent);
-  colors[ImGuiCol_PlotHistogram] = C(EC::accent);
-  colors[ImGuiCol_DragDropTarget] = C(EC::accent_border);
-  colors[ImGuiCol_NavCursor] = C(EC::accent_border);
-  colors[ImGuiCol_NavWindowingHighlight] = C(EC::accent);
+  colors[ImGuiCol_CheckMark] = C(EditorColor::accent);
+  colors[ImGuiCol_SliderGrab] = C(EditorColor::accent);
+  colors[ImGuiCol_SliderGrabActive] = C(EditorColor::accent_hover);
+  colors[ImGuiCol_PlotLines] = C(EditorColor::accent);
+  colors[ImGuiCol_PlotHistogram] = C(EditorColor::accent);
+  colors[ImGuiCol_DragDropTarget] = C(EditorColor::accent_border);
+  colors[ImGuiCol_NavCursor] = C(EditorColor::accent_border);
+  colors[ImGuiCol_NavWindowingHighlight] = C(EditorColor::accent);
   colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0, 0, 0, 0.5f);
 
   // === Tables ===
-  colors[ImGuiCol_TableHeaderBg] = C(EC::strip);
-  colors[ImGuiCol_TableBorderStrong] = C(EC::control_border);
-  colors[ImGuiCol_TableBorderLight] = C(EC::panel_stroke);
+  colors[ImGuiCol_TableHeaderBg] = C(EditorColor::surface_1);
+  colors[ImGuiCol_TableBorderStrong] = C(EditorColor::line_strong);
+  colors[ImGuiCol_TableBorderLight] = C(EditorColor::line_subtle);
   colors[ImGuiCol_TableRowBg] = ImVec4(0, 0, 0, 0);
-  colors[ImGuiCol_TableRowBgAlt] = C(EC::hover_overlay);
+  colors[ImGuiCol_TableRowBgAlt] = C(EditorColor::hover_overlay);
 
   // === Resize / docking ===
   colors[ImGuiCol_ResizeGrip] = ImVec4(0, 0, 0, 0);
-  colors[ImGuiCol_ResizeGripHovered] = C(EC::accent);
-  colors[ImGuiCol_ResizeGripActive] = C(EC::accent);
-  colors[ImGuiCol_DockingPreview] = C(EC::accent, 0.40f);
+  colors[ImGuiCol_ResizeGripHovered] = C(EditorColor::accent);
+  colors[ImGuiCol_ResizeGripActive] = C(EditorColor::accent);
+  colors[ImGuiCol_DockingPreview] = C(EditorColor::accent, 0.40f);
   colors[ImGuiCol_DockingEmptyBg] = ImVec4(0, 0, 0, 0);
 
   // === Style vars ===
@@ -235,25 +235,24 @@ void SetupStyle() {
 }
 
 void SetupGizmoStyle() {
-  using EC = EditorColor;
   ImVec4* colors = ImGuizmo::GetStyle().Colors;
 
   // Axes match the inspector's XYZ fields
-  colors[ImGuizmo::DIRECTION_X] = C(EC::axis_x);
-  colors[ImGuizmo::DIRECTION_Y] = C(EC::axis_y);
-  colors[ImGuizmo::DIRECTION_Z] = C(EC::axis_z);
+  colors[ImGuizmo::DIRECTION_X] = C(EditorColor::axis_x);
+  colors[ImGuizmo::DIRECTION_Y] = C(EditorColor::axis_y);
+  colors[ImGuizmo::DIRECTION_Z] = C(EditorColor::axis_z);
 
   // Plane handles: same hues, translucent (ImGuizmo's default alpha)
-  colors[ImGuizmo::PLANE_X] = C(EC::axis_x, 0.38f);
-  colors[ImGuizmo::PLANE_Y] = C(EC::axis_y, 0.38f);
-  colors[ImGuizmo::PLANE_Z] = C(EC::axis_z, 0.38f);
+  colors[ImGuizmo::PLANE_X] = C(EditorColor::axis_x, 0.38f);
+  colors[ImGuizmo::PLANE_Y] = C(EditorColor::axis_y, 0.38f);
+  colors[ImGuizmo::PLANE_Z] = C(EditorColor::axis_z, 0.38f);
 
   // Hovered / dragged handle
-  colors[ImGuizmo::SELECTION] = C(EC::orange);
-  colors[ImGuizmo::ROTATION_USING_BORDER] = C(EC::orange);
-  colors[ImGuizmo::ROTATION_USING_FILL] = C(EC::orange, 0.5f);
+  colors[ImGuizmo::SELECTION] = C(EditorColor::orange);
+  colors[ImGuizmo::ROTATION_USING_BORDER] = C(EditorColor::orange);
+  colors[ImGuizmo::ROTATION_USING_FILL] = C(EditorColor::orange, 0.5f);
 
-  colors[ImGuizmo::TEXT] = C(EC::text);
+  colors[ImGuizmo::TEXT] = C(EditorColor::text);
 }
 
 void Initialize() {

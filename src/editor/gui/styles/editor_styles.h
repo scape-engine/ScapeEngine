@@ -40,6 +40,11 @@ void Initialize();
 
 void SetupGizmoStyle();
 
+// Alpha (0-255). For translucent variants of tokens
+constexpr ImU32 WithAlpha(ImU32 color, unsigned alpha) {
+  return (color & ~IM_COL32_A_MASK) | (alpha << IM_COL32_A_SHIFT);
+}
+
 }  // namespace EditorStyles
 
 // FONT PATHS
@@ -54,42 +59,39 @@ struct EditorFontPath {
 };
 
 struct EditorColor {
+  // ---- Elevation  ----
+  static constexpr ImU32 surface_0 =
+      IM_COL32(18, 18, 18, 0);  // #121212 app bg, gaps
+  static constexpr ImU32 surface_1 =
+      IM_COL32(25, 25, 25, 255);  // #191919 sunken
+  static constexpr ImU32 surface_2 =
+      IM_COL32(32, 32, 32, 255);  // #202020 panels
+  static constexpr ImU32 surface_3 =
+      IM_COL32(39, 39, 39, 255);  // #272727 raised
+  static constexpr ImU32 surface_4 =
+      IM_COL32(48, 48, 48, 255);  // #303030 controls
+  static constexpr ImU32 surface_5 =
+      IM_COL32(58, 58, 58, 255);  // #3A3A3A hovered
+
+  // ---- Lines  ----
+  static constexpr ImU32 line_subtle = IM_COL32(48, 48, 48, 255);  // #303030
+  static constexpr ImU32 line_strong = IM_COL32(66, 66, 66, 255);  // #424242
+
   // ---- Surfaces ----
-  static constexpr ImU32 void_bg =
-      IM_COL32(18, 18, 18, 255);  // #121212 app bg behind cards
-  static constexpr ImU32 panel =
-      IM_COL32(32, 32, 32, 255);  // #202020 panel cards / bars
-  static constexpr ImU32 panel_stroke =
-      IM_COL32(48, 48, 48, 255);  // #303030 hairline under headers
-  static constexpr ImU32 strip =
-      IM_COL32(23, 23, 23, 255);  // #171717 rulers / list strips
-  static constexpr ImU32 recessed =
-      IM_COL32(17, 17, 17, 255);  // #111111 sunken zones
-  static constexpr ImU32 input_bg =
-      IM_COL32(25, 25, 25, 255);  // #191919 text fields
-  static constexpr ImU32 control =
-      IM_COL32(48, 48, 48, 255);  // #303030 buttons / dropdowns
-  static constexpr ImU32 control_hovered =
-      IM_COL32(58, 58, 58, 255);  // #3A3A3A
-  static constexpr ImU32 control_border =
-      IM_COL32(66, 66, 66, 255);  // #424242 1px outline / separators
-  static constexpr ImU32 control_selected =
-      IM_COL32(49, 49, 49, 255);  // #313131 active tab / rail item
+
   static constexpr ImU32 grid_minor = IM_COL32(45, 45, 45, 255);  // #2D2D2D
   static constexpr ImU32 grid_major = IM_COL32(61, 61, 61, 255);  // #3D3D3D
   static constexpr ImU32 selection_row =
       IM_COL32(49, 105, 227, 64);  // #3169E3 @ 0.25 row fill
   static constexpr ImU32 tree_guide =
       IM_COL32(211, 211, 211, 153);  // #D3D3D3 @ 0.6
-  static constexpr ImU32 section_header =
-      IM_COL32(39, 39, 39, 255);  // #272727 component header strip
   static constexpr ImU32 row_alt =
       IM_COL32(0, 0, 0, 45);  // black @ ~0.18, zebra stripe
   static constexpr ImU32 chevron = IM_COL32(188, 188, 188, 255);  // #BCBCBC
 
   // ---- Text ----
   static constexpr ImU32 text = IM_COL32(211, 211, 211, 255);      // #D3D3D3
-  static constexpr ImU32 text_dim = IM_COL32(188, 188, 188, 255);  // #BCBCBC
+  static constexpr ImU32 text_dim = IM_COL32(154, 154, 154, 255);  // #9A9A9A
   static constexpr ImU32 text_bright = IM_COL32(255, 255, 255, 255);
   static constexpr ImU32 text_placeholder =
       IM_COL32(255, 255, 255, 102);  // white @ 0.40
@@ -126,32 +128,16 @@ struct EditorColor {
   static constexpr ImU32 hover_overlay = IM_COL32(255, 255, 255, 12);
   static constexpr ImU32 active_overlay = IM_COL32(255, 255, 255, 30);
   static constexpr ImU32 overlay_bg =
-      IM_COL32(32, 32, 32, 179);  // viewport sections ~0.70
+      EditorStyles::WithAlpha(surface_2, 179);  // panel @ ~0.70
   static constexpr ImU32 overlay_hover =
-      IM_COL32(58, 58, 58, 204);  // hovered overlay ~0.80
-
-  // ---- Legacy aliases ----
-  // TODO: replace with new aliases
-  static constexpr ImU32 background = panel;
-  static constexpr ImU32 text_transparent = IM_COL32(211, 211, 211, 153);
-  static constexpr ImU32 element_transparent = IM_COL32(32, 32, 32, 130);
-  static constexpr ImU32 element_hovered_transparent_overlay = hover_overlay;
-  static constexpr ImU32 element_active_transparent_overlay = active_overlay;
-  static constexpr ImU32 selection = accent_deep;
-  static constexpr ImU32 selection_inactive = control_selected;
-  static constexpr ImU32 element = control;
-  static constexpr ImU32 element_hovered = control_hovered;
-  static constexpr ImU32 element_active = accent;
-  static constexpr ImU32 element_component = strip;
-  static constexpr ImU32 border_color = control_border;
-  static constexpr ImU32 tab_color = void_bg;
+      EditorStyles::WithAlpha(surface_5, 204);  // hovered @ ~0.80
 };
 
 // SIZING CONSTANTS
 struct EditorSizes {
   // Font sizes
   static constexpr float p_font_size =
-      15.0f;  // Bumped to 15 for better readability
+      14.0f;  // Bumped to 15 for better readability
   static constexpr float h1_font_size =
       24.0f;  // Smoothed out heading hierarchy
   static constexpr float h2_font_size = 20.0f;
@@ -162,8 +148,8 @@ struct EditorSizes {
 
   // Icon sizes (Scaled to match the new text baseline, prevents UI stretching)
   static constexpr float p_icon_size =
-      16.0f;  // Reduced from 22 to align with 15px text
-  static constexpr float p_bold_icon_size = 16.0f;
+      15.0f;  // Reduced from 22 to align with 15px text
+  static constexpr float p_bold_icon_size = 15.0f;
   static constexpr float h2_icon_size = 22.0f;
   static constexpr float h2_bold_icon_size = 22.0f;
   static constexpr float s_icon_size = 14.0f;

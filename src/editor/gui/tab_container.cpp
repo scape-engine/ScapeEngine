@@ -19,7 +19,7 @@ namespace {
 
 // Tab button background: selected > hovered > none (0 = draw nothing)
 ImU32 TabBackground(bool selected, bool hovered) {
-  return selected  ? EditorColor::control_selected
+  return selected  ? EditorColor::surface_4
          : hovered ? EditorColor::hover_overlay
                    : 0;
 }
@@ -88,7 +88,7 @@ void TabContainer::Render() {
     win_min = ImVec2(strip_pos.x, strip_pos.y + margin);
     win_size = ImVec2(current_width_, strip_size.y - margin * 2.0f);
   }
-  draw_list.AddRectFilled(win_min, win_min + win_size, EditorColor::panel,
+  draw_list.AddRectFilled(win_min, win_min + win_size, EditorColor::surface_2,
                           EditorSizes::panel_radius);
 
   // RESIZE EDGE (inner side, only while expanded)
@@ -185,7 +185,7 @@ void TabContainer::RenderHeader(ImDrawList& draw_list, float width) {
 
   draw_list.AddLine(ImVec2(strip_min.x, strip_max.y - 0.5f),
                     ImVec2(strip_max.x, strip_max.y - 0.5f),
-                    EditorColor::panel_stroke, 1.0f);
+                    EditorColor::line_subtle, 1.0f);
 
   ImGui::SetCursorScreenPos(ImVec2(strip_min.x, strip_max.y));
 }
@@ -244,7 +244,7 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
   const float divider_x = rail_min.x + rail_width_ - 0.5f;
   draw_list.AddLine(ImVec2(divider_x, rail_min.y),
                     ImVec2(divider_x, rail_min.y + height),
-                    EditorColor::panel_stroke, 1.0f);
+                    EditorColor::line_subtle, 1.0f);
 }
 
 //=============================================================================
@@ -315,7 +315,7 @@ void TabContainer::RenderStrip(ImDrawList& draw_list, ImVec2 strip_min,
     draw_list.AddLine(
         ImVec2(strip_min.x, strip_min.y + strip_height_ - 0.5f),
         ImVec2(strip_min.x + width, strip_min.y + strip_height_ - 0.5f),
-        EditorColor::panel_stroke, 1.0f);
+        EditorColor::line_subtle, 1.0f);
 }
 
 void TabContainer::ApplyCollapse() {

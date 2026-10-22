@@ -113,7 +113,7 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
   // Divider between header strip and tree
   draw_list.AddLine(ImVec2(strip_min.x, strip_max.y - 0.5f),
                     ImVec2(strip_max.x, strip_max.y - 0.5f),
-                    EditorColor::panel_stroke, 1.0f);
+                    EditorColor::line_subtle, 1.0f);
 
   ImGui::SetCursorScreenPos(ImVec2(strip_min.x, strip_max.y + content_gap_));
 }
@@ -274,7 +274,7 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
     row_color = EditorColor::hover_overlay;
   if (selected)
     row_color = GUIUtils::WindowFocused() ? EditorColor::selection_row
-                                          : EditorColor::control_selected;
+                                          : EditorColor::surface_4;
   if (drop_type == DROP_ITEM)
     row_color = EditorColor::accent_deep;
   if (row_color != 0)
@@ -518,7 +518,7 @@ void HierarchyPanel::RenderDraggedItem() {
   ImVec2 rect_min = pos;
   ImVec2 rect_max = pos + text_size + padding * 2;
 
-  fg->AddRectFilled(rect_min, rect_max, EditorColor::selection, 5.0f);
+  fg->AddRectFilled(rect_min, rect_max, EditorColor::accent_deep, 5.0f);
   fg->AddText(pos + padding, IM_COL32(255, 255, 255, 255), label.c_str());
 }
 

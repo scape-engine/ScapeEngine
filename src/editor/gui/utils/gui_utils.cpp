@@ -1,12 +1,13 @@
 #include "gui_utils.h"
 
 #include "editor/editor_ui.h"
+#include "editor/gui/styles/editor_styles.h"
 
 #include "platform/platform_utils.h"
 #include "platform/window_manager.h"
 
-#include <numbers>
 #include <imgui_internal.h>
+#include <numbers>
 
 namespace GUIUtils {
 
@@ -50,9 +51,13 @@ std::string FormatBytes(uint64_t bytes) {
   const char* units[] = {"B", "KB", "MB", "GB"};
   double value = static_cast<double>(bytes);
   int unit = 0;
-  while (value >= 1024.0 && unit < 3) { value /= 1024.0; ++unit; }
+  while (value >= 1024.0 && unit < 3) {
+    value /= 1024.0;
+    ++unit;
+  }
   char buffer[32];
-  snprintf(buffer, sizeof(buffer), unit == 0 ? "%.0f %s" : "%.1f %s", value, units[unit]);
+  snprintf(buffer, sizeof(buffer), unit == 0 ? "%.0f %s" : "%.1f %s", value,
+           units[unit]);
   return buffer;
 }
 
@@ -117,13 +122,15 @@ glm::vec2 KeepCursorInBounds(glm::vec4 bounds, bool& cursorMoved,
 }
 
 void FillCorner(ImDrawList* draw_list, ImVec2 corner, float radius,
-                    int quadrant, ImU32 color) {
-  const float a_min = std::numbers::pi_v<float> + quadrant * (std::numbers::pi_v<float> * 0.5f);
+                int quadrant, ImU32 color) {
+  const float a_min =
+      std::numbers::pi_v<float> + quadrant * (std::numbers::pi_v<float> * 0.5f);
   const ImVec2 center(
       corner.x + ((quadrant == 0 || quadrant == 3) ? radius : -radius),
       corner.y + ((quadrant <= 1) ? radius : -radius));
   draw_list->PathLineTo(corner);
-  draw_list->PathArcTo(center, radius, a_min, a_min + std::numbers::pi_v<float> * 0.5f, 8);
+  draw_list->PathArcTo(center, radius, a_min,
+                       a_min + std::numbers::pi_v<float> * 0.5f, 8);
   draw_list->PathFillConcave(color);
 }
 
@@ -135,14 +142,16 @@ void HideDockTabBar() {
 
 void HiddenTabDockSpace(ImGuiID id, ImVec2 size) {
   ImGui::DockSpace(id, size,
-                   ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingSplit |
-                   ImGuiDockNodeFlags_NoUndocking);
+                   ImGuiDockNodeFlags_NoTabBar |
+                       ImGuiDockNodeFlags_NoDockingSplit |
+                       ImGuiDockNodeFlags_NoUndocking);
 }
 
 void HostDockSpace(ImGuiID id, ImVec2 size) {
-  ImGui::DockSpace(id, size,
-                   ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingSplit |
-                   ImGuiDockNodeFlags_NoUndocking | ImGuiDockNodeFlags_NoDockingOverMe);
+  ImGui::DockSpace(
+      id, size,
+      ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingSplit |
+          ImGuiDockNodeFlags_NoUndocking | ImGuiDockNodeFlags_NoDockingOverMe);
 }
 
 void DockNextWindowInto(ImGuiID dock_id) {
@@ -159,6 +168,31 @@ bool WindowFocused() {
 
 bool WindowHovered() {
   return ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows);
+}
+
+bool BeginFloatingWindow(const char* name, bool* p_open,
+                         ImGuiWindowFlags flags) {
+  ImGui::SetNextWindowSize(ImVec2(640.0f, 420.0f), ImGuiCond_FirstUseEver);
+
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, EditorColor::surface_2);
+  ImGui::PushStyleColor(ImGuiCol_TitleBg, EditorColor::surface_3);
+  ImGui::PushStyleColor(ImGuiCol_TitleBgActive, EditorColor::surface_3);
+  ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, EditorColor::surface_3);
+  ImGui::PushStyleColor(ImGuiCol_Border, EditorColor::line_subtle);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, EditorSizes::panel_radius);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+
+  const bool visible =
+      ImGui::Begin(name, p_open, flags | ImGuiWindowFlags_NoDocking);
+
+  // All of these are read by Begin; content inside uses the normal style
+  ImGui::PopStyleVar(2);
+  ImGui::PopStyleColor(5);
+  return visible;
+}
+
+void EndFloatingWindow() {
+  ImGui::End();
 }
 
 }  // namespace GUIUtils

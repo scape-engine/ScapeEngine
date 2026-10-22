@@ -123,7 +123,7 @@ inline void ConsolePanel() {
       IMComponents::Tooltip(kLevels[i].tooltip);
 
     draw_list.AddRectFilled(
-        min, max, hovered ? EditorColor::control_hovered : EditorColor::control,
+        min, max, hovered ? EditorColor::surface_5 : EditorColor::surface_4,
         EditorSizes::control_radius);
     if (show[i])  // active underline
       draw_list.AddLine(ImVec2(min.x + 2.0f, max.y - 1.0f),
@@ -156,7 +156,7 @@ inline void ConsolePanel() {
 
   // LOG AREA
   ImGui::SetCursorScreenPos(origin);
-  ImGui::PushStyleColor(ImGuiCol_ChildBg, EditorColor::strip);
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, EditorColor::surface_1);
   ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, EditorSizes::control_radius);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 6.0f));
   ImGui::BeginChild("LogScrollingRegion", ImVec2(log_w, log_h),

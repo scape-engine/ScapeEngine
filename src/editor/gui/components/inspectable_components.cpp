@@ -76,10 +76,10 @@ bool _BeginComponent(const std::string& identifier,
 
   // HEADER BACKGROUND (only top corners rounded while open)
   draw_list.AddRectFilled(
-      p0, p1, EditorColor::section_header, radius,
+      p0, p1, EditorColor::surface_3, radius,
       opened ? ImDrawFlags_RoundCornersTop : ImDrawFlags_RoundCornersAll);
   if (!opened)
-    draw_list.AddRect(p0, p1, EditorColor::panel_stroke, radius, 0, 1.0f);
+    draw_list.AddRect(p0, p1, EditorColor::line_subtle, radius, 0, 1.0f);
 
   // CHEVRON
   float x = p0.x + pad_x;
@@ -167,10 +167,10 @@ void _EndComponent() {
   const float radius = 6.0f;
   const ImVec2 body_min = ImGui::GetItemRectMin();
   const ImVec2 body_max = ImGui::GetItemRectMax();
-  draw_list.AddRectFilled(body_min, body_max, EditorColor::panel, radius,
+  draw_list.AddRectFilled(body_min, body_max, EditorColor::surface_2, radius,
                           ImDrawFlags_RoundCornersBottom);
   draw_list.AddRect(ImVec2(body_min.x, g_component_top.y), body_max,
-                    EditorColor::panel_stroke, radius, 0, 1.0f);
+                    EditorColor::line_subtle, radius, 0, 1.0f);
 
   ImGui::Dummy(ImVec2(0.0f, 4.0f));  // gap to next component
 }

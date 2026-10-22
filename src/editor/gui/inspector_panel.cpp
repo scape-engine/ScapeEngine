@@ -128,7 +128,7 @@ void InspectorPanel::RenderPreviewViewer(ImDrawList& draw_list, ImVec2 size) {
   if (top_bar_hovered)
     top_bar_color = IM_COL32(255, 255, 255, 255);
   if (top_bar_active_drag)
-    top_bar_color = EditorColor::selection;
+    top_bar_color = EditorColor::accent_deep;
 
   // Draw top bar
   draw_list.AddRectFilled(top_bar_pos, top_bar_pos + top_bar_size,

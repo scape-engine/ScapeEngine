@@ -94,7 +94,7 @@ void ModelViewer::RenderViewport() {
   preview_pipeline_.ResizeOutput(viewport_output_, size.x * dpi, size.y * dpi);
 
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
-  draw_list->AddRectFilled(p_min, p_max, EditorColor::background);
+  draw_list->AddRectFilled(p_min, p_max, EditorColor::surface_2);
 
   //
   // BOUNDING BOX SCALING
@@ -277,7 +277,7 @@ void ModelViewer::RenderViewport() {
     ImVec2 text_size = ImGui::CalcTextSize(icon.c_str());
     draw_list->AddText(ImVec2(p_min.x + (size.x - text_size.x) * 0.5f,
                               p_min.y + (size.y - text_size.y) * 0.5f),
-                       EditorColor::selection, icon.c_str());
+                       EditorColor::accent_deep, icon.c_str());
     ImGui::PopFont();
   }
 

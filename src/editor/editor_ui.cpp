@@ -75,7 +75,7 @@ void EditorUI::Initialize() {
   LoadIcons();
 
   // Set up window title
-  ImVec4 bar = ImGui::ColorConvertU32ToFloat4(EditorColor::panel);
+  ImVec4 bar = ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2);
   Platform::StyleTitleBar(WindowManager::GetWindow(), bar.x, bar.y, bar.z);
 
   ImGuiIO& io = ImGui::GetIO();
@@ -367,9 +367,9 @@ void EditorUI::DockSpace() {
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_WindowBg,
-                        ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
   ImGui::PushStyleColor(ImGuiCol_MenuBarBg,
-                        ImGui::ColorConvertU32ToFloat4(EditorColor::panel));
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
   Panels::MenuBar(
       [this]() {
         if (is_game_started_) {
@@ -404,11 +404,11 @@ void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
   const ImVec2 mx =
       ImVec2(node->Pos.x + node->Size.x, node->Pos.y + node->Size.y);
 
-  dl->AddRectFilled(mn, mx, EditorColor::panel, EditorSizes::panel_radius);
+  dl->AddRectFilled(mn, mx, EditorColor::surface_2, EditorSizes::panel_radius);
 
   if (node->TabBar && !node->IsHiddenTabBar() && !node->IsNoTabBar()) {
     const float y = node->TabBar->BarRect.Max.y;
-    dl->AddLine(ImVec2(mn.x, y), ImVec2(mx.x, y), EditorColor::panel_stroke,
+    dl->AddLine(ImVec2(mn.x, y), ImVec2(mx.x, y), EditorColor::line_subtle,
                 EditorSizes::hairline);
   }
 }
@@ -416,13 +416,10 @@ void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
 void EditorUI::RenderUI() {
   ImGuiIO& io = ImGui::GetIO();
 
-  if (ImGui::IsKeyPressed(ImGuiKey_F9))  // DEBUG: remove before commit
-    Logger::getInstance().Log(LogLevel::Error, "Test error");
-
   ImGuiViewport* vp = ImGui::GetMainViewport();
   ImGui::GetBackgroundDrawList(vp)->AddRectFilled(
       vp->Pos, ImVec2(vp->Pos.x + vp->Size.x, vp->Pos.y + vp->Size.y),
-      EditorColor::void_bg);
+      EditorColor::surface_0);
 
   DockSpace();
 

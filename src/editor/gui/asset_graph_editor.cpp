@@ -225,15 +225,17 @@ AssetGraphEditor::AssetGraphEditor(PreviewData* data) : data_(data) {
 
   ed::SetCurrentEditor(m_EditorContext);
   ed::Style& style = ed::GetStyle();
-  auto C = [](ImU32 c) { return ImGui::ColorConvertU32ToFloat4(c); };
-  style.Colors[ed::StyleColor_Bg]            = C(EditorColor::void_bg);
-  style.Colors[ed::StyleColor_Grid]          = C(EditorColor::grid_minor);
-  style.Colors[ed::StyleColor_NodeBg]        = C(EditorColor::panel);
-  style.Colors[ed::StyleColor_NodeBorder]    = C(EditorColor::control_border);
+  auto C = [](ImU32 c) {
+    return ImGui::ColorConvertU32ToFloat4(c);
+  };
+  style.Colors[ed::StyleColor_Bg] = C(EditorColor::surface_0);
+  style.Colors[ed::StyleColor_Grid] = C(EditorColor::grid_minor);
+  style.Colors[ed::StyleColor_NodeBg] = C(EditorColor::surface_2);
+  style.Colors[ed::StyleColor_NodeBorder] = C(EditorColor::line_strong);
   style.Colors[ed::StyleColor_HovNodeBorder] = C(EditorColor::accent_hover);
   style.Colors[ed::StyleColor_SelNodeBorder] = C(EditorColor::accent);
   style.Colors[ed::StyleColor_SelLinkBorder] = C(EditorColor::accent);
-  style.Colors[ed::StyleColor_PinRect]       = C(EditorColor::accent_border);
+  style.Colors[ed::StyleColor_PinRect] = C(EditorColor::accent_border);
   style.NodeRounding = EditorSizes::control_radius;
   style.NodeBorderWidth = 1.0f;
   ed::SetCurrentEditor(nullptr);

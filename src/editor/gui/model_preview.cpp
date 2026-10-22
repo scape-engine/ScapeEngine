@@ -235,11 +235,11 @@ void ModelPreview::RenderGrid(ImDrawList* draw_list) {
         data_->selected_instance = i;
       }
 
-      ImU32 bg_color = EditorColor::element;
+      ImU32 bg_color = EditorColor::surface_4;
       if (hovered)
-        bg_color = EditorColor::element_hovered;
+        bg_color = EditorColor::surface_5;
       if (selected)
-        bg_color = EditorColor::element_active;
+        bg_color = EditorColor::accent;
 
       draw_list->AddRectFilled(rect_min, rect_max, bg_color, 4.0f);
 
@@ -269,7 +269,7 @@ void ModelPreview::RenderGrid(ImDrawList* draw_list) {
         ImGui::PopFont();
       }
 
-      draw_list->AddRect(rect_min, rect_max, EditorColor::border_color, 4.0f, 0,
+      draw_list->AddRect(rect_min, rect_max, EditorColor::line_strong, 4.0f, 0,
                          1.0f);
     }
     ImGui::EndTable();

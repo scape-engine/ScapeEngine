@@ -33,7 +33,7 @@ glm::vec2 KeepCursorInBounds(glm::vec4 bounds, bool& cursorMoved, float offset);
 
 // quadrant: 0 = top-left, 1 = top-right, 2 = bottom-right, 3 = bottom-left
 void FillCorner(ImDrawList* draw_list, ImVec2 corner, float radius,
-                    int quadrant, ImU32 color);
+                int quadrant, ImU32 color);
 
 void HideDockTabBar();
 
@@ -54,6 +54,11 @@ bool WindowFocused();
 
 // Return if current window is hovered
 bool WindowHovered();
+
+// Undockable window with opaque panel background and title bar
+bool BeginFloatingWindow(const char* name, bool* p_open,
+                         ImGuiWindowFlags flags = 0);
+void EndFloatingWindow();
 
 }  // namespace GUIUtils
 

@@ -10,7 +10,7 @@ namespace PopupMenu {
 ImVec4 _background_color = ImVec4(0.2f, 0.2f, 0.25f, 0.9f);
 ImVec4 _text_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 ImVec4 _hover_color = ImVec4(0.1f, 0.1f, 0.15f, 1.0f);
-ImU32 _outline_color = EditorColor::selection;
+ImU32 _outline_color = EditorColor::accent_deep;
 
 bool _open_requested = false;
 

@@ -131,7 +131,7 @@ void ToggleButton(ImDrawList& draw_list, std::string text, bool& value,
 
   // Draw background
   ImU32 bg_color =
-      value ? EditorColor::element_active : IM_COL32(0x40, 0x45, 0x4D, 0xFF);
+      value ? EditorColor::accent : IM_COL32(0x40, 0x45, 0x4D, 0xFF);
   draw_list.AddRectFilled(p0, p1, bg_color, rounding);
 
   // Draw text
@@ -148,7 +148,7 @@ bool ButtonBig(std::string label, std::string _tooltip) {
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 4.0f));
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::control_radius);
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,
-                        GUIUtils::Darken(EditorColor::element_active, 0.3f));
+                        GUIUtils::Darken(EditorColor::accent, 0.3f));
 
   pressed = ImGui::Button(label.c_str());
 
@@ -698,10 +698,10 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
   const ImVec2 p1 = position + size;
   const ImVec2 split = ImVec2(position.x + icon_width, p1.y);
 
-  draw_list.AddRectFilled(position, split, EditorColor::control, radius,
+  draw_list.AddRectFilled(position, split, EditorColor::surface_4, radius,
                           ImDrawFlags_RoundCornersLeft);
   draw_list.AddRectFilled(ImVec2(split.x, position.y), p1,
-                          EditorColor::input_bg, radius,
+                          EditorColor::surface_1, radius,
                           ImDrawFlags_RoundCornersRight);
   Glyph(draw_list, position, ImVec2(icon_width, size.y),
         ICON_FA_MAGNIFYING_GLASS, EditorColor::text_dim,
@@ -727,10 +727,10 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
   ImGui::PopFont();
 
   // Draw outline and separator line
-  // draw_list.AddRect(position, p1, EditorColor::control_border, radius,
+  // draw_list.AddRect(position, p1, EditorColor::line_strong, radius,
   // 0, 1.0f);
   // draw_list.AddLine(ImVec2(split.x, position.y), split,
-  // EditorColor::control_border, 1.0f);
+  // EditorColor::line_strong, 1.0f);
   return changed;
 }
 
@@ -756,12 +756,11 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
 
   const ImVec2 p1 = position + ImVec2(width, height);
   draw_list.AddRectFilled(
-      position, p1,
-      hovered ? EditorColor::control_hovered : EditorColor::control,
+      position, p1, hovered ? EditorColor::surface_5 : EditorColor::surface_4,
       EditorSizes::control_radius);
 
   // Draw outline
-  // draw_list.AddRect(position, p1, EditorColor::control_border,
+  // draw_list.AddRect(position, p1, EditorColor::line_strong,
   // EditorSizes::control_radius, 0, 1.0f);
 
   float x = position.x + pad;
@@ -798,12 +797,11 @@ bool IconDropdownButton(ImDrawList& draw_list, const char* id,
 
   const ImVec2 p1 = position + ImVec2(width, height);
   draw_list.AddRectFilled(
-      position, p1,
-      hovered ? EditorColor::control_hovered : EditorColor::control,
+      position, p1, hovered ? EditorColor::surface_5 : EditorColor::surface_4,
       EditorSizes::control_radius);
 
   // Draw outline
-  // draw_list.AddRect(position, p1, EditorColor::control_border,
+  // draw_list.AddRect(position, p1, EditorColor::line_strong,
   // EditorSizes::control_radius, 0, 1.0f);
 
   const ImVec2 icon_min =
@@ -891,7 +889,7 @@ bool Checkbox(const char* label, bool* value) {
     // OFF: dark fill with a subtle border
     draw_list->AddRectFilled(
         box_min, box_max,
-        hovered ? EditorColor::control : EditorColor::input_bg, rounding);
+        hovered ? EditorColor::surface_4 : EditorColor::surface_1, rounding);
   }
 
   if (label_size.x > 0.0f)

@@ -260,7 +260,7 @@ ImVec2 AssetBrowserPanel::RenderBreadcrumbBar(ImDrawList& draw_list,
   const float path_w = (right - x - gap) * 0.5f;
   const ImVec2 path_min = ImVec2(x, y);
   const ImVec2 path_max = ImVec2(x + path_w, y + control_h);
-  draw_list.AddRectFilled(path_min, path_max, EditorColor::input_bg,
+  draw_list.AddRectFilled(path_min, path_max, EditorColor::surface_1,
                           EditorSizes::control_radius);
   draw_list.PushClipRect(path_min, ImVec2(path_max.x - 6.0f, path_max.y), true);
   draw_list.AddText(
@@ -346,7 +346,7 @@ void AssetBrowserPanel::RenderSideFolder(ImDrawList& draw_list,
 
   // ROW BACKGROUND
   if (selected)
-    draw_list.AddRectFilled(row_min, row_max, EditorColor::control_selected,
+    draw_list.AddRectFilled(row_min, row_max, EditorColor::surface_4,
                             EditorSizes::control_radius);
   else if (hovered)
     draw_list.AddRectFilled(row_min, row_max, EditorColor::hover_overlay,
@@ -385,7 +385,7 @@ void AssetBrowserPanel::RenderNodes(ImDrawList& draw_list, ImVec2 position,
   // Recessed rounded area, drawn on the parent list
   const ImVec2 box_min = ImVec2(position.x + 4.0f, position.y);
   const ImVec2 box_max = ImVec2(position.x + size.x, position.y + size.y);
-  draw_list.AddRectFilled(box_min, box_max, EditorColor::strip,
+  draw_list.AddRectFilled(box_min, box_max, EditorColor::surface_1,
                           content_rounding_);
 
   // Get current folder

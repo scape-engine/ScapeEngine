@@ -71,7 +71,7 @@ inline void AxisGizmo(ImVec2 center, float radius, const glm::mat4& view,
       draw_list->AddText(
           small, small->FontSize,
           ImVec2(a.screen.x - ts.x * 0.5f, a.screen.y - ts.y * 0.5f),
-          EditorColor::void_bg, a.label);
+          EditorColor::surface_0, a.label);
     } else {
       // Negative axis: translucent fill with a ring
       draw_list->AddCircleFilled(a.screen, ball_r, with_alpha(a.color, 60));

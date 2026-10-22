@@ -80,7 +80,7 @@ void ActionOverlay(ImVec2 canvas_min, ImVec2 canvas_size) {
   if (cap_w > 0.0f) {
     const ImVec2 c0 = ImVec2(x, std::floor(mid_y - cap_h * 0.5f));
     draw_list->AddRectFilled(c0, ImVec2(c0.x + cap_w, c0.y + cap_h),
-                             ScaleAlpha(EditorColor::control, alpha),
+                             ScaleAlpha(EditorColor::surface_4, alpha),
                              EditorSizes::control_radius);
     draw_list->AddText(font, font_size,
                        ImVec2(std::floor(c0.x + (cap_w - key_size.x) * 0.5f),
