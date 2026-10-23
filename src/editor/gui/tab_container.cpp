@@ -241,10 +241,14 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
     y += rail_button_ + rail_gap_;
   }
 
-  const float divider_x = rail_min.x + rail_width_ - 0.5f;
-  draw_list.AddLine(ImVec2(divider_x, rail_min.y),
-                    ImVec2(divider_x, rail_min.y + height),
-                    EditorColor::line_subtle, 1.0f);
+  // Rail/content separator: only meaningful while the panel is wider than
+  // the rail (collapsed, it would sit on the card's outer edge)
+  if (current_width_ > rail_width_ + 1.0f) {
+    const float divider_x = rail_min.x + rail_width_ - 0.5f;
+    draw_list.AddLine(ImVec2(divider_x, rail_min.y),
+                      ImVec2(divider_x, rail_min.y + height),
+                      EditorColor::line_subtle, 1.0f);
+  }
 }
 
 //=============================================================================

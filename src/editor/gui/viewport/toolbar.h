@@ -16,6 +16,9 @@ struct ToolbarCallbacks {
   std::function<void()> onAddObject;
   std::function<void()> onRemoveObject;
   std::function<void()> onQuit;
+  std::function<void()> onSetFullscreen;
+
+  bool fullscreen = false;
 };
 
 // Now it just draws buttons, no ImGui::Begin() window wrapper
@@ -45,9 +48,11 @@ inline void Toolbar(const ToolbarCallbacks& cb) {
   ImGui::PopStyleColor();
 
   ImGui::SameLine();
-  if (ImGui::Button(ICON_FA_CUBE))
-    if (cb.onAddObject)
-      cb.onAddObject();
+  if (ImGui::Button(cb.fullscreen ? ICON_FA_COMPRESS : ICON_FA_EXPAND))
+    if (cb.onSetFullscreen)
+      cb.onSetFullscreen();
+  IMComponents::Tooltip(cb.fullscreen ? "Exit fullscreen (Shift+Space)"
+                                      : "Fullscreen viewport (Shift+Space)");
 
   ImGui::PopFont();
   ImGui::PopStyleVar(2);

@@ -24,6 +24,7 @@
 #include "gui/status_bar.h"
 #include "gui/tab_container.h"
 #include "gui/terrain_editor_panel.h"
+#include "gui/viewport/action_overlay.h"
 #include "gui/viewport/toolbar.h"
 
 #include "platform/platform_utils.h"
@@ -359,7 +360,8 @@ void EditorUI::DockSpace() {
   const ImVec2 avail = ImGui::GetContentRegionAvail();
   const float inner = EditorSizes::panel_margin - EditorSizes::panel_gap;
   ImGui::DockSpace(dock_id_, ImVec2(avail.x + inner, avail.y + inner),
-                   dock_flags_);
+                   fullscreen_ ? dock_flags_ | ImGuiDockNodeFlags_KeepAliveOnly
+                               : dock_flags_);
 
   ImGui::End();
   ImGui::PopStyleVar(3);
@@ -478,11 +480,36 @@ void EditorUI::RenderUI() {
     EditorEvents::editor_exit_pressed();
   };
 
+  cb.fullscreen = fullscreen_;
+  cb.onSetFullscreen = [this]() {
+    SetFullscreen();
+  };
+
   auto& world = ECS::Main();
 
   // -------- MIDDLE : SCENE --------
+  // Shift+Space over the viewport toggles fullscreen; Esc exits it
+  if (!io.WantTextInput) {
+    if (game_canvas_hovered_ &&
+        ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Space))
+      SetFullscreen();
+    else if (fullscreen_ && ImGui::IsKeyPressed(ImGuiKey_Escape, false) &&
+             !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId))
+      SetFullscreen();
+  }
+
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  ImGui::Begin("Viewport", nullptr);
+  if (fullscreen_) {
+    // Borderless window over the work area (between menu and status bar)
+    ImGui::SetNextWindowPos(vp->WorkPos);
+    ImGui::SetNextWindowSize(vp->WorkSize);
+    ImGui::Begin("##ViewportFullscreen", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+                     ImGuiWindowFlags_NoMove |
+                     ImGuiWindowFlags_NoSavedSettings);
+  } else {
+    ImGui::Begin("Viewport", nullptr);
+  }
   ImGui::PopStyleVar();
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
                      game_canvas_focused_, cb, god_state_);
@@ -522,15 +549,14 @@ void EditorUI::RenderUI() {
     Runtime::GetSceneViewPipeline().SetSelectedEntities(state_list);
   }
 
-  // -------- Render all registered WindowBase windows --------
-  // This automatically renders HierarchyPanel, InspectorPanel,
-  // PCGGraphEditorPanel
-  for (auto& window : g_windows_) {
-    window->Render();
+  // -------- Card corners over all docked leaves --------
+  // Fullscreen: show only viewport
+  if (!fullscreen_) {
+    for (auto& window : g_windows_) {
+      window->Render();  // render all registered WindowBase panels
+    }
+    DrawPanelCards(ImGui::DockBuilderGetNode(dock_id_));
   }
-
-  // -------- Card corners over all docked leaves (no per-panel edits) --------
-  DrawPanelCards(ImGui::DockBuilderGetNode(dock_id_));
 }
 
 void EditorUI::LoadIcons() {
@@ -624,6 +650,12 @@ ImGuiID EditorUI::GenerateId() {
 
 std::string EditorUI::GenerateIdString() {
   return "##" + std::to_string(++g_id_counter_);
+}
+
+void EditorUI::SetFullscreen() {
+  fullscreen_ = !fullscreen_;
+  Viewport::PostAction(fullscreen_ ? "Fullscreen viewport" : "Exit fullscreen",
+                       "Shift+Space");
 }
 
 template <typename T, typename... Args>

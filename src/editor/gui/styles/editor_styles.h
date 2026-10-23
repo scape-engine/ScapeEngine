@@ -61,7 +61,7 @@ struct EditorFontPath {
 struct EditorColor {
   // ---- Elevation  ----
   static constexpr ImU32 surface_0 =
-      IM_COL32(18, 18, 18, 0);  // #121212 app bg, gaps
+      IM_COL32(18, 18, 18, 255);  // #121212 app bg, gaps
   static constexpr ImU32 surface_1 =
       IM_COL32(25, 25, 25, 255);  // #191919 sunken
   static constexpr ImU32 surface_2 =
@@ -163,8 +163,8 @@ struct EditorSizes {
 
   static constexpr float panel_radius = 8.0f;
   static constexpr float control_radius = 4.0f;
-  static constexpr float panel_gap = 5.0f;      // gap between docked panels
-  static constexpr float panel_margin = 10.0f;  // outer margin around dockspace
+  static constexpr float panel_gap = 5.0f;     // gap between docked panels
+  static constexpr float panel_margin = 5.0f;  // outer margin around dockspace
   static constexpr float item_spacing = 5.0f;
   static constexpr float inner_spacing = 2.0f;
   static constexpr float header_bar_height = 30.0f;  // panel header strip

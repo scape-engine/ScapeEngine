@@ -52,6 +52,8 @@ public:
   void Destroy() override;
   void BeginImGuiFrame(SDL_Window* window);
 
+  void SetFullscreen();
+
 private:
   void HandleInput(Key key);
   void RenderUI();
@@ -70,7 +72,8 @@ private:
   bool game_canvas_hovered_ = false;
   bool game_canvas_focused_ = false;
   bool built_layout_ = false;
-  bool text_input_off_ = true;  // WindowManager::Initialize disables it
+  bool text_input_off_ = true;
+  bool fullscreen_ = false;
 
   // Id counter
   uint32_t g_id_counter_;
