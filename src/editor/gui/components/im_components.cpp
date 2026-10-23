@@ -957,4 +957,24 @@ void CountBadge(ImDrawList& draw_list, uint32_t count, ImVec2 pos) {
                     EditorColor::text_bright, text);
 }
 
+//=============================================================================
+// CENTERED
+//=============================================================================
+void BeginCentered(const char* id) {
+  ImGui::PushID(id);
+  const float width =
+      ImGui::GetStateStorage()->GetFloat(ImGui::GetID("##width"), 0.0f);
+  const float offset =
+      std::max(0.0f, (ImGui::GetContentRegionAvail().x - width) * 0.5f);
+  ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::floor(offset));
+  ImGui::BeginGroup();
+}
+
+void EndCentered() {
+  ImGui::EndGroup();
+  ImGui::GetStateStorage()->SetFloat(ImGui::GetID("##width"),
+                                     ImGui::GetItemRectSize().x);
+  ImGui::PopID();
+}
+
 }  // namespace IMComponents

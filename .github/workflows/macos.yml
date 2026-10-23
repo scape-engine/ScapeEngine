@@ -33,7 +33,7 @@ jobs:
             ~/.xmake/cache
           key: ${{ runner.os }}-${{ runner.arch }}-xmake-${{ hashFiles('xmake.lua', 'xmake/*.lua') }}
           restore-keys: |
-              ${{ runner.os }}-${{ runner.arch }}-xmake-
+            ${{ runner.os }}-${{ runner.arch }}-xmake-
 
       - name: Cache FastNoise2 build
         id: cache-fastnoise2
@@ -47,13 +47,13 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: xmake require -y
-      
+
       - name: Build FastNoise2 (if not cached)
         if: steps.cache-fastnoise2.outputs.cache-hit != 'true'
-        shell : bash
+        shell: bash
         run: xmake build FastNoise2
 
       - name: Configure & Build
         run: |
           xmake f -p macosx --toolchain=clang -a ${{ matrix.arch }} -y -v
-          xmake build fractal
+          xmake build scape

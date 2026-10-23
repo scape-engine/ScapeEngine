@@ -54,4 +54,4 @@ jobs:
 
       - name: Build
         shell: bash
-        run: xmake build fractal
+        run: xmake build scape

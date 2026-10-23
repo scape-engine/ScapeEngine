@@ -1,6 +1,7 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <deque>
@@ -25,10 +26,10 @@ public:
 
   std::deque<std::string> GetLogEntries();
 
+  uint64_t GetCount(LogLevel level) const;
+
   // Total errors logged since startup
-  uint64_t GetErrorCount() const {
-    return error_count_.load(std::memory_order_relaxed);
-  }
+  uint64_t GetErrorCount() const { return GetCount(LogLevel::Error); }
 
   std::map<LogLevel, std::string> logLevelNames{{LogLevel::Info, "INFO"},
                                                 {LogLevel::Debug, "DEBUG"},
@@ -48,7 +49,9 @@ private:
   static constexpr size_t MAX_ENTRIES = 10000;
 
   uint64_t version_ = 0;
-  std::atomic<uint64_t> error_count_{0};
+
+  static constexpr size_t level_count = 4;  // number of LogLevel values
+  std::array<std::atomic<uint64_t>, level_count> level_counts_{};
 };
 
 #endif  // LOGGER_H

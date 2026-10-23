@@ -1,1 +1,1 @@
-#define BOOST_TEST_MODULE Fractal3DTests
+#define BOOST_TEST_MODULE Scape3DTests

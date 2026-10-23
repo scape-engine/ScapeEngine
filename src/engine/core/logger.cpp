@@ -61,6 +61,13 @@ std::deque<std::string> Logger::GetLogEntries() {
   return entries_;  // copied while the lock is held
 }
 
+uint64_t Logger::GetCount(LogLevel level) const {
+  const size_t index = static_cast<size_t>(level);
+  return index < level_count
+             ? level_counts_[index].load(std::memory_order_relaxed)
+             : 0;
+}
+
 void Logger::Log(LogLevel level, const std::string& message) {
   std::lock_guard<std::mutex> guard(mutex_);  // Prevent overwriting; mutex
                                               // gives multi-threading support
@@ -72,11 +79,14 @@ void Logger::Log(LogLevel level, const std::string& message) {
   if (entries_.size() > MAX_ENTRIES)
     entries_.pop_front();
 
+  const size_t index = static_cast<size_t>(level);
+  if (index < level_count)
+    level_counts_[index].fetch_add(1, std::memory_order_relaxed);
+
   // Flushing every line is a sync disk write under the lock; only force it
   // for errors (the stream flushes on its own and on close)
   logfile_ << formatted << '\n';
   if (level == LogLevel::Error) {
     logfile_.flush();
-    error_count_.fetch_add(1, std::memory_order_relaxed);
   }
 }

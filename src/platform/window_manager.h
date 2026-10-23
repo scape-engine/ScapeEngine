@@ -27,7 +27,7 @@ public:
   WindowManager& operator=(const WindowManager&) = delete;
 
   // Initialize with window management
-  static bool Initialize(const char* title = "Fractal Engine", int width = 1280,
+  static bool Initialize(const char* title = "Scape Engine", int width = 1280,
                          int height = 720);
   static void Shutdown();
 

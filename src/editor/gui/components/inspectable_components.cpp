@@ -83,11 +83,13 @@ bool _BeginComponent(const std::string& identifier,
 
   // CHEVRON
   float x = p0.x + pad_x;
-  IMComponents::Glyph(
-      draw_list, ImVec2(x, p0.y), ImVec2(12.0f, header_height),
-      opened ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
-      always_opened ? EditorColor::text_disabled : EditorColor::chevron, small);
-  x += 12.0f + 8.0f;
+  if (!always_opened) {
+    IMComponents::Glyph(draw_list, ImVec2(x, p0.y),
+                        ImVec2(12.0f, header_height),
+                        opened ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
+                        EditorColor::chevron, small);
+    x += 12.0f + 8.0f;
+  }
 
   // ENABLED CHECKBOX
   if (enabled_ptr) {

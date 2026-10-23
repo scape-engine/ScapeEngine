@@ -226,9 +226,12 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
     if (hovered)
       IMComponents::Tooltip(entry.tooltip);
 
+    // Set background colour
     const bool selected = i == active_;
-    if (const ImU32 bg = TabBackground(selected, hovered))
-      draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
+    const ImU32 bg = selected  ? EditorColor::surface_4
+                     : hovered ? EditorColor::surface_3
+                               : EditorColor::surface_0;
+    draw_list.AddRectFilled(p0, p1, bg, EditorSizes::control_radius);
 
     IMComponents::Icon(draw_list, entry.icon_id, entry.icon, p0, button_size,
                        selected ? EditorColor::text_bright : EditorColor::text);

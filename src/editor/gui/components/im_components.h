@@ -121,6 +121,11 @@ bool Checkbox(const char* label, bool* value);
 void BeginOverlay();
 void EndOverlay(ImVec2 padding = ImVec2(0.0f, 0.0f));
 
+// Centers whatever is submitted between these calls within the available
+// width, using its measured width from the previous frame
+void BeginCentered(const char* id);
+void EndCentered();
+
 // Count pill ("3", "99+"). Measure first to reserve space, then draw.
 // A count of 0 has zero size and draws nothing.
 ImVec2 CountBadgeSize(uint32_t count);

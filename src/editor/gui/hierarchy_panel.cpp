@@ -283,7 +283,8 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   // FOREGROUND COLORS
   const ImU32 text_color =
       selected ? EditorColor::accent_border : EditorColor::text;
-  const ImU32 chevron_color = EditorColor::chevron;
+  const ImU32 chevron_color =
+      selected ? EditorColor::accent_border : EditorColor::chevron;
 
   // RIGHT-ALIGNED ICONS (data / eye / camera) — drawn before hit-testing the
   // row so clicking a toggle doesn't also select
