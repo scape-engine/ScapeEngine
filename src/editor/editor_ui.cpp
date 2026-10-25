@@ -72,16 +72,19 @@ void EditorUI::Initialize() {
   static constexpr const char* layout_ini = "editor_v4.ini";
   ImGui::GetIO().IniFilename = layout_ini;
 
-  EditorStyles::Initialize();
-  LoadIcons();
-
   // Set up window title
   ImVec4 bar = ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2);
   Platform::StyleTitleBar(WindowManager::GetWindow(), bar.x, bar.y, bar.z);
 
   ImGuiIO& io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // Enable Docking
-  // No multi-viewport: imgui_impl_bgfx has no RendererHasViewports support
+  io.DisplaySize = ImVec2((float)WindowManager::GetWidth(),
+                          (float)WindowManager::GetHeight());
+  io.DisplayFramebufferScale =
+      ImVec2(WindowManager::GetDPIScale(), WindowManager::GetDPIScale());
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+  EditorStyles::Initialize();
+  LoadIcons();
 
   // handle docking behavior
   // ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
@@ -102,11 +105,6 @@ void EditorUI::Initialize() {
         return 1;
       },
       this);
-
-  io.DisplaySize = ImVec2((float)WindowManager::GetWidth(),
-                          (float)WindowManager::GetHeight());
-  io.DisplayFramebufferScale =
-      ImVec2(WindowManager::GetDPIScale(), WindowManager::GetDPIScale());
 
   // ADD DEFAULT EDITOR WINDOWS
   std::vector<TabEntry> property_tabs;

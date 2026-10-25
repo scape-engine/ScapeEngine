@@ -46,20 +46,25 @@ const Fonts& GetFonts() {
 }
 
 void _MergeIcons(ImGuiIO& io, float icon_size) {
-  float icons_font_size = icon_size * 2.0f / 3.0f;
-
   ImFontConfig icons_config;
   icons_config.MergeMode = true;
   icons_config.PixelSnapH = true;
-  icons_config.GlyphOffset = ImVec2(0.0f, -2.0f);
-  icons_config.GlyphMinAdvanceX = icons_font_size;
+  icons_config.RasterizerDensity = io.DisplayFramebufferScale.x;
 
+  // FontAwesome: glyphs fill icon's em box 2/3
+  const float fa_size = icon_size * 2.0f / 3.0f;
+  icons_config.GlyphOffset = ImVec2(0.0f, -2.0f);
+  icons_config.GlyphMinAdvanceX = fa_size;
   io.Fonts->AddFontFromFileTTF(
-      Platform::ResolvePath(EditorFontPath::icons).c_str(), icons_font_size,
+      Platform::ResolvePath(EditorFontPath::icons).c_str(), fa_size,
       &icons_config, icon_ranges);
 
+  // MDI glyphs: padded 24px grid
+  const float mdi_size = icon_size;
+  icons_config.GlyphOffset = ImVec2(0.0f, 0.0f);
+  icons_config.GlyphMinAdvanceX = mdi_size;
   io.Fonts->AddFontFromFileTTF(
-      Platform::ResolvePath(EditorFontPath::icons_mdi).c_str(), icons_font_size,
+      Platform::ResolvePath(EditorFontPath::icons_mdi).c_str(), mdi_size,
       &icons_config, MdiGlyphRanges());
 }
 
@@ -72,12 +77,16 @@ void LoadFonts(ImGuiIO& io) {
                                         size, cfg);
   };
 
+  // Rasterize at the display's real resolution
+  const float density = io.DisplayFramebufferScale.x;
+
   // Global font config
   ImFontConfig main_config;
   main_config.MergeMode = false;
   main_config.PixelSnapH = true;
   main_config.OversampleH = 3;
   main_config.OversampleV = 2;
+  main_config.RasterizerDensity = density;
 
   // p (paragraph)
   g_fonts.p = load_font(EditorFontPath::regular, EditorSizes::p_font_size,
@@ -131,6 +140,7 @@ void LoadFonts(ImGuiIO& io) {
   console_config.OversampleV = 1;
   console_config.PixelSnapH = true;
   console_config.RasterizerMultiply = 1.0f;
+  console_config.RasterizerDensity = density;
 
   // load font for console and toolbar
   g_fonts.console = load_font(EditorFontPath::console,
