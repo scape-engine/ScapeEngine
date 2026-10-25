@@ -5,6 +5,7 @@
 #include <cmath>
 #include <vector>
 
+#include "editor/gui/icons/asset_icons.h"
 #include "editor/gui/inspectables/asset_inspectable.h"
 #include "editor/runtime/runtime.h"
 #include "engine/core/logger.h"
@@ -512,25 +513,10 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
                           ImDrawFlags_RoundCornersBottom);
 
   // Asset type color strip
-  ImU32 strip_color = IM_COL32(100, 100, 100, 255);  // Default dark gray
-  if (!is_folder) {
-    std::string ext = node->path_.extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-    // Assign UE5-inspired colors to extensions
-    if (ext == ".gltf" || ext == ".glb" || ext == ".fbx" || ext == ".obj") {
-      strip_color = IM_COL32(45, 180, 200, 255);  // Cyan (Static Meshes)
-    } else if (ext == ".json") {
-      strip_color = IM_COL32(200, 180, 45, 255);  // Yellow (Data/JSON)
-    } else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
-               ext == ".tga") {
-      strip_color = IM_COL32(180, 45, 45, 255);  // Red (Textures)
-    } else if (ext == ".mat" || ext == ".material") {
-      strip_color = IM_COL32(45, 200, 45, 255);  // Green (Materials)
-    }
-  } else {
-    strip_color = IM_COL32(60, 60, 60, 255);  // Subtle gray for folders
-  }
+  const ImU32 strip_color =
+      is_folder ? IM_COL32(60, 60, 60, 255)
+                : EditorIcons::GetAssetColor(EditorIcons::GetAssetKind(
+                      node->path_.extension().string()));
 
   // Draw the 2px color strip above the text background
   draw_list.AddRectFilled(ImVec2(p0.x, text_bg_p0.y),

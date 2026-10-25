@@ -16,10 +16,29 @@ inline ImVec4 C(ImU32 c, float alpha) {
 
 namespace EditorStyles {
 
-static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
-
 // Font internals
 Fonts g_fonts;
+
+static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
+
+// Material Design Icons
+// ? When using a new ICON_MDI_*, add it here
+static const char* used_mdi_icons[] = {
+    ICON_MDI_PLUS,
+};
+
+// Glyph ranges built from the list above. Static: ImGui reads the ranges
+// when the atlas is built, so they must outlive LoadFonts.
+static const ImWchar* MdiGlyphRanges() {
+  static ImVector<ImWchar> ranges;
+  if (ranges.empty()) {
+    ImFontGlyphRangesBuilder builder;
+    for (const char* icon : used_mdi_icons)
+      builder.AddText(icon);
+    builder.BuildRanges(&ranges);
+  }
+  return ranges.Data;
+}
 
 // Access fonts
 const Fonts& GetFonts() {
@@ -35,9 +54,13 @@ void _MergeIcons(ImGuiIO& io, float icon_size) {
   icons_config.GlyphOffset = ImVec2(0.0f, -2.0f);
   icons_config.GlyphMinAdvanceX = icons_font_size;
 
-  g_fonts.icons = io.Fonts->AddFontFromFileTTF(
+  io.Fonts->AddFontFromFileTTF(
       Platform::ResolvePath(EditorFontPath::icons).c_str(), icons_font_size,
       &icons_config, icon_ranges);
+
+  io.Fonts->AddFontFromFileTTF(
+      Platform::ResolvePath(EditorFontPath::icons_mdi).c_str(), icons_font_size,
+      &icons_config, MdiGlyphRanges());
 }
 
 void LoadFonts(ImGuiIO& io) {

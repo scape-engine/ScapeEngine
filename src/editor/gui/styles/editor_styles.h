@@ -2,6 +2,7 @@
 #define EDITOR_STYLES_H
 
 #include "../../vendor/IconFontCppHeaders/IconsFontAwesome6.h"
+#include "../../vendor/IconFontCppHeaders/IconsMaterialDesignIcons.h"
 
 #include "imgui.h"
 
@@ -50,13 +51,12 @@ constexpr ImU32 WithAlpha(ImU32 color, unsigned alpha) {
 
 // FONT PATHS
 struct EditorFontPath {
-  // Switch from Monospace to a clean Sans-Serif font (Inter)
   static constexpr const char* regular = "resources/fonts/Inter-Regular.ttf";
   static constexpr const char* bold = "resources/fonts/Inter-SemiBold.ttf";
   static constexpr const char* icons = "resources/fonts/fa-solid-900.ttf";
-
-  // Console font changed to FiraCode for better readability
   static constexpr const char* console = "resources/fonts/FiraCode-Regular.ttf";
+  static constexpr const char* icons_mdi =
+      "resources/fonts/materialdesignicons-webfont.ttf";
 };
 
 struct EditorColor {

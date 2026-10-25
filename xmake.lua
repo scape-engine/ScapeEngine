@@ -38,7 +38,7 @@ add_requires(
 	"entt",
 	"pcg-cpp"
 )
-add_requires("imgui 1.91.8-docking", { configs = { sdl2 = true, sdl2_renderer = true, docking = true } })
+add_requires("imgui 1.91.8-docking", { configs = { sdl2 = true, sdl2_renderer = true, docking = true, wchar32 = true } })
 add_requires("bgfx", { configs = { tools = true } })
 add_requires("reflect-cpp", { configs = { json = true } })
 add_requires(

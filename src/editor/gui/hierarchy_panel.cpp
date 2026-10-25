@@ -11,6 +11,7 @@
 
 #include "editor/events.h"
 
+#include "editor/gui/icons/component_icons.h"
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/gui/inspector_panel.h"
 #include "editor/gui/utils/gui_utils.h"
@@ -122,7 +123,7 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
 void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
                                    float height) {
   if (IMComponents::DropdownButton(draw_list, "##HierarchyActions",
-                                   ICON_FA_PLUS, position, height)) {
+                                   ICON_MDI_PLUS, position, height)) {
     PopupMenu::Open();
   }
 }
@@ -467,15 +468,7 @@ bool HierarchyPanel::DrawChevron(ImDrawList& draw_list, ImVec2 slot_min,
 }
 
 const char* HierarchyPanel::EntityIcon(const HierarchyItem& item) const {
-  const EntityContainer& e = item.entity;
-  if (e.Has<CameraComponent>())
-    return ICON_FA_VIDEO;
-  if (e.Has<PointLightComponent>() || e.Has<DirectionalLightComponent>() ||
-      e.Has<SkyLightComponent>())
-    return ICON_FA_LIGHTBULB;
-  if (e.Has<MeshRendererComponent>())
-    return ICON_FA_CUBE;
-  return ICON_FA_CIRCLE_NODES;  // empty / transform-only entity
+  return EditorIcons::GetEntityIcon(item.entity.Handle());
 }
 
 const char* HierarchyPanel::EntityDataIcon(const HierarchyItem& item) const {
