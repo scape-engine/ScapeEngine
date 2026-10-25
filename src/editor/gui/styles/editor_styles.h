@@ -29,6 +29,7 @@ struct Fonts {
   // Special
   ImFont* console = nullptr;
   ImFont* icons = nullptr;
+  ImFont* toolbar = nullptr;
 };
 
 // Access fonts
@@ -76,6 +77,7 @@ struct EditorColor {
   // ---- Lines  ----
   static constexpr ImU32 line_subtle = IM_COL32(48, 48, 48, 255);  // #303030
   static constexpr ImU32 line_strong = IM_COL32(66, 66, 66, 255);  // #424242
+  static constexpr ImU32 line_dim = IM_COL32(100, 100, 100, 255);  // #646464
 
   // ---- Surfaces ----
 
@@ -128,7 +130,7 @@ struct EditorColor {
   static constexpr ImU32 hover_overlay = IM_COL32(255, 255, 255, 12);
   static constexpr ImU32 active_overlay = IM_COL32(255, 255, 255, 30);
   static constexpr ImU32 overlay_bg =
-      EditorStyles::WithAlpha(surface_2, 179);  // panel @ ~0.70
+      EditorStyles::WithAlpha(surface_0, 191);  // panel @ ~0.75
   static constexpr ImU32 overlay_hover =
       EditorStyles::WithAlpha(surface_5, 204);  // hovered @ ~0.80
 };
@@ -136,19 +138,17 @@ struct EditorColor {
 // SIZING CONSTANTS
 struct EditorSizes {
   // Font sizes
-  static constexpr float p_font_size =
-      14.0f;  // Bumped to 15 for better readability
-  static constexpr float h1_font_size =
-      24.0f;  // Smoothed out heading hierarchy
+  static constexpr float p_font_size = 14.0f;
+  static constexpr float h1_font_size = 24.0f;
   static constexpr float h2_font_size = 20.0f;
   static constexpr float h3_font_size = 17.0f;
   static constexpr float h4_font_size = 15.0f;
   static constexpr float s_font_size = 13.0f;
-  static constexpr float console_font_size = 13.0f;  // Bumped slightly
+  static constexpr float console_font_size = 13.0f;
+  static constexpr float toolbar_icon_size = 19.0f;  // ~13px glyphs
 
-  // Icon sizes (Scaled to match the new text baseline, prevents UI stretching)
-  static constexpr float p_icon_size =
-      15.0f;  // Reduced from 22 to align with 15px text
+  // Icon sizes
+  static constexpr float p_icon_size = 15.0f;
   static constexpr float p_bold_icon_size = 15.0f;
   static constexpr float h2_icon_size = 22.0f;
   static constexpr float h2_bold_icon_size = 22.0f;
@@ -156,14 +156,14 @@ struct EditorSizes {
   static constexpr float s_bold_icon_size = 14.0f;
 
   // Layout
-  static constexpr float window_padding = 10.0f;  // Reduced from 30.0f
+  static constexpr float window_padding = 10.0f;
   static constexpr float frame_padding = 4.0f;
-  static constexpr float overlay_margin =
-      8.0f;  // viewport overlays to canvas edge
+  static constexpr float overlay_margin = 8.0f;
 
   static constexpr float panel_radius = 8.0f;
   static constexpr float control_radius = 4.0f;
-  static constexpr float panel_gap = 5.0f;     // gap between docked panels
+  static constexpr float overlay_radius = 4.0f;  // overlays + their buttons
+  static constexpr float panel_gap = 5.0f;       // gap between docked panels
   static constexpr float panel_margin = 5.0f;  // outer margin around dockspace
   static constexpr float item_spacing = 5.0f;
   static constexpr float inner_spacing = 2.0f;

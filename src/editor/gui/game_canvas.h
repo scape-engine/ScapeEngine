@@ -383,7 +383,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       ImVec2(EditorSizes::overlay_margin, EditorSizes::overlay_margin);
   float overlay_y = start_cursor_pos.y + overlay_padding.y;
 
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::panel_radius);
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::overlay_radius);
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 6.0f));
 
@@ -392,8 +392,6 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       ImGui::ColorConvertU32ToFloat4(EditorColor::overlay_bg);
   const ImVec4 bg_pill_hover =
       ImGui::ColorConvertU32ToFloat4(EditorColor::overlay_hover);
-  ImVec4 active_accent =
-      ImGui::ColorConvertU32ToFloat4(EditorColor::accent_border);
 
   // Tools we only want visible when playing
   if (isGameRunning) {
@@ -406,18 +404,22 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg_pill_hover);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg_pill);
 
-    if (ImGui::Button(ICON_FA_VIDEO " Perspective")) {}
-    ImGui::SameLine(0, 8.0f);  // 8px gap between pills
-    if (ImGui::Button(ICON_FA_EYE " Lit")) {}
+    ImGui::PushFont(EditorStyles::GetFonts().toolbar);
+    if (IMComponents::IconLabelButton(ICON_FA_VIDEO, "Perspective")) {}
+    ImGui::SameLine(0, 8.0f);
+    if (IMComponents::IconLabelButton(ICON_FA_EYE, "Lit")) {}
+    ImGui::PopFont();
 
     ImGui::PopStyleColor(3);
     ImGui::EndGroup();
 
-    // --- Right Tools: Gizmos (Connected Pill) ---
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2.0f, 0.0f));
+    // --- Right Tools: Gizmos ---
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,
+                        EditorSizes::overlay_radius);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 6.0f));
+    ImGui::PushFont(EditorStyles::GetFonts().toolbar);
 
-    // Equal-width buttons; section is right-aligned using last frame's width
-    float btn_w = ImGui::CalcTextSize(ICON_FA_ARROW_POINTER).x + 24.0f;
+    const float btn_w = ImGui::GetFrameHeight() + 4.0f;  // near-square buttons
     static float gizmo_width = 0.0f;
     ImGui::SetCursorPos(
         ImVec2(start_cursor_pos.x + size.x - gizmo_width - overlay_padding.x,
@@ -431,17 +433,11 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
 
     auto GizmoBtn = [&](const char* icon, ImGuizmo::OPERATION op) {
-      bool is_active = (gizmo_state.operation == op);
-      if (is_active)
-        ImGui::PushStyleColor(ImGuiCol_Text, active_accent);
-
-      if (ImGui::Button(icon, ImVec2(btn_w, 0))) {
+      if (IMComponents::ToolButton(icon, gizmo_state.operation == op,
+                                   ImVec2(btn_w, 0))) {
         gizmo_state.operation = op;
         Viewport::PostAction(TransformGizmoState::OperationName(op));
       }
-
-      if (is_active)
-        ImGui::PopStyleColor();
     };
 
     GizmoBtn(ICON_FA_ARROW_POINTER, ImGuizmo::BOUNDS);
@@ -453,23 +449,16 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     GizmoBtn(ICON_FA_MAXIMIZE, ImGuizmo::SCALE);
 
     // Snap toggle
-    ImGui::SameLine(0.0f, 8.0f);
+    ImGui::SameLine();
+    IMComponents::VerticalDivider();
+    ImGui::SameLine();
     {
       const bool on = gizmo_state.snap_enabled;
-      if (on) {
-        ImGui::PushStyleColor(ImGuiCol_Text, active_accent);
-        ImGui::PushStyleColor(ImGuiCol_Button,
-                              ImGui::ColorConvertU32ToFloat4(
-                                  (EditorColor::accent & ~IM_COL32_A_MASK) |
-                                  (60u << IM_COL32_A_SHIFT)));
-      }
-      if (ImGui::Button(ICON_FA_MAGNET, ImVec2(btn_w, 0))) {
+      if (IMComponents::ToolButton(ICON_FA_MAGNET, on, ImVec2(btn_w, 0))) {
         gizmo_state.snap_enabled = !on;
         Viewport::PostAction(gizmo_state.snap_enabled ? "Snapping on"
                                                       : "Snapping off");
       }
-      if (on)
-        ImGui::PopStyleColor(2);
       IMComponents::Tooltip(on ? "Snapping on (hold Ctrl to move freely)"
                                : "Snapping off (hold Ctrl to snap)");
     }
@@ -478,7 +467,8 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
     IMComponents::EndOverlay();
     gizmo_width = ImGui::GetItemRectSize().x;
 
-    ImGui::PopStyleVar();
+    ImGui::PopFont();
+    ImGui::PopStyleVar(2);
 
     // --- View axis gizmo: right-aligned ---
     const float axis_radius = 34.0f;

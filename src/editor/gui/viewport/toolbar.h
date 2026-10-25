@@ -21,34 +21,37 @@ struct ToolbarCallbacks {
   bool fullscreen = false;
 };
 
-// Now it just draws buttons, no ImGui::Begin() window wrapper
 inline void Toolbar(const ToolbarCallbacks& cb) {
   IMComponents::BeginOverlay();
 
   ImGui::PushStyleColor(ImGuiCol_Button,
                         ImVec4(0, 0, 0, 0));  // Transparent default
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::panel_radius);
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 6.0f));
-  ImGui::PushFont(EditorStyles::GetFonts().p);
 
-  // UE5 Green Play
-  ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(90, 200, 90, 255));
-  if (ImGui::Button(ICON_FA_PLAY))
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, EditorSizes::overlay_radius);
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 6.0f));
+  ImGui::PushFont(EditorStyles::GetFonts().toolbar);
+
+  const float btn_w = ImGui::GetFrameHeight() + 4.0f;
+
+  if (IMComponents::ToolButton(ICON_FA_PLAY, false, ImVec2(btn_w, 0),
+                               IM_COL32(90, 200, 90, 255)))
     if (cb.onStart)
       cb.onStart();
-  ImGui::PopStyleColor();
 
   ImGui::SameLine();
-  // UE5 Red Stop
-  ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(200, 90, 90, 255));
-  if (ImGui::Button(ICON_FA_STOP))
+  if (IMComponents::ToolButton(ICON_FA_STOP, false, ImVec2(btn_w, 0),
+                               IM_COL32(200, 90, 90, 255)))
     if (cb.onStop)
       cb.onStop();
-  ImGui::PopStyleColor();
 
   ImGui::SameLine();
-  if (ImGui::Button(cb.fullscreen ? ICON_FA_COMPRESS : ICON_FA_EXPAND))
+  IMComponents::VerticalDivider();
+  ImGui::SameLine();
+
+  if (IMComponents::ToolButton(
+          cb.fullscreen ? ICON_FA_COMPRESS : ICON_FA_EXPAND, false,
+          ImVec2(btn_w, 0)))
     if (cb.onSetFullscreen)
       cb.onSetFullscreen();
   IMComponents::Tooltip(cb.fullscreen ? "Exit fullscreen (Shift+Space)"

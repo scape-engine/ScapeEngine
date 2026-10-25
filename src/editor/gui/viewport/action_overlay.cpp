@@ -74,7 +74,7 @@ void ActionOverlay(ImVec2 canvas_min, ImVec2 canvas_size) {
 
   ImDrawList* draw_list = ImGui::GetWindowDrawList();
   draw_list->AddRectFilled(p0, p1, ScaleAlpha(EditorColor::overlay_bg, alpha),
-                           EditorSizes::panel_radius);
+                           EditorSizes::overlay_radius);
 
   float x = p0.x + kPadding.x;
   if (cap_w > 0.0f) {

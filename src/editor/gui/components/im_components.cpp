@@ -102,7 +102,9 @@ void Tooltip(std::string tooltip) {
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 0.8f));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 6));
 
+    ImGui::PushFont(EditorStyles::GetFonts().p);
     ImGui::SetTooltip("%s", tooltip.c_str());
+    ImGui::PopFont();
 
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(2);
@@ -137,6 +139,62 @@ void ToggleButton(ImDrawList& draw_list, std::string text, bool& value,
   // Draw text
   draw_list.AddText(font, font->FontSize, p0 + padding, EditorColor::text,
                     text.c_str());
+}
+
+//=============================================================================
+// TOOL BUTTON
+//=============================================================================
+bool ToolButton(const char* icon, bool selected, ImVec2 size, ImU32 color) {
+  ImGui::PushID(icon);
+  if (selected) {
+    ImGui::PushStyleColor(ImGuiCol_Button, EditorColor::accent);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, EditorColor::accent_hover);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, EditorColor::accent);
+  }
+  const bool clicked = ImGui::Button("##tool", size);
+  if (selected)
+    ImGui::PopStyleColor(3);
+
+  const ImU32 fg = selected ? EditorColor::text_bright
+                            : (color != 0 ? color : EditorColor::text);
+  Glyph(*ImGui::GetWindowDrawList(), ImGui::GetItemRectMin(),
+        ImGui::GetItemRectSize(), icon, fg, ImGui::GetFont());
+
+  ImGui::PopID();
+  return clicked;
+}
+
+//=============================================================================
+// ICON LABEL BUTTON
+//=============================================================================
+bool IconLabelButton(const char* icon, const char* label, ImVec2 size) {
+  const ImGuiStyle& style = ImGui::GetStyle();
+  const float slot = ImGui::GetFontSize();  // square icon slot
+  const float gap = 6.0f;                   // icon to label
+  const char* label_end = ImGui::FindRenderedTextEnd(label);
+  const ImVec2 label_size = ImGui::CalcTextSize(label, label_end);
+
+  const ImVec2 button_size = ImVec2(
+      size.x > 0.0f ? size.x
+                    : style.FramePadding.x * 2.0f + slot + gap + label_size.x,
+      size.y > 0.0f ? size.y : ImGui::GetFrameHeight());
+
+  ImGui::PushID(label);
+  const bool clicked = ImGui::Button("##icon_label", button_size);
+  ImGui::PopID();
+
+  const ImVec2 min = ImGui::GetItemRectMin();
+  const float height = ImGui::GetItemRectSize().y;
+  const ImU32 color = ImGui::GetColorU32(ImGuiCol_Text);
+  ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+  const float x = min.x + style.FramePadding.x;
+  Glyph(*draw_list, ImVec2(x, min.y), ImVec2(slot, height), icon, color,
+        ImGui::GetFont());
+  draw_list->AddText(ImVec2(x + slot + gap,
+                            std::floor(min.y + (height - label_size.y) * 0.5f)),
+                     color, label, label_end);
+  return clicked;
 }
 
 //=============================================================================
@@ -670,10 +728,26 @@ void Glyph(ImDrawList& draw_list, ImVec2 slot_min, ImVec2 slot_size,
            const char* glyph, ImU32 color, ImFont* font) {
   if (!font)
     font = ImGui::GetFont();
-  const ImVec2 size = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, glyph);
-  const ImVec2 pos = ImVec2(slot_min.x + (slot_size.x - size.x) * 0.5f,
-                            slot_min.y + (slot_size.y - size.y) * 0.5f);
-  draw_list.AddText(font, font->FontSize, pos, color, glyph);
+
+  const ImVec2 center =
+      ImVec2(slot_min.x + slot_size.x * 0.5f, slot_min.y + slot_size.y * 0.5f);
+
+  // Center on the visible ink, not the advance box: icons often have
+  // uneven side bearings and a vertical offset from the font merge
+  unsigned int codepoint = 0;
+  ImTextCharFromUtf8(&codepoint, glyph, nullptr);
+  ImVec2 pos;
+  if (const ImFontGlyph* g = font->FindGlyph(static_cast<ImWchar>(codepoint))) {
+    pos = ImVec2(center.x - (g->X0 + g->X1) * 0.5f,
+                 center.y - (g->Y0 + g->Y1) * 0.5f);
+  } else {
+    const ImVec2 size =
+        font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, glyph);
+    pos = ImVec2(center.x - size.x * 0.5f, center.y - size.y * 0.5f);
+  }
+
+  draw_list.AddText(font, font->FontSize,
+                    ImVec2(std::floor(pos.x), std::floor(pos.y)), color, glyph);
 }
 
 bool GlyphButton(ImDrawList& draw_list, const char* id, const char* glyph,
@@ -735,7 +809,8 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
 }
 
 bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
-                    ImVec2 position, float height, bool chevron) {
+                    ImVec2 position, float height, bool chevron,
+                    float fixed_width) {
   ImFont* small = EditorStyles::GetFonts().s;
   const float pad = 8.0f;
   const float icon_w = icon ? ImGui::CalcTextSize(icon).x : 0.0f;
@@ -746,8 +821,10 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
                                     .x
                               : 0.0f;
   const float gap = (icon && chevron) ? 6.0f : 0.0f;
-  const float width =
-      (icon || chevron) ? pad * 2 + icon_w + gap + chevron_w : height;
+  const float content_w = icon_w + gap + chevron_w;
+  const float width = fixed_width > 0.0f  ? fixed_width
+                      : (icon || chevron) ? pad * 2.0f + content_w
+                                          : height;
 
   ImGui::SetCursorScreenPos(position);
   ImGui::InvisibleButton(id, ImVec2(width, height));
@@ -763,7 +840,7 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
   // draw_list.AddRect(position, p1, EditorColor::line_strong,
   // EditorSizes::control_radius, 0, 1.0f);
 
-  float x = position.x + pad;
+  float x = position.x + std::floor((width - content_w) * 0.5f);
   if (icon) {
     Glyph(draw_list, ImVec2(x, position.y), ImVec2(icon_w, height), icon,
           EditorColor::text);
@@ -914,7 +991,8 @@ void EndOverlay(ImVec2 padding) {
   const ImVec2 max = ImGui::GetItemRectMax();
   draw_list->AddRectFilled(ImVec2(min.x - padding.x, min.y - padding.y),
                            ImVec2(max.x + padding.x, max.y + padding.y),
-                           EditorColor::overlay_bg, EditorSizes::panel_radius);
+                           EditorColor::overlay_bg,
+                           EditorSizes::overlay_radius);
   draw_list->ChannelsMerge();
 }
 
@@ -975,6 +1053,23 @@ void EndCentered() {
   ImGui::GetStateStorage()->SetFloat(ImGui::GetID("##width"),
                                      ImGui::GetItemRectSize().x);
   ImGui::PopID();
+}
+
+//=============================================================================
+// VERTICAL DIVIDER
+//=============================================================================
+void VerticalDivider(float height_ratio) {
+  const float height = ImGui::GetFrameHeight();
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+
+  const float x = std::floor(pos.x) + 0.5f;  // No horizontal offset
+  const float inset = std::floor(height * (1.0f - height_ratio) * 0.5f);
+
+  ImGui::GetWindowDrawList()->AddLine(ImVec2(x, pos.y + inset),
+                                      ImVec2(x, pos.y + height - inset),
+                                      EditorColor::line_dim, 1.0f);
+
+  ImGui::Dummy(ImVec2(0.0f, height));
 }
 
 }  // namespace IMComponents

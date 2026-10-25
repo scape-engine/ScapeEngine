@@ -18,6 +18,13 @@ void Tooltip(std::string tooltip);
 void ToggleButton(ImDrawList& draw_list, std::string text, bool& value,
                   std::string tooltip, ImVec2 position);
 
+// Icon-only toolbar button
+bool ToolButton(const char* icon, bool selected, ImVec2 size, ImU32 color = 0);
+
+// Button with an icon and a label
+bool IconLabelButton(const char* icon, const char* label,
+                     ImVec2 size = ImVec2(0.0f, 0.0f));
+
 bool ButtonBig(std::string label, std::string tooltip = "");
 bool ButtonBig(std::string label, ImU32 color, std::string tooltip = "");
 
@@ -83,7 +90,8 @@ void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,
 // Compact control button: optional icon + optional chevron. Returns clicked.
 // Width is derived from content; pass icon = nullptr for a chevron-only button.
 bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
-                    ImVec2 position, float height, bool chevron = true);
+                    ImVec2 position, float height, bool chevron = true,
+                    float fixed_width = 0.0f);
 
 // Control button with a bitmap icon (IconLoader id) + optional chevron.
 bool IconDropdownButton(ImDrawList& draw_list, const char* id,
@@ -130,6 +138,10 @@ void EndCentered();
 // A count of 0 has zero size and draws nothing.
 ImVec2 CountBadgeSize(uint32_t count);
 void CountBadge(ImDrawList& draw_list, uint32_t count, ImVec2 pos);
+
+// Thin vertical line for separating groups in a horizontal row of widgets.
+// Use with SameLine() before and after.
+void VerticalDivider(float height_ratio = 0.6f);
 
 }  // namespace IMComponents
 

@@ -167,21 +167,27 @@ void TabContainer::RenderHeader(ImDrawList& draw_list, float width) {
       ImVec2(strip_min.x + width, strip_min.y + header_height_);
   const float y = strip_min.y + (header_height_ - control_height_) * 0.5f;
 
-  // Editor-type selector (placeholder)
-  IMComponents::DropdownButton(draw_list, "##ContainerType", ICON_FA_SLIDERS,
-                               ImVec2(strip_min.x + header_pad_x_, y),
-                               control_height_);
+  const float button_w = std::floor(control_height_ * 2.0f);  // icon + chevron
+  const float gap = 6.0f;
 
-  // Right cluster: more-button, search to its left
+  // Left
+  const float type_x = strip_min.x + header_pad_x_;
+  IMComponents::DropdownButton(draw_list, "##ContainerType", ICON_FA_SLIDERS,
+                               ImVec2(type_x, y), control_height_, true,
+                               button_w);
+
+  // Right
   const float more_x = strip_max.x - header_pad_x_ - control_height_;
   IMComponents::DropdownButton(draw_list, "##ContainerMore", nullptr,
-                               ImVec2(more_x, y), control_height_);
+                               ImVec2(more_x, y), control_height_, true,
+                               control_height_);
 
-  const float search_width = width * 0.42f;
-  IMComponents::SearchField(draw_list, "##ContainerSearch", search_buffer_,
-                            sizeof(search_buffer_),
-                            ImVec2(more_x - 6.0f - search_width, y),
-                            ImVec2(search_width, control_height_));
+  // Search fills the space between them
+  const float search_x = type_x + button_w + gap;
+  IMComponents::SearchField(
+      draw_list, "##ContainerSearch", search_buffer_, sizeof(search_buffer_),
+      ImVec2(search_x, y),
+      ImVec2(std::max(0.0f, more_x - gap - search_x), control_height_));
 
   draw_list.AddLine(ImVec2(strip_min.x, strip_max.y - 0.5f),
                     ImVec2(strip_max.x, strip_max.y - 0.5f),

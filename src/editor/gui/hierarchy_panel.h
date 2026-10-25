@@ -93,7 +93,7 @@ private:
   static constexpr float header_height_ = 34.0f;
   static constexpr float header_pad_x_ = 10.0f;
   static constexpr float search_height_ = 22.0f;
-  static constexpr float search_width_ratio_ = 0.58f;
+  static constexpr float search_width_ = 44.0f;
   static constexpr float content_gap_ = 4.0f;
   static constexpr float row_height_ = 20.0f;
   static constexpr float row_pad_x_ = 6.0f;

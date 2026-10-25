@@ -103,7 +103,8 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
 
   const ImVec2 search_pos = ImVec2(strip_min.x + header_pad_x_, y);
   const ImVec2 search_size =
-      ImVec2(panel_width * search_width_ratio_, search_height_);
+      ImVec2(panel_width - header_pad_x_ * 2.0f - header_gap_ - search_width_,
+             search_height_);
   RenderSearch(draw_list, search_pos, search_size);
 
   RenderActions(draw_list,
@@ -120,8 +121,8 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
 
 void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
                                    float height) {
-  if (IMComponents::IconDropdownButton(draw_list, "##HierarchyActions",
-                                       "new-component", position, height)) {
+  if (IMComponents::DropdownButton(draw_list, "##HierarchyActions",
+                                   ICON_FA_PLUS, position, height)) {
     PopupMenu::Open();
   }
 }

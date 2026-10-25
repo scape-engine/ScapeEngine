@@ -109,9 +109,13 @@ void LoadFonts(ImGuiIO& io) {
   console_config.PixelSnapH = true;
   console_config.RasterizerMultiply = 1.0f;
 
-  // load font for console
+  // load font for console and toolbar
   g_fonts.console = load_font(EditorFontPath::console,
                               EditorSizes::console_font_size, &console_config);
+
+  g_fonts.toolbar = load_font(EditorFontPath::regular, EditorSizes::p_font_size,
+                              &main_config);
+  _MergeIcons(io, EditorSizes::toolbar_icon_size);
 }
 
 void SetupStyle() {
@@ -130,11 +134,11 @@ void SetupStyle() {
   colors[ImGuiCol_TextDisabled] = C(EditorColor::text_disabled);
   colors[ImGuiCol_TextSelectedBg] = C(EditorColor::accent_deep);
 
-  // === Borders (1px control outline via FrameBorderSize) ===
+  // === Borders ===
   colors[ImGuiCol_Border] = C(EditorColor::surface_0);
   colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
 
-  // === Headers (tree rows, selectables, collapsing headers) ===
+  // === Headers ===
   colors[ImGuiCol_Header] = ImVec4(0, 0, 0, 0);
   colors[ImGuiCol_HeaderHovered] = C(EditorColor::hover_overlay);
   colors[ImGuiCol_HeaderActive] = C(EditorColor::orange_row);
@@ -149,21 +153,22 @@ void SetupStyle() {
   colors[ImGuiCol_ButtonHovered] = C(EditorColor::surface_5);
   colors[ImGuiCol_ButtonActive] = C(EditorColor::accent);
 
-  // === Tabs (no accent overline in mockup) ===
+  // === Tabs ===
   colors[ImGuiCol_Tab] = C(EditorColor::surface_0);
   colors[ImGuiCol_TabHovered] = C(EditorColor::surface_5);
   colors[ImGuiCol_TabSelected] = C(EditorColor::surface_4);
-  colors[ImGuiCol_TabSelectedOverline] = ImVec4(0, 0, 0, 0);
+  colors[ImGuiCol_TabSelectedOverline] = C(EditorColor::accent_border);
+  colors[ImGuiCol_TabDimmedSelectedOverline] =
+      C(EditorColor::accent_border, 0.5f);
   colors[ImGuiCol_TabDimmed] = C(EditorColor::surface_0);
   colors[ImGuiCol_TabDimmedSelected] = C(EditorColor::surface_4);
-  colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4(0, 0, 0, 0);
 
-  // === Title bars (docked tab-bar strip + floating windows) ===
+  // === Title bars ===
   colors[ImGuiCol_TitleBg] = ImVec4(0, 0, 0, 0);
   colors[ImGuiCol_TitleBgActive] = ImVec4(0, 0, 0, 0);
   colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0, 0, 0, 0);
 
-  // === Separators (dock gaps are painted by the host; these are in-panel) ===
+  // === Separators ===
   colors[ImGuiCol_Separator] = C(EditorColor::surface_0);
   colors[ImGuiCol_SeparatorHovered] = C(EditorColor::accent, 0.6f);
   colors[ImGuiCol_SeparatorActive] = C(EditorColor::accent);
@@ -205,13 +210,14 @@ void SetupStyle() {
   style.ChildBorderSize = 0.0f;
   style.PopupBorderSize = 1.0f;
   style.TabBorderSize = 0.0f;
+  style.TabBarOverlineSize = 1.0f;  // selected-tab top line
 
   style.WindowRounding =
       EditorSizes::panel_radius;  // floating windows / popups
   style.ChildRounding = EditorSizes::control_radius;
   style.FrameRounding = EditorSizes::control_radius;
   style.PopupRounding = EditorSizes::control_radius;
-  style.TabRounding = EditorSizes::control_radius;
+  style.TabRounding = 2.0f;
   style.GrabRounding = EditorSizes::control_radius;
   style.ScrollbarRounding = EditorSizes::control_radius;
 
@@ -230,7 +236,7 @@ void SetupStyle() {
   style.DockingSeparatorSize =
       EditorSizes::panel_gap;  // 10px void gap between cards
   style.WindowMenuButtonPosition = ImGuiDir_None;
-  style.TabBarOverlineSize = 0.0f;  // mockup has no overline
+  style.TabBarOverlineSize = 1.0f;  // mockup has no overline
 #endif
 }
 
