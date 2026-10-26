@@ -55,6 +55,8 @@ void _MergeIcons(ImGuiIO& io, float icon_size) {
   ImFontConfig icons_config;
   icons_config.MergeMode = true;
   icons_config.PixelSnapH = true;
+  icons_config.OversampleH = 1;  // see LoadFonts
+  icons_config.OversampleV = 1;
   icons_config.RasterizerDensity = io.DisplayFramebufferScale.x;
 
   // FontAwesome: glyphs fill icon's em box 2/3
@@ -90,8 +92,11 @@ void LoadFonts(ImGuiIO& io) {
   ImFontConfig main_config;
   main_config.MergeMode = false;
   main_config.PixelSnapH = true;
-  main_config.OversampleH = 3;
-  main_config.OversampleV = 2;
+  // No oversampling: text is drawn on whole pixels, so oversampled glyphs only
+  // get scaled back down by bilinear filtering, which blurs them. HiDPI
+  // sharpness comes from RasterizerDensity instead
+  main_config.OversampleH = 1;
+  main_config.OversampleV = 1;
   main_config.RasterizerDensity = density;
 
   // p (paragraph)

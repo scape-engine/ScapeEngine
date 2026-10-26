@@ -23,6 +23,9 @@ bool WindowManager::Initialize(const char* title, int width, int height) {
   Logger::getInstance().Log(LogLevel::Debug,
                             "Calling SDL_Init");  // debug - remove later
 
+  // Before SDL_Init: otherwise Windows bitmap-stretches the window (blurry)
+  // on displays scaled above 100%
+  Platform::EnableHighDpi();
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     Logger::getInstance().Log(
         LogLevel::Error, std::string("SDL_Init failed: ") + SDL_GetError());

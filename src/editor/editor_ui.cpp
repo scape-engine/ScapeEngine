@@ -428,21 +428,9 @@ void EditorUI::DrawPanelCards(ImGuiDockNode* node) {
   const ImVec2 mx =
       ImVec2(node->Pos.x + node->Size.x, node->Pos.y + node->Size.y);
 
-  const bool has_tabs =
-      node->TabBar && !node->IsHiddenTabBar() && !node->IsNoTabBar();
-
-  if (has_tabs) {
-    // Top corners follow the tab rounding so the first tab sits flush
-    const float top_radius = ImGui::GetStyle().TabRounding;
-    const float r = EditorSizes::panel_radius;
-    dl->AddRectFilled(mn, ImVec2(mx.x, mn.y + r * 2.0f), EditorColor::surface_2,
-                      top_radius, ImDrawFlags_RoundCornersTop);
-    dl->AddRectFilled(ImVec2(mn.x, mn.y + r), mx, EditorColor::surface_2, r,
-                      ImDrawFlags_RoundCornersBottom);
-  } else {
-    dl->AddRectFilled(mn, mx, EditorColor::surface_2,
-                      EditorSizes::panel_radius);
-  }
+  // Same corners on every card, tabs or not. The first tab is drawn over
+  // the top-left corner, so that corner shows the tab's own rounding
+  dl->AddRectFilled(mn, mx, EditorColor::surface_2, EditorSizes::panel_radius);
 
   if (node->TabBar && !node->IsHiddenTabBar() && !node->IsNoTabBar()) {
     const float y = node->TabBar->BarRect.Max.y;

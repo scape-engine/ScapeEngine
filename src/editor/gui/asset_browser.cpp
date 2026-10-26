@@ -263,6 +263,8 @@ ImVec2 AssetBrowserPanel::RenderBreadcrumbBar(ImDrawList& draw_list,
   const ImVec2 path_max = ImVec2(x + path_w, y + control_h);
   draw_list.AddRectFilled(path_min, path_max, EditorColor::surface_1,
                           EditorSizes::control_radius);
+  draw_list.AddRect(path_min, path_max, EditorColor::line_subtle,
+                    EditorSizes::control_radius, 0, 1.0f);  // as the search field
   draw_list.PushClipRect(path_min, ImVec2(path_max.x - 6.0f, path_max.y), true);
   draw_list.AddText(
       ImVec2(x + 8.0f, y + (control_h - ImGui::GetFontSize()) * 0.5f),
@@ -388,6 +390,8 @@ void AssetBrowserPanel::RenderNodes(ImDrawList& draw_list, ImVec2 position,
   const ImVec2 box_max = ImVec2(position.x + size.x, position.y + size.y);
   draw_list.AddRectFilled(box_min, box_max, EditorColor::surface_1,
                           content_rounding_);
+  draw_list.AddRect(box_min, box_max, EditorColor::line_subtle,
+                    content_rounding_, 0, 1.0f);  // as the search field
 
   // Get current folder
   auto folder = observer_.FetchFolder(selected_folder_id_);

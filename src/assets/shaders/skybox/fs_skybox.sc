@@ -89,11 +89,16 @@ void main() {
     vec3 sunLight = u_sunLuminance.rgb * u_sunLuminance.a;
 
     vec3 rayStart = vec3(0.0, earthRadius + 1.0, 0.0);
-    vec2 inter = raySphereIntersect(rayStart, viewDir, atmosRadius);
+
+    // Below the horizon the ray would pass through the planet, where the
+    // density blows up and the sky turns black. March the horizon instead and
+    // turn it into ground in step 2b
+    vec3 atmosDir = normalize(vec3(viewDir.x, max(viewDir.y, 0.0), viewDir.z));
+    vec2 inter = raySphereIntersect(rayStart, atmosDir, atmosRadius);
     float rayLength = inter.y;
 
     // Phase Functions
-    float mu = dot(viewDir, sunDir);
+    float mu = dot(atmosDir, sunDir);
     float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
     float g = u_scatterParams.x;
     float phaseM = 3.0 / (8.0 * PI) * ((1.0 - g * g) * (1.0 + mu * mu)) / ((2.0 + g * g) * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
@@ -107,7 +112,7 @@ void main() {
     vec3 currentPos = rayStart;
     
     for(int i = 0; i < SAMPLES; ++i) {
-        vec3 p = currentPos + viewDir * (stepSize * 0.5);
+        vec3 p = currentPos + atmosDir * (stepSize * 0.5);
         float height = length(p) - earthRadius;
         
         // Exponential density falloff
@@ -128,11 +133,22 @@ void main() {
         
         sumR += hr * attenuation;
         sumM += hm * attenuation;
-        currentPos += viewDir * stepSize;
+        currentPos += atmosDir * stepSize;
     }
 
     // Calculated Sky Color
     vec3 skyColor = (sumR * u_betaR.rgb * phaseR + sumM * u_betaM.rgb * phaseM) * sunLight * stepSize;
+
+    // --- 2b. Ground (below the horizon) ---
+    // Horizon haze, fading to a darker, desaturated gray further down. Follows
+    // the sky's brightness, so it dims at night with everything else
+    const float groundLevel = 0.45;       // brightness vs the horizon
+    const float groundSaturation = 0.35;  // how much of the sky tint it keeps
+    float below = smoothstep(0.0, 0.25, -viewDir.y);
+    float horizonLum = dot(skyColor, vec3(0.2126, 0.7152, 0.0722));
+    vec3 groundColor = lerp(vec3_splat(horizonLum), skyColor, groundSaturation) * groundLevel;
+    skyColor = lerp(skyColor, groundColor, below);
+    float aboveHorizon = step(0.0, viewDir.y);
 
     // --- 3. Star Field Generation ---
     vec2 uv = vec2(atan2(viewDir.z, viewDir.x), asin(viewDir.y));
@@ -163,6 +179,7 @@ void main() {
              stars += vec3(0.1, 0.1, 0.15) * bandMask * gNoise;
         }
         stars *= (1.0 - smoothstep(0.0, 0.1, skyBrightness));
+        stars *= aboveHorizon;  // nothing shows through the ground
     }
 
     // --- 4. Clouds (Volumetric Layer) ---
@@ -234,7 +251,7 @@ void main() {
     vec3 sunDirectTransmittance = getTransmittance(viewDir.y, u_betaR.rgb, u_betaM.rgb);
     
     // Final Sun Color
-    vec3 sunRender = sunLight * sunDirectTransmittance * sunEdge; 
+    vec3 sunRender = sunLight * sunDirectTransmittance * sunEdge * aboveHorizon;
     
     // --- 6. Compositing ---
     // Start with Sky + Stars + Sun

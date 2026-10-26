@@ -61,22 +61,23 @@ struct EditorFontPath {
 
 struct EditorColor {
   // ---- Elevation  ----
+  // TEST: background +6, panel ladder +12 lighter. Was 18/25/32/39/48/58
   static constexpr ImU32 surface_0 =
-      IM_COL32(18, 18, 18, 255);  // #121212 app bg, gaps
+      IM_COL32(24, 24, 24, 255);  // #181818 app bg, gaps (kept dark)
   static constexpr ImU32 surface_1 =
-      IM_COL32(25, 25, 25, 255);  // #191919 sunken
+      IM_COL32(37, 37, 37, 255);  // #252525 sunken
   static constexpr ImU32 surface_2 =
-      IM_COL32(32, 32, 32, 255);  // #202020 panels
+      IM_COL32(44, 44, 44, 255);  // #2C2C2C panels
   static constexpr ImU32 surface_3 =
-      IM_COL32(39, 39, 39, 255);  // #272727 raised
+      IM_COL32(51, 51, 51, 255);  // #333333 raised
   static constexpr ImU32 surface_4 =
-      IM_COL32(48, 48, 48, 255);  // #303030 controls
+      IM_COL32(60, 60, 60, 255);  // #3C3C3C controls
   static constexpr ImU32 surface_5 =
-      IM_COL32(58, 58, 58, 255);  // #3A3A3A hovered
+      IM_COL32(70, 70, 70, 255);  // #464646 hovered
 
   // ---- Lines  ----
-  static constexpr ImU32 line_subtle = IM_COL32(48, 48, 48, 255);  // #303030
-  static constexpr ImU32 line_strong = IM_COL32(66, 66, 66, 255);  // #424242
+  static constexpr ImU32 line_subtle = surface_4;  // matches control fill
+  static constexpr ImU32 line_strong = IM_COL32(78, 78, 78, 255);  // #4E4E4E (was #424242)
   static constexpr ImU32 line_dim = IM_COL32(100, 100, 100, 255);  // #646464
 
   // ---- Surfaces ----

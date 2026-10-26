@@ -52,7 +52,14 @@ bool ItemLight(std::string title) {
 }
 
 bool Menu(const char* icon, std::string title) {
-  return ImGui::BeginMenuEx(title.c_str(), icon);
+  // ImGui overlaps a submenu with its parent by ItemInnerSpacing.x; negative
+  // turns it into a gap. Only read while placing the submenu, so it's popped
+  // before the submenu's items are drawn
+  const ImVec2 inner = ImGui::GetStyle().ItemInnerSpacing;
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemInnerSpacing, ImVec2(-4.0f, inner.y));
+  const bool open = ImGui::BeginMenuEx(title.c_str(), icon);
+  ImGui::PopStyleVar();
+  return open;
 }
 
 void EndMenu() {
