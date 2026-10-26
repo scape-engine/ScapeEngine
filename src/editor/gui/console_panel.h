@@ -194,6 +194,16 @@ inline void ConsolePanel() {
     ImGui::SetScrollHereY(1.0f);
 
   ImGui::PopFont();
+
+  // Outline, matching the filter field. On the child's draw list: the
+  // parent's renders underneath the child background
+  const ImVec2 log_min = ImGui::GetWindowPos();
+  const ImVec2 log_max = ImVec2(log_min.x + ImGui::GetWindowWidth(),
+                                log_min.y + ImGui::GetWindowHeight());
+  log_draw.PushClipRect(log_min, log_max, false);
+  log_draw.AddRect(log_min, log_max, EditorColor::line_subtle,
+                   EditorSizes::control_radius, 0, 1.0f);
+  log_draw.PopClipRect();
   ImGui::EndChild();
 
   // FILTER FIELD

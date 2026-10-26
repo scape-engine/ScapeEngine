@@ -30,6 +30,7 @@ static const char* used_mdi_icons[] = {
     ICON_MDI_WINDOW_MAXIMIZE,
     ICON_MDI_WINDOW_RESTORE,
     ICON_MDI_WINDOW_CLOSE,
+    ICON_MDI_MOVIE_OPEN_OUTLINE,  // scene (hierarchy root)
 };
 
 // Glyph ranges built from the list above. Static: ImGui reads the ranges
@@ -164,7 +165,7 @@ void SetupStyle() {
   // === Surfaces ===
   colors[ImGuiCol_WindowBg] = ImVec4(0, 0, 0, 0);
   colors[ImGuiCol_ChildBg] = ImVec4(0, 0, 0, 0);
-  colors[ImGuiCol_PopupBg] = C(EditorColor::surface_2, 0.98f);
+  colors[ImGuiCol_PopupBg] = C(EditorColor::surface_4);
   colors[ImGuiCol_MenuBarBg] = C(EditorColor::surface_2);
 
   // === Text ===
@@ -173,6 +174,8 @@ void SetupStyle() {
   colors[ImGuiCol_TextSelectedBg] = C(EditorColor::accent_deep);
 
   // === Borders ===
+  // Also the dock splitter color, keep it the gap color. Dropdowns push
+  // line_subtle for their outline
   colors[ImGuiCol_Border] = C(EditorColor::surface_0);
   colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
 

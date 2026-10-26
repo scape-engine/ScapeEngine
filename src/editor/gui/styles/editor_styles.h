@@ -85,11 +85,11 @@ struct EditorColor {
   static constexpr ImU32 grid_major = IM_COL32(61, 61, 61, 255);  // #3D3D3D
   static constexpr ImU32 selection_row =
       IM_COL32(49, 105, 227, 64);  // #3169E3 @ 0.25 row fill
-  static constexpr ImU32 tree_guide =
-      IM_COL32(211, 211, 211, 153);  // #D3D3D3 @ 0.6
+  static constexpr ImU32 chevron = IM_COL32(188, 188, 188, 255);  // #BCBCBC
+  static constexpr ImU32 tree_guide = IM_COL32(188, 188, 188, 255);
+  ;  // lines match the tree arrows
   static constexpr ImU32 row_alt =
       IM_COL32(0, 0, 0, 45);  // black @ ~0.18, zebra stripe
-  static constexpr ImU32 chevron = IM_COL32(188, 188, 188, 255);  // #BCBCBC
 
   // ---- Text ----
   static constexpr ImU32 text = IM_COL32(211, 211, 211, 255);      // #D3D3D3

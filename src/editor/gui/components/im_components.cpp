@@ -766,26 +766,25 @@ bool GlyphButton(ImDrawList& draw_list, const char* id, const char* glyph,
 
 bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
                  size_t buffer_size, ImVec2 position, ImVec2 size,
-                 const char* hint) {
+                 const char* hint, float attached_width) {
   const float radius = EditorSizes::control_radius;
   const float icon_width = size.y;
   const ImVec2 p1 = position + size;
-  const ImVec2 split = ImVec2(position.x + icon_width, p1.y);
+  const bool attached = attached_width > 0.0f;
 
-  draw_list.AddRectFilled(position, split, EditorColor::surface_4, radius,
-                          ImDrawFlags_RoundCornersLeft);
-  draw_list.AddRectFilled(ImVec2(split.x, position.y), p1,
-                          EditorColor::surface_1, radius,
-                          ImDrawFlags_RoundCornersRight);
+  // Rounded field, magnifier inside on the left
+  draw_list.AddRectFilled(
+      position, p1, EditorColor::surface_1, radius,
+      attached ? ImDrawFlags_RoundCornersRight : ImDrawFlags_RoundCornersAll);
   Glyph(draw_list, position, ImVec2(icon_width, size.y),
         ICON_FA_MAGNIFYING_GLASS, EditorColor::text_dim,
         EditorStyles::GetFonts().s);
 
   ImFont* font = EditorStyles::GetFonts().s;
-  ImGui::SetCursorScreenPos(ImVec2(split.x, position.y));
+  ImGui::SetCursorScreenPos(ImVec2(position.x + icon_width, position.y));
   ImGui::PushFont(font);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
-                      ImVec2(8.0f, (size.y - font->FontSize) * 0.5f));
+                      ImVec2(0.0f, (size.y - font->FontSize) * 0.5f));
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
   ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
   ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0, 0, 0, 0));
@@ -800,17 +799,16 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
   ImGui::PopStyleVar(2);
   ImGui::PopFont();
 
-  // Draw outline and separator line
-  // draw_list.AddRect(position, p1, EditorColor::line_strong, radius,
-  // 0, 1.0f);
-  // draw_list.AddLine(ImVec2(split.x, position.y), split,
-  // EditorColor::line_strong, 1.0f);
+  // One outline around the button and field. Same tone as the button fill,
+  // so the button reads as part of the outline
+  draw_list.AddRect(ImVec2(position.x - attached_width, position.y), p1,
+                    EditorColor::line_subtle, radius, 0, 1.0f);
   return changed;
 }
 
 bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
                     ImVec2 position, float height, bool chevron,
-                    float fixed_width) {
+                    float fixed_width, ImDrawFlags corners) {
   ImFont* small = EditorStyles::GetFonts().s;
   const float pad = 8.0f;
   const float icon_w = icon ? ImGui::CalcTextSize(icon).x : 0.0f;
@@ -834,11 +832,7 @@ bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
   const ImVec2 p1 = position + ImVec2(width, height);
   draw_list.AddRectFilled(
       position, p1, hovered ? EditorColor::surface_5 : EditorColor::surface_4,
-      EditorSizes::control_radius);
-
-  // Draw outline
-  // draw_list.AddRect(position, p1, EditorColor::line_strong,
-  // EditorSizes::control_radius, 0, 1.0f);
+      EditorSizes::control_radius, corners);
 
   float x = position.x + std::floor((width - content_w) * 0.5f);
   if (icon) {
@@ -1067,7 +1061,7 @@ void VerticalDivider(float height_ratio) {
 
   ImGui::GetWindowDrawList()->AddLine(ImVec2(x, pos.y + inset),
                                       ImVec2(x, pos.y + height - inset),
-                                      EditorColor::line_dim, 1.0f);
+                                      EditorColor::line_strong, 1.0f);
 
   ImGui::Dummy(ImVec2(0.0f, height));
 }

@@ -174,7 +174,7 @@ void TabContainer::RenderHeader(ImDrawList& draw_list, float width) {
   const float type_x = strip_min.x + header_pad_x_;
   IMComponents::DropdownButton(draw_list, "##ContainerType", ICON_FA_SLIDERS,
                                ImVec2(type_x, y), control_height_, true,
-                               button_w);
+                               button_w, ImDrawFlags_RoundCornersLeft);
 
   // Right
   const float more_x = strip_max.x - header_pad_x_ - control_height_;
@@ -182,12 +182,13 @@ void TabContainer::RenderHeader(ImDrawList& draw_list, float width) {
                                ImVec2(more_x, y), control_height_, true,
                                control_height_);
 
-  // Search fills the space between them
-  const float search_x = type_x + button_w + gap;
+  // Search fills the space between them, joined to the type button
+  const float search_x = type_x + button_w;
   IMComponents::SearchField(
       draw_list, "##ContainerSearch", search_buffer_, sizeof(search_buffer_),
       ImVec2(search_x, y),
-      ImVec2(std::max(0.0f, more_x - gap - search_x), control_height_));
+      ImVec2(std::max(0.0f, more_x - gap - search_x), control_height_),
+      "Search...", button_w);
 
   draw_list.AddLine(ImVec2(strip_min.x, strip_max.y - 0.5f),
                     ImVec2(strip_max.x, strip_max.y - 0.5f),

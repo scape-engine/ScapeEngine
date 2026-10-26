@@ -376,6 +376,9 @@ void EditorUI::DockSpace() {
                         ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
   ImGui::PushStyleColor(ImGuiCol_MenuBarBg,
                         ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
+  // Menu dropdown outline (the bars themselves have no border)
+  ImGui::PushStyleColor(ImGuiCol_Border,
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::line_subtle));
 
   // Taskbar, Alt+Tab and the macOS native bar show the OS title
   const std::string title = WindowTitle();
@@ -399,7 +402,7 @@ void EditorUI::DockSpace() {
       debug_activate_picker_, debug_show_style_editor_);
 
   Panels::StatusBar();
-  ImGui::PopStyleColor(2);
+  ImGui::PopStyleColor(3);
   ImGui::PopStyleVar(2);
 }
 

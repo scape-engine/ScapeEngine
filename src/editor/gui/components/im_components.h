@@ -91,7 +91,8 @@ void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,
 // Width is derived from content; pass icon = nullptr for a chevron-only button.
 bool DropdownButton(ImDrawList& draw_list, const char* id, const char* icon,
                     ImVec2 position, float height, bool chevron = true,
-                    float fixed_width = 0.0f);
+                    float fixed_width = 0.0f,
+                    ImDrawFlags corners = ImDrawFlags_RoundCornersAll);
 
 // Control button with a bitmap icon (IconLoader id) + optional chevron.
 bool IconDropdownButton(ImDrawList& draw_list, const char* id,
@@ -112,10 +113,12 @@ bool GlyphButton(ImDrawList& draw_list, const char* id, const char* glyph,
                  ImVec2 pos, ImVec2 size, ImU32 color,
                  const char* tooltip = nullptr);
 
-// Two-segment search field [ (q) | hint ]. Returns true when text changed
+// Outlined search field [ (q) hint ]. Returns true when text changed.
+// attached_width: a button already drawn flush to the field's left (square
+// right corners); the field outlines both as one control [ + v (q) hint ]
 bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
                  size_t buffer_size, ImVec2 position, ImVec2 size,
-                 const char* hint = "Search...");
+                 const char* hint = "Search...", float attached_width = 0.0f);
 
 void SectionTitle(const char* title, float gap_before = 14.0f);
 

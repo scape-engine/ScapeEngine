@@ -1,34 +1,32 @@
 #include "popup_menu.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include "editor/editor_ui.h"
 #include "editor/gui/styles/editor_styles.h"
 
 namespace PopupMenu {
 
-ImVec4 _background_color = ImVec4(0.2f, 0.2f, 0.25f, 0.9f);
-ImVec4 _text_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-ImVec4 _hover_color = ImVec4(0.1f, 0.1f, 0.15f, 1.0f);
-ImU32 _outline_color = EditorColor::accent_deep;
-
 bool _open_requested = false;
-
-void _Space() {
-  ImGui::Dummy(ImVec2(0.0f, 0.1f));
-}
+bool _anchored = false;
+ImVec2 _anchor;
 
 bool Begin() {
-
-  // Custom menu colors
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, _background_color);
-  ImGui::PushStyleColor(ImGuiCol_Text, _text_color);
-  ImGui::PushStyleColor(ImGuiCol_HeaderHovered, _hover_color);
-  ImGui::PushStyleColor(ImGuiCol_Border, _outline_color);
+  // Background and border come from the global popup style; only the hover
+  // is solid here (the global one is a faint overlay meant for tree rows)
+  ImGui::PushStyleColor(ImGuiCol_HeaderHovered,
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::surface_4));
+  ImGui::PushStyleColor(ImGuiCol_Border,
+                        ImGui::ColorConvertU32ToFloat4(EditorColor::line_subtle));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
 
   std::string id = EditorUI::Get()->GenerateIdString();
   if (_open_requested) {
     ImGui::OpenPopup(id.c_str());
+    if (_anchored)
+      ImGui::SetNextWindowPos(_anchor);  // else at the mouse
     _open_requested = false;
   }
   return ImGui::BeginPopupContextWindow(id.c_str(),
@@ -40,13 +38,13 @@ void End() {
 }
 
 void Pop() {
-  ImGui::PopStyleColor(4);
+  ImGui::PopStyleVar(2);
+  ImGui::PopStyleColor(2);
 }
 
+// Ex variants draw the icon in its own column, aligned across items
 bool Item(const char* icon, std::string title) {
-  _Space();
-  std::string text = std::string(icon) + "     " + title;
-  return ImGui::MenuItem(text.c_str());
+  return ImGui::MenuItemEx(title.c_str(), icon);
 }
 
 bool ItemLight(std::string title) {
@@ -54,9 +52,7 @@ bool ItemLight(std::string title) {
 }
 
 bool Menu(const char* icon, std::string title) {
-  _Space();
-  std::string text = std::string(icon) + "     " + title;
-  return ImGui::BeginMenu(text.c_str());
+  return ImGui::BeginMenuEx(title.c_str(), icon);
 }
 
 void EndMenu() {
@@ -64,11 +60,17 @@ void EndMenu() {
 }
 
 void Separator() {
-  _Space();
   ImGui::Separator();
 }
 
 void Open() {
   _open_requested = true;
+  _anchored = false;
+}
+
+void Open(ImVec2 position) {
+  _open_requested = true;
+  _anchored = true;
+  _anchor = position;
 }
 }  // namespace PopupMenu

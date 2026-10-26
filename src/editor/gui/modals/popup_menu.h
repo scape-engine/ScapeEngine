@@ -1,6 +1,7 @@
 #ifndef POPUP_MENU_H
 #define POPUP_MENU_H
 
+#include <imgui.h>
 #include <string>
 
 namespace PopupMenu {
@@ -29,8 +30,10 @@ void EndMenu();
 // Draw separator
 void Separator();
 
-// Request the popup to open
+// Request the popup to open, at the mouse or with its top-left at position
+// (e.g. under the button that opened it)
 void Open();
+void Open(ImVec2 position);
 
 }  // namespace PopupMenu
 

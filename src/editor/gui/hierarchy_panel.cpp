@@ -70,7 +70,8 @@ void HierarchyPanel::Render() {
 void HierarchyPanel::RenderSearch(ImDrawList& draw_list, ImVec2 position,
                                   ImVec2 size) {
   IMComponents::SearchField(draw_list, "##HierarchySearch", search_buffer,
-                            IM_ARRAYSIZE(search_buffer), position, size);
+                            IM_ARRAYSIZE(search_buffer), position, size,
+                            "Search...", actions_width_);
 }
 
 bool HierarchyPanel::MatchesSearch(const HierarchyItem& item) const {
@@ -102,15 +103,15 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
       ImVec2(strip_min.x + panel_width, strip_min.y + header_height_);
   const float y = strip_min.y + (header_height_ - search_height_) * 0.5f;
 
-  const ImVec2 search_pos = ImVec2(strip_min.x + header_pad_x_, y);
+  // [ + v ] [ (q) Search...            ]
+  const float actions_x = strip_min.x + header_pad_x_;
+  RenderActions(draw_list, ImVec2(actions_x, y), search_height_);
+
+  const ImVec2 search_pos = ImVec2(actions_x + actions_width_, y);
   const ImVec2 search_size =
-      ImVec2(panel_width - header_pad_x_ * 2.0f - header_gap_ - search_width_,
+      ImVec2(std::max(0.0f, strip_max.x - header_pad_x_ - search_pos.x),
              search_height_);
   RenderSearch(draw_list, search_pos, search_size);
-
-  RenderActions(draw_list,
-                ImVec2(search_pos.x + search_size.x + header_gap_, y),
-                search_height_);
 
   // Divider between header strip and tree
   draw_list.AddLine(ImVec2(strip_min.x, strip_max.y - 0.5f),
@@ -123,8 +124,10 @@ void HierarchyPanel::RenderHeader(ImDrawList& draw_list) {
 void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
                                    float height) {
   if (IMComponents::DropdownButton(draw_list, "##HierarchyActions",
-                                   ICON_MDI_PLUS, position, height)) {
-    PopupMenu::Open();
+                                   ICON_MDI_PLUS, position, height, true,
+                                   actions_width_,
+                                   ImDrawFlags_RoundCornersLeft)) {
+    PopupMenu::Open(ImVec2(position.x, position.y + height + 2.0f));
   }
 }
 
@@ -155,18 +158,17 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
     const ImVec2 children_start = ImGui::GetCursorScreenPos();
     row_index_ = 0;
 
+    float last_row_center = children_start.y;
     for (auto& item : current_hierarchy) {
-      if (MatchesSearch(item))
-        RenderItem(draw_list, item, 1);
+      if (!MatchesSearch(item))
+        continue;
+      last_row_center = ImGui::GetCursorScreenPos().y + row_height_ * 0.5f;
+      RenderItem(draw_list, item, 1);
     }
 
-    // Vertical guide under the root caret
-    const ImVec2 children_end = ImGui::GetCursorScreenPos();
-    const float guide_x =
-        std::floor(children_start.x + row_pad_x_ + caret_slot_ * 0.5f);
-    draw_list.AddLine(ImVec2(guide_x, children_start.y),
-                      ImVec2(guide_x, children_end.y), EditorColor::tree_guide,
-                      1.0f);
+    // Vertical guide under the root caret, down to the last child's connector
+    DrawGuide(draw_list, children_start.x + row_pad_x_, children_start.y,
+              last_row_center);
   }
 
   ImGui::PopStyleVar();
@@ -190,12 +192,9 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
   DrawChevron(draw_list, ImVec2(x0, rect_min.y), root_expanded_, true,
               EditorColor::chevron);
 
-  const ImVec2 icon_min =
-      ImVec2(std::floor(x0 + caret_slot_ + (icon_slot_ - icon_size_) * 0.5f),
-             std::floor(rect_min.y + (row_height_ - icon_size_) * 0.5f));
-  draw_list.AddImage(IconLoader::ToImGuiTexture("hierarchy"), icon_min,
-                     icon_min + ImVec2(icon_size_, icon_size_), ImVec2(0, 0),
-                     ImVec2(1, 1), EditorColor::text);
+  DrawGlyph(draw_list, ImVec2(x0 + caret_slot_, rect_min.y),
+            ImVec2(icon_slot_, row_height_), ICON_MDI_MOVIE_OPEN_OUTLINE,
+            EditorColor::text);
 
   const ImVec2 text_pos =
       ImVec2(x0 + caret_slot_ + icon_slot_ + text_gap_,
@@ -293,13 +292,27 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   const bool icon_clicked =
       RenderItemIcons(draw_list, item, rect_min, rect_max);
 
-  // CHEVRON (only when there are children; keeps alignment otherwise)
+  // CONNECTOR: short stub from the parent's guide, stopping at this row's
+  // caret column (the icon keeps its gap)
   const ImVec2 caret_min =
       ImVec2(rect_min.x + row_pad_x_ + x_offset, rect_min.y);
-  const bool chevron_clicked = DrawChevron(draw_list, caret_min, item.expanded,
-                                           has_children, chevron_color);
-  if (has_children && (chevron_clicked || wheel_clicked))
-    item.expanded = !item.expanded;
+  const float guide_x = std::floor(caret_min.x - indent_ + caret_slot_ * 0.5f);
+  // 1px filled rect, not AddLine: an anti-aliased line can land between
+  // pixels and smear over two, reading thicker
+  const float row_center = std::floor(rect_min.y + row_height_ * 0.5f);
+  draw_list.AddRectFilled(
+      ImVec2(guide_x, row_center),
+      ImVec2(std::floor(caret_min.x) - 3.0f, row_center + 1.0f),
+      EditorColor::tree_guide);
+
+  // CHEVRON (only when there are children)
+  bool chevron_clicked = false;
+  if (has_children) {
+    chevron_clicked = DrawChevron(draw_list, caret_min, item.expanded, true,
+                                  chevron_color);
+    if (chevron_clicked || wheel_clicked)
+      item.expanded = !item.expanded;
+  }
 
   // TYPE ICON + NAME
   DrawGlyph(draw_list, ImVec2(caret_min.x + caret_slot_, rect_min.y),
@@ -385,10 +398,15 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
 
   // CHILDREN (auto-expanded while searching)
   if (has_children && (item.expanded || Searching())) {
+    const float children_top = ImGui::GetCursorScreenPos().y;
+    float last_row_center = children_top;
     for (auto& child : item.children) {
-      if (MatchesSearch(child))
-        RenderItem(draw_list, child, indentation + 1);
+      if (!MatchesSearch(child))
+        continue;
+      last_row_center = ImGui::GetCursorScreenPos().y + row_height_ * 0.5f;
+      RenderItem(draw_list, child, indentation + 1);
     }
+    DrawGuide(draw_list, caret_min.x, children_top, last_row_center);
   }
 }
 
@@ -460,11 +478,26 @@ bool HierarchyPanel::DrawChevron(ImDrawList& draw_list, ImVec2 slot_min,
       ImVec2(slot_min.x + caret_slot_, slot_min.y + row_height_);
   const bool hovered =
       interactive && ImGui::IsMouseHoveringRect(slot_min, slot_max);
-  DrawGlyph(
-      draw_list, slot_min, ImVec2(caret_slot_, row_height_),
-      expanded ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
-      hovered ? EditorColor::text_bright : color);  // default font (p), not s
+  // ImGui's own tree-node arrow, at the scale TreeNode uses. RenderArrow
+  // centers it at pos + (0.5h, 0.35h) for font size h
+  const float h = ImGui::GetFontSize();
+  const ImVec2 pos =
+      ImVec2(std::floor(slot_min.x + caret_slot_ * 0.5f - h * 0.5f),
+             std::floor(slot_min.y + row_height_ * 0.5f - h * 0.35f));
+  ImGui::RenderArrow(&draw_list, pos,
+                     hovered ? EditorColor::text_bright : color,
+                     expanded ? ImGuiDir_Down : ImGuiDir_Right, 0.70f);
   return hovered && ImGui::IsMouseClicked(0);
+}
+
+// Vertical tree guide under the caret slot starting at caret_x
+void HierarchyPanel::DrawGuide(ImDrawList& draw_list, float caret_x,
+                               float top, float bottom) {
+  // 1px filled rect for a crisp line (see the connector in RenderItem)
+  const float x = std::floor(caret_x + caret_slot_ * 0.5f);
+  draw_list.AddRectFilled(ImVec2(x, std::floor(top)),
+                          ImVec2(x + 1.0f, std::floor(bottom) + 1.0f),
+                          EditorColor::tree_guide);
 }
 
 const char* HierarchyPanel::EntityIcon(const HierarchyItem& item) const {

@@ -69,6 +69,7 @@ private:
                  const char* glyph, ImU32 color, ImFont* font = nullptr);
 
   // Draw chevron in caret slot; returns true if the slot was clicked
+  void DrawGuide(ImDrawList& draw_list, float caret_x, float top, float bottom);
   bool DrawChevron(ImDrawList& draw_list, ImVec2 slot_min, bool expanded,
                    bool interactive, ImU32 color);
 
@@ -93,7 +94,7 @@ private:
   static constexpr float header_height_ = 34.0f;
   static constexpr float header_pad_x_ = 10.0f;
   static constexpr float search_height_ = 22.0f;
-  static constexpr float search_width_ = 44.0f;
+  static constexpr float actions_width_ = 44.0f;  // [ + v ] button
   static constexpr float content_gap_ = 4.0f;
   static constexpr float row_height_ = 20.0f;
   static constexpr float row_pad_x_ = 6.0f;
@@ -102,7 +103,6 @@ private:
   static constexpr float toggle_slot_ = 20.0f;
   static constexpr float indent_ = 16.0f;
   static constexpr float text_gap_ = 4.0f;
-  static constexpr float header_gap_ = 6.0f;
   static constexpr float icon_size_ = 14.0f;
 
   // Data
