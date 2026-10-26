@@ -5,6 +5,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <windowsx.h>
 #include <dwmapi.h>
 
 #include "platform/platform_utils.h"
@@ -33,7 +34,91 @@ BYTE ToByte(float value) {
   return static_cast<BYTE>(value * 255.0f + 0.5f);
 }
 
+WNDPROC g_sdl_wndproc = nullptr;
+
+// Resize border thickness at the window's DPI
+int FrameThickness(HWND hwnd) {
+  const UINT dpi = GetDpiForWindow(hwnd);
+  return GetSystemMetricsForDpi(SM_CYFRAME, dpi) +
+         GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+}
+
+// Wraps SDL's window procedure: removes the native caption but keeps the
+// resize borders, and reports the app's title row as caption so the OS
+// handles drag, double-click maximize, snap and the system menu
+LRESULT CALLBACK CustomTitleBarProc(HWND hwnd, UINT msg, WPARAM wparam,
+                                    LPARAM lparam) {
+  switch (msg) {
+    case WM_NCCALCSIZE: {
+      if (!wparam)
+        break;
+      // Default sizing keeps the side and bottom borders; undo the top one
+      auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lparam);
+      const LONG top = params->rgrc[0].top;
+      const LRESULT result =
+          CallWindowProc(g_sdl_wndproc, hwnd, msg, wparam, lparam);
+      params->rgrc[0].top = top;
+      // Maximized windows overhang the monitor by the frame thickness
+      if (IsZoomed(hwnd))
+        params->rgrc[0].top += FrameThickness(hwnd);
+      return result;
+    }
+
+    case WM_GETMINMAXINFO: {
+      // SDL converts the minimum client size to a window size assuming a
+      // native top frame. Without that frame the client comes out taller
+      // than requested, and since the editor sets the minimum to the
+      // current size on every resize, the window grows forever
+      const LRESULT result =
+          CallWindowProc(g_sdl_wndproc, hwnd, msg, wparam, lparam);
+      RECT frame = {0, 0, 0, 0};
+      AdjustWindowRectExForDpi(
+          &frame, static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE)), FALSE,
+          static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE)),
+          GetDpiForWindow(hwnd));
+      auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
+      info->ptMinTrackSize.y -= -frame.top;  // the top frame we removed
+      return result;
+    }
+
+    case WM_NCHITTEST: {
+      const LRESULT hit =
+          CallWindowProc(g_sdl_wndproc, hwnd, msg, wparam, lparam);
+      if (hit != HTCLIENT)
+        return hit;  // side and bottom resize borders
+
+      POINT p = {GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam)};
+      ScreenToClient(hwnd, &p);
+      if (!IsZoomed(hwnd) && p.y < FrameThickness(hwnd))
+        return HTTOP;  // the top border we removed in WM_NCCALCSIZE
+      if (InTitleBarDragArea(static_cast<float>(p.x), static_cast<float>(p.y)))
+        return HTCAPTION;
+      return HTCLIENT;
+    }
+  }
+  return CallWindowProc(g_sdl_wndproc, hwnd, msg, wparam, lparam);
+}
+
 }  // namespace
+
+bool DrawsWindowButtons() {
+  return true;
+}
+
+void EnableCustomTitleBar(SDL_Window* window) {
+  SDL_SysWMinfo wmi;
+  SDL_VERSION(&wmi.version);
+  if (g_sdl_wndproc || !SDL_GetWindowWMInfo(window, &wmi))
+    return;
+
+  HWND hwnd = wmi.info.win.window;
+  g_sdl_wndproc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(
+      hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(CustomTitleBarProc)));
+  // Re-run WM_NCCALCSIZE so the caption goes away now
+  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+               SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                   SWP_NOACTIVATE);
+}
 
 float GetContentScale(SDL_Window* window) {
   // Only meaningful once the process is DPI-aware

@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
+#include <vector>
 
 namespace Platform {
 
@@ -47,6 +48,28 @@ void RestoreMinSize(SDL_Window* w);
 //   Linux:      unchanged (the window manager owns the title bar)
 // Returns true if the bar now shows exactly this color.
 bool StyleTitleBar(SDL_Window* window, float r, float g, float b);
+
+// App-drawn title bar. Where the platform has no native bar to keep (Windows,
+// Linux), the app removes it and draws its own row with window buttons; macOS
+// keeps its native (transparent) bar
+bool DrawsWindowButtons();
+void EnableCustomTitleBar(SDL_Window* window);  // call once after creation
+
+// In window units (same as ImGui coordinates)
+struct WindowRect {
+  float x, y, w, h;
+};
+
+// The top `bottom` units of the window drag it (and double-click / snap,
+// where the OS supports it), except over `interactive` rects. Set every frame
+// by the title bar; bottom = 0 disables it
+void SetTitleBarRegion(float bottom, const std::vector<WindowRect>& interactive);
+bool InTitleBarDragArea(float x, float y);
+
+void MinimizeWindow(SDL_Window* window);
+bool IsWindowMaximized(SDL_Window* window);
+void ToggleMaximizeWindow(SDL_Window* window);
+void RequestWindowClose();  // same path as the OS close button (SDL_QUIT)
 
 // Text input control
 void DisableTextInput();

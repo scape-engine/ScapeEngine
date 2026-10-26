@@ -58,6 +58,7 @@ private:
   void HandleInput(Key key);
   void RenderUI();
   void DockSpace();
+  std::string WindowTitle() const;
   void LoadIcons();
   void UpdateMovement();
 
@@ -74,6 +75,7 @@ private:
   bool built_layout_ = false;
   bool text_input_off_ = true;
   bool fullscreen_ = false;
+  std::string os_window_title_;  // last title sent to the OS
 
   // Id counter
   uint32_t g_id_counter_;

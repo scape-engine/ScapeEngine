@@ -24,6 +24,7 @@
 #include "gui/status_bar.h"
 #include "gui/tab_container.h"
 #include "gui/terrain_editor_panel.h"
+#include "gui/title_bar.h"
 #include "gui/viewport/action_overlay.h"
 #include "gui/viewport/toolbar.h"
 
@@ -35,6 +36,7 @@
 #include "engine/context/engine_context.h"
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
+#include "engine/core/version.h"
 #include "engine/core/view_ids.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/pcg_engine.h"
@@ -75,6 +77,8 @@ void EditorUI::Initialize() {
   // Set up window title
   ImVec4 bar = ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2);
   Platform::StyleTitleBar(WindowManager::GetWindow(), bar.x, bar.y, bar.z);
+  if (Platform::DrawsWindowButtons())
+    Platform::EnableCustomTitleBar(WindowManager::GetWindow());
 
   ImGuiIO& io = ImGui::GetIO();
   io.DisplaySize = ImVec2((float)WindowManager::GetWidth(),
@@ -372,6 +376,15 @@ void EditorUI::DockSpace() {
                         ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
   ImGui::PushStyleColor(ImGuiCol_MenuBarBg,
                         ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
+
+  // Taskbar, Alt+Tab and the macOS native bar show the OS title
+  const std::string title = WindowTitle();
+  if (title != os_window_title_) {
+    os_window_title_ = title;
+    SDL_SetWindowTitle(WindowManager::GetWindow(), title.c_str());
+  }
+
+  Panels::TitleBar(title);
   Panels::MenuBar(
       [this]() {
         if (is_game_started_) {
@@ -388,6 +401,12 @@ void EditorUI::DockSpace() {
   Panels::StatusBar();
   ImGui::PopStyleColor(2);
   ImGui::PopStyleVar(2);
+}
+
+std::string EditorUI::WindowTitle() const {
+  const bool unsaved = false;  // TODO: project/scene dirty flag
+  return Runtime::Project().ProjectName() + (unsaved ? "*" : "") +
+         " - Scape Engine " + engine_version;
 }
 
 void EditorUI::DrawPanelCards(ImGuiDockNode* node) {

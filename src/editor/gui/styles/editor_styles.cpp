@@ -25,6 +25,11 @@ static const ImWchar icon_ranges[] = {ICON_MIN_FA, ICON_MAX_FA, 0};
 // ? When using a new ICON_MDI_*, add it here
 static const char* used_mdi_icons[] = {
     ICON_MDI_PLUS,
+    ICON_MDI_CUBE_OUTLINE,  // TODO: placeholder app icon
+    ICON_MDI_WINDOW_MINIMIZE,
+    ICON_MDI_WINDOW_MAXIMIZE,
+    ICON_MDI_WINDOW_RESTORE,
+    ICON_MDI_WINDOW_CLOSE,
 };
 
 // Glyph ranges built from the list above. Static: ImGui reads the ranges

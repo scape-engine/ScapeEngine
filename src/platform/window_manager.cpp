@@ -102,11 +102,6 @@ void WindowManager::OnWindowResize(int width, int height) {
   if (fullscreen || minimized)  // ignore resize on fullscreen or minimized
     return;
 
-  if (!Platform::InFullscreenSpace(instance.window_))
-    Platform::LockMinSize(instance.window_, instance.width_, instance.height_);
-  else
-    Platform::RestoreMinSize(instance.window_);
-
   Platform::RefreshFramebufferSize(instance.window_);  // rebuild swap-chain
 
   Logger::getInstance().Log(

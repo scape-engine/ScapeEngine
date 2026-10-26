@@ -54,7 +54,13 @@ void InitSDLForImGui(SDL_Window* window) {
   ImGui_ImplSDL2_InitForMetal(window);
 }
 
-void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
+bool DrawsWindowButtons() {
+  return false;  // native traffic lights in the transparent bar
+}
+
+void EnableCustomTitleBar(SDL_Window*) {}
+
+bool StyleTitleBar(SDL_Window* window, float r, float g, float b) {
   SDL_SysWMinfo wmi;
   SDL_VERSION(&wmi.version);
   if (!SDL_GetWindowWMInfo(window, &wmi))
@@ -68,7 +74,7 @@ void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
   if (@available(macOS 11.0, *))
     ns_window.titlebarSeparatorStyle = NSTitlebarSeparatorStyleNone;
 
-return true;
+  return true;
 }
 
 }  // namespace Platform

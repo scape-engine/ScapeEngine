@@ -44,6 +44,47 @@ void ToggleBorderlessFullscreen(SDL_Window* w, bool enable) {
   RefreshFramebufferSize(w);
 }
 
+namespace {
+float g_title_bar_bottom = 0.0f;
+std::vector<WindowRect> g_title_bar_interactive;
+}  // namespace
+
+void SetTitleBarRegion(float bottom,
+                       const std::vector<WindowRect>& interactive) {
+  g_title_bar_bottom = bottom;
+  g_title_bar_interactive = interactive;
+}
+
+bool InTitleBarDragArea(float x, float y) {
+  if (y < 0.0f || y >= g_title_bar_bottom)
+    return false;
+  for (const WindowRect& r : g_title_bar_interactive)
+    if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)
+      return false;
+  return true;
+}
+
+void MinimizeWindow(SDL_Window* window) {
+  SDL_MinimizeWindow(window);
+}
+
+bool IsWindowMaximized(SDL_Window* window) {
+  return SDL_GetWindowFlags(window) & SDL_WINDOW_MAXIMIZED;
+}
+
+void ToggleMaximizeWindow(SDL_Window* window) {
+  if (IsWindowMaximized(window))
+    SDL_RestoreWindow(window);
+  else
+    SDL_MaximizeWindow(window);
+}
+
+void RequestWindowClose() {
+  SDL_Event quit{};
+  quit.type = SDL_QUIT;
+  SDL_PushEvent(&quit);
+}
+
 bool IsBorderlessFullscreen(SDL_Window* win) {
   return SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN_DESKTOP;
 }
