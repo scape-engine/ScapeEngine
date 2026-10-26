@@ -31,6 +31,8 @@ void InitSDLForImGui(SDL_Window* window) {
   ImGui_ImplSDL2_InitForOther(window);
 }
 
-void StyleTitleBar(SDL_Window*, float, float, float) {}
+void StyleTitleBar(SDL_Window*, float, float, float) {
+  return false;
+}
 
 }  // namespace Platform

@@ -40,8 +40,13 @@ bool InFullscreenSpace(SDL_Window* w);
 void LockMinSize(SDL_Window* w, int minW, int minH);
 void RestoreMinSize(SDL_Window* w);
 
-// Transparent titlebar, incl traffic lights and content under it
-void StyleTitleBar(SDL_Window* window, float r, float g, float b);
+// Style the native title bar to match the app per platform:
+//   macOS:      exact color, transparent bar (content extends under it)
+//   Windows 11: exact color, dark text and buttons
+//   Windows 10: dark text and buttons, system dark color (no custom color)
+//   Linux:      unchanged (the window manager owns the title bar)
+// Returns true if the bar now shows exactly this color.
+bool StyleTitleBar(SDL_Window* window, float r, float g, float b);
 
 // Text input control
 void DisableTextInput();

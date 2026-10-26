@@ -58,7 +58,7 @@ void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
   SDL_SysWMinfo wmi;
   SDL_VERSION(&wmi.version);
   if (!SDL_GetWindowWMInfo(window, &wmi))
-    return;
+    return false;
 
   NSWindow* ns_window = wmi.info.cocoa.window;
   ns_window.titlebarAppearsTransparent = YES;
@@ -67,6 +67,8 @@ void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
   ns_window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
   if (@available(macOS 11.0, *))
     ns_window.titlebarSeparatorStyle = NSTitlebarSeparatorStyleNone;
+
+return true;
 }
 
 }  // namespace Platform

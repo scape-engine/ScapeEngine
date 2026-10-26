@@ -1,7 +1,11 @@
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
 #define NOMINMAX
-#include <dwmapi.h>
+#endif
 #include <windows.h>
+#include <dwmapi.h>
 
 #include "platform/platform_utils.h"
 
@@ -64,29 +68,29 @@ void InitSDLForImGui(SDL_Window* window) {
   ImGui_ImplSDL2_InitForOther(window);
 }
 
-void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
+bool StyleTitleBar(SDL_Window* window, float r, float g, float b) {
   SDL_SysWMinfo wmi;
   SDL_VERSION(&wmi.version);
   if (!SDL_GetWindowWMInfo(window, &wmi))
-    return;
+    return false;
+
   HWND hwnd = wmi.info.win.window;
 
-  // Dark title text and buttons. Attribute 20 since Windows 10 20H1;
-  // builds 1809 to 1909 used the undocumented id 19
   const BOOL dark = TRUE;
-  if (FAILED(DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
-                                   sizeof(dark))))
-    DwmSetWindowAttribute(hwnd, 19, &dark, sizeof(dark));
+  HRESULT hr = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
+                                     sizeof(dark));
+  if (FAILED(hr))
+    hr = DwmSetWindowAttribute(hwnd, 19, &dark, sizeof(dark));
 
-  // Title bar and window edge in the editor's color (Windows 11; on
-  // Windows 10 these calls fail harmlessly and the bar stays dark gray)
   const COLORREF color = RGB(ToByte(r), ToByte(g), ToByte(b));
-  DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &color, sizeof(color));
+  const bool exact = SUCCEEDED(
+      DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &color, sizeof(color)));
   DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR, &color, sizeof(color));
 
-  // Repaint the frame now; otherwise the change can wait for a resize
-  SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
-               SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+  SendMessage(hwnd, WM_NCACTIVATE, FALSE, 0);
+  SendMessage(hwnd, WM_NCACTIVATE, TRUE, 0);
+
+  return exact;
 }
 
 }  // namespace Platform
