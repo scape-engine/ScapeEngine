@@ -1,60 +1,37 @@
 #include "platform_utils.h"
 
-#include <SDL.h>
-#include <SDL_syswm.h>
-#include <backends/imgui_impl_sdl2.h>
-
-#if defined(_WIN32) || defined(__linux__)
+#include <imgui.h>
 
 namespace Platform {
 
+// Pixel size of the drawable area, for any graphics backend (SDL 2.26+)
 void GetDrawableSize(SDL_Window* window, int* out_w, int* out_h) {
-  // use SDL_Renderer
-  if (SDL_Renderer* r = SDL_GetRenderer(window)) {
-    SDL_GetRendererOutputSize(r, out_w, out_h);
-  } else  // fall back to GL / D3D drawable size.
-  {
-    SDL_GL_GetDrawableSize(window, out_w, out_h);
-  }
+  SDL_GetWindowSizeInPixels(window, out_w, out_h);
+}
+
+float GetFramebufferScale(SDL_Window* window) {
+  int w = 0, h = 0, pixel_w = 0, pixel_h = 0;
+  SDL_GetWindowSize(window, &w, &h);
+  GetDrawableSize(window, &pixel_w, &pixel_h);
+  return w > 0 ? static_cast<float>(pixel_w) / static_cast<float>(w) : 1.0f;
 }
 
 float GetDPIScale(SDL_Window* window) {
-  int logicalW, logicalH;
-  SDL_GetWindowSize(window, &logicalW, &logicalH);
-  int drawableW, drawableH;
-  SDL_GL_GetDrawableSize(window, &drawableW, &drawableH);
-  return logicalW > 0 ? static_cast<float>(drawableW) / logicalW : 1.0f;
+  return GetFramebufferScale(window);
 }
 
-void* CreateMetalLayer(void* native_window) {
-  // Not applicable on non-macOS
-  return nullptr;
-}
+void RefreshFramebufferSize(SDL_Window* win) {
+  int dw = 0, dh = 0;
+  GetDrawableSize(win, &dw, &dh);
+  if (dw == 0 || dh == 0)  // window is minimised or off-screen
+    return;                // skip reset
 
-void SetupBGFXPlatformData(bgfx::Init& init, SDL_Window* window) {
-  int w, h;
-  SDL_GetWindowSize(window, &w, &h);
-  init.resolution.width = w;
-  init.resolution.height = h;
-  init.resolution.reset = BGFX_RESET_VSYNC;
+  bgfx::reset(dw, dh, BGFX_RESET_VSYNC);
 
-  SDL_SysWMinfo wmi;
-  SDL_VERSION(&wmi.version);
-  if (SDL_GetWindowWMInfo(window, &wmi)) {
-#if defined(_WIN32)
-    init.platformData.ndt = nullptr;
-    init.platformData.nwh = wmi.info.win.window;
-    init.platformData.context = nullptr;
-#elif defined(__linux__)
-    init.platformData.ndt = wmi.info.x11.display;
-    init.platformData.nwh = (void*)(uintptr_t)wmi.info.x11.window;
-    init.platformData.context = nullptr;
-#endif
-  }
-}
-
-void InitSDLForImGui(SDL_Window* window) {
-  ImGui_ImplSDL2_InitForOther(window);
+  const float scale = GetFramebufferScale(win);
+  ImGuiIO& io = ImGui::GetIO();
+  io.DisplaySize = ImVec2(dw / scale, dh / scale);
+  io.DisplayFramebufferScale = ImVec2(scale, scale);
 }
 
 void ToggleBorderlessFullscreen(SDL_Window* w, bool enable) {
@@ -69,19 +46,6 @@ void ToggleBorderlessFullscreen(SDL_Window* w, bool enable) {
 
 bool IsBorderlessFullscreen(SDL_Window* win) {
   return SDL_GetWindowFlags(win) & SDL_WINDOW_FULLSCREEN_DESKTOP;
-}
-
-void RefreshFramebufferSize(SDL_Window* win) {
-  int dw, dh;
-  SDL_GL_GetDrawableSize(win, &dw, &dh);
-  bgfx::reset(dw, dh, BGFX_RESET_VSYNC);
-  ImGuiIO& io = ImGui::GetIO();
-  float dpi = GetDPIScale(win);
-  io.DisplaySize = ImVec2(dw / dpi, dh / dpi);
-  io.DisplayFramebufferScale = ImVec2(dpi, dpi);
-
-  if (dw == 0 || dh == 0)  // window is minimised or off-screen
-    return;                // skip reset
 }
 
 bool InFullscreenSpace(SDL_Window* w) {
@@ -109,11 +73,7 @@ bool IsTextInputActive() {
   return SDL_IsTextInputActive() == SDL_TRUE;
 }
 
-void StyleTitleBar(SDL_Window* window, float r, float g, float b) {
-  // Implementation for styling the title bar
-}
-
-// TODO: move to /input/cursor
+// TODO: move to input/cursor
 glm::vec2 GetCursorPosition() {
   int x, y;
   SDL_GetMouseState(&x, &y);
@@ -136,5 +96,3 @@ void SetGlobalCursorPosition(const glm::vec2& pos) {
 }
 
 }  // namespace Platform
-
-#endif

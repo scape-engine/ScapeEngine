@@ -79,8 +79,10 @@ void EditorUI::Initialize() {
   ImGuiIO& io = ImGui::GetIO();
   io.DisplaySize = ImVec2((float)WindowManager::GetWidth(),
                           (float)WindowManager::GetHeight());
-  io.DisplayFramebufferScale =
-      ImVec2(WindowManager::GetDPIScale(), WindowManager::GetDPIScale());
+
+  const float fb_scale =
+      Platform::GetFramebufferScale(WindowManager::GetWindow());
+  io.DisplayFramebufferScale = ImVec2(fb_scale, fb_scale);
   io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   EditorStyles::Initialize();
@@ -92,7 +94,7 @@ void EditorUI::Initialize() {
   // backends
   ImGui_Implbgfx_Init(ViewID::UI);
   ApplyImGuiShaders();
-  ImGui_ImplSDL2_InitForOther(WindowManager::GetWindow());
+  Platform::InitSDLForImGui(WindowManager::GetWindow());
 
   // keep rendering during the drag
   SDL_AddEventWatch(

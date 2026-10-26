@@ -10,15 +10,22 @@ namespace Platform {
  * Returns the pixel size of the drawable area (HiDPI aware) */
 void GetDrawableSize(SDL_Window* window, int* out_w, int* out_h);
 
+// Physical pixels per window unit: 2 on Retina, 1 on Windows/Linux.
+float GetFramebufferScale(SDL_Window* window);
+
+// The user's display scaling, to apply to UI sizes: 1 on macOS, 1.25 / 1.5 /
+// etc on Windows
+float GetContentScale(SDL_Window* window);
+
+// Call before SDL_Init. Windows: opt into per-monitor DPI awareness so the
+// OS doesn't bitmap-stretch the window. No-op elsewhere.
+void EnableHighDpi();
+
 /**
  * Returns the DPI scaling factor of the window.
  * Default is 1.0f on non-HiDPI or unsupported platforms. */
+// Deprecated: same as GetFramebufferScale. TODO: migrate callers, then remove
 float GetDPIScale(SDL_Window* window);
-
-/**
- * macOS: Creates and attaches a CAMetalLayer to a Cocoa window.
- * Other platforms: returns nullptr */
-void* CreateMetalLayer(void* native_window);
 
 void SetupBGFXPlatformData(bgfx::Init& init, SDL_Window* window);
 
