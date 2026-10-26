@@ -271,14 +271,11 @@ void VectorLabel(std::string text, const glm::vec3& vector, bool bold) {
   ImFont* font = ImGui::GetFont();
   IMComponents::Label(text + ": ", font);
   ImGui::SameLine();
-  IMComponents::Label(_Format_Num(vector.x) + "x ",
-                      IM_COL32(255, 145, 145, 230));
+  IMComponents::Label(_Format_Num(vector.x) + "x ", EditorColor::axis_x);
   ImGui::SameLine();
-  IMComponents::Label(_Format_Num(vector.y) + "y ",
-                      IM_COL32(145, 255, 145, 230));
+  IMComponents::Label(_Format_Num(vector.y) + "y ", EditorColor::axis_y);
   ImGui::SameLine();
-  IMComponents::Label(_Format_Num(vector.z) + "z ",
-                      IM_COL32(145, 145, 255, 230));
+  IMComponents::Label(_Format_Num(vector.z) + "z ", EditorColor::axis_z);
 }
 
 //=============================================================================
@@ -443,6 +440,12 @@ void Input(std::string label, glm::vec3& value, float speed) {
     // LEFT STRIP over the field's left edge
     const ImVec2 field_min = ImGui::GetItemRectMin();
     const ImVec2 field_max = ImGui::GetItemRectMax();
+
+    // OUTLINE
+    draw_list->AddRect(field_min, field_max, EditorColor::line_subtle,
+                       style.FrameRounding, 0, 1.0f);
+
+    // LEFT STRIP over the field's left edge
     draw_list->AddRectFilled(
         field_min, ImVec2(field_min.x + strip_width, field_max.y),
         axis_colors[i], style.FrameRounding, ImDrawFlags_RoundCornersLeft);
@@ -872,8 +875,8 @@ bool IconDropdownButton(ImDrawList& draw_list, const char* id,
       EditorSizes::control_radius);
 
   // Draw outline
-  // draw_list.AddRect(position, p1, EditorColor::line_strong,
-  // EditorSizes::control_radius, 0, 1.0f);
+  draw_list.AddRect(position, p1, EditorColor::line_strong,
+                    EditorSizes::control_radius, 0, 1.0f);
 
   const ImVec2 icon_min =
       ImVec2(position.x + pad, position.y + (height - icon_size) * 0.5f);

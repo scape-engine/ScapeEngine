@@ -261,10 +261,13 @@ ImVec2 AssetBrowserPanel::RenderBreadcrumbBar(ImDrawList& draw_list,
   const float path_w = (right - x - gap) * 0.5f;
   const ImVec2 path_min = ImVec2(x, y);
   const ImVec2 path_max = ImVec2(x + path_w, y + control_h);
+
   draw_list.AddRectFilled(path_min, path_max, EditorColor::surface_1,
                           EditorSizes::control_radius);
+
   draw_list.AddRect(path_min, path_max, EditorColor::line_subtle,
-                    EditorSizes::control_radius, 0, 1.0f);  // as the search field
+                    EditorSizes::control_radius, 0, 1.0f);
+
   draw_list.PushClipRect(path_min, ImVec2(path_max.x - 6.0f, path_max.y), true);
   draw_list.AddText(
       ImVec2(x + 8.0f, y + (control_h - ImGui::GetFontSize()) * 0.5f),
