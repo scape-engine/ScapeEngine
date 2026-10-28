@@ -114,6 +114,17 @@ bool IsTextInputActive() {
   return SDL_IsTextInputActive() == SDL_TRUE;
 }
 
+void SetWindowIcon(SDL_Window* window, const uint8_t* rgba, int width,
+                   int height) {
+  SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormatFrom(
+      const_cast<uint8_t*>(rgba), width, height, 32, width * 4,
+      SDL_PIXELFORMAT_RGBA32);
+  if (!surface)
+    return;
+  SDL_SetWindowIcon(window, surface);  // SDL keeps its own copy
+  SDL_FreeSurface(surface);
+}
+
 // TODO: move to input/cursor
 glm::vec2 GetCursorPosition() {
   int x, y;

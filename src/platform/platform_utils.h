@@ -2,6 +2,7 @@
 
 #include <SDL.h>
 #include <bgfx/bgfx.h>
+#include <cstdint>
 #include <glm/glm.hpp>
 #include <vector>
 
@@ -63,7 +64,8 @@ struct WindowRect {
 // The top `bottom` units of the window drag it (and double-click / snap,
 // where the OS supports it), except over `interactive` rects. Set every frame
 // by the title bar; bottom = 0 disables it
-void SetTitleBarRegion(float bottom, const std::vector<WindowRect>& interactive);
+void SetTitleBarRegion(float bottom,
+                       const std::vector<WindowRect>& interactive);
 bool InTitleBarDragArea(float x, float y);
 
 void MinimizeWindow(SDL_Window* window);
@@ -75,6 +77,10 @@ void RequestWindowClose();  // same path as the OS close button (SDL_QUIT)
 void DisableTextInput();
 void EnableTextInput();
 bool IsTextInputActive();
+
+// Window icon (taskbar / Alt+Tab, macOS Dock, Linux window list)
+void SetWindowIcon(SDL_Window* window, const uint8_t* rgba, int width,
+                   int height);
 
 // Cursor utilities
 // TODO: move to /input/cursor

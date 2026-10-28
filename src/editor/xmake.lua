@@ -66,6 +66,10 @@ add_packages(
 	"pcg-cpp"
 )
 
+if is_plat("windows") then
+    add_files("resources/app/scape.rc")
+end
+
 -- copy all assets
 after_build(function(target)
 	local bindir = target:targetdir()
@@ -73,6 +77,7 @@ after_build(function(target)
 	os.cp("src/assets/audio", path.join(bindir, "assets/audio"))
 	os.cp("src/editor/resources/icons", path.join(bindir, "resources/icons"))
 	os.cp("src/editor/resources/fonts", path.join(bindir, "resources/fonts"))
+	os.cp("src/editor/resources/app", path.join(bindir, "resources/app"))
 end)
 add_defines("SDL_MAIN_HANDLED", "DISPLAY_GRAPHICAL")
 target_end()

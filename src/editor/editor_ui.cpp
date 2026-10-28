@@ -28,7 +28,7 @@
 #include "gui/viewport/action_overlay.h"
 #include "gui/viewport/toolbar.h"
 
-#include "platform/platform_utils.h"
+#include "platform/paths.h"
 #include "platform/window_manager.h"
 
 #include "resources/decorators/drop_shadows.h"
@@ -47,6 +47,7 @@
 
 #include <SDL.h>
 #include <backends/imgui_impl_sdl2.h>
+#include <stb/stb_image.h>  // remove after viewport refactoring
 #include <algorithm>
 
 // Window base class
@@ -83,6 +84,18 @@ void EditorUI::Initialize() {
   ImGuiIO& io = ImGui::GetIO();
   io.DisplaySize = ImVec2((float)WindowManager::GetWidth(),
                           (float)WindowManager::GetHeight());
+
+  // Window / taskbar / Dock icon
+  {
+    int w = 0, h = 0, channels = 0;
+    unsigned char* pixels =
+        stbi_load(Platform::ResolvePath("resources/app/scape_256.png").c_str(),
+                  &w, &h, &channels, 4);  // force RGBA
+    if (pixels) {
+      Platform::SetWindowIcon(WindowManager::GetWindow(), pixels, w, h);
+      stbi_image_free(pixels);
+    }
+  }
 
   const float fb_scale =
       Platform::GetFramebufferScale(WindowManager::GetWindow());
@@ -377,8 +390,8 @@ void EditorUI::DockSpace() {
   ImGui::PushStyleColor(ImGuiCol_MenuBarBg,
                         ImGui::ColorConvertU32ToFloat4(EditorColor::surface_2));
   // Menu dropdown outline (the bars themselves have no border)
-  ImGui::PushStyleColor(ImGuiCol_Border,
-                        ImGui::ColorConvertU32ToFloat4(EditorColor::line_subtle));
+  ImGui::PushStyleColor(ImGuiCol_Border, ImGui::ColorConvertU32ToFloat4(
+                                             EditorColor::line_subtle));
 
   // Taskbar, Alt+Tab and the macOS native bar show the OS title
   const std::string title = WindowTitle();

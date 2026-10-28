@@ -10,6 +10,7 @@
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/vendor/IconFontCppHeaders/IconsMaterialDesignIcons.h"
+#include "engine/renderer/icons/icon_loader.h"
 #include "platform/platform_utils.h"
 #include "platform/window_manager.h"
 
@@ -43,11 +44,14 @@ inline void TitleBar(const std::string& title) {
     const ImVec2 pos = ImGui::GetWindowPos();
     const float width = ImGui::GetWindowWidth();
 
-    // App icon + title (left)
+    // App logo + title (left)
+    const float logo_size = 16.0f;
     float x = pos.x + 12.0f;
-    IMComponents::Glyph(*draw_list, ImVec2(x, pos.y), ImVec2(16.0f, height),
-                        ICON_MDI_CUBE_OUTLINE, EditorColor::text);
-    x += 16.0f + 8.0f;
+    const ImVec2 logo_min =
+        ImVec2(x, std::floor(pos.y + (height - logo_size) * 0.5f));
+    draw_list->AddImage(IconLoader::ToImGuiTexture("logo"), logo_min,
+                        ImVec2(logo_min.x + logo_size, logo_min.y + logo_size));
+    x += logo_size + 8.0f;
     draw_list->AddText(
         ImVec2(x, std::floor(pos.y + (height - ImGui::GetFontSize()) * 0.5f)),
         EditorColor::text, title.c_str());
