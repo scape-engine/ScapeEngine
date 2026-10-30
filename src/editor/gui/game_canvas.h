@@ -11,8 +11,13 @@
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/viewport/action_overlay.h"
 #include "editor/gui/viewport/axis_gizmo.h"
+#include "editor/gui/viewport/camera_menu.h"
+#include "editor/gui/viewport/gizmos_menu.h"
+#include "editor/gui/viewport/grid_menu.h"
 #include "editor/gui/viewport/stats_overlay.h"
 #include "editor/gui/viewport/toolbar.h"
+#include "editor/gui/viewport/viewport_settings.h"
+#include "editor/gui/viewport/views_menu.h"
 #include "editor/runtime/runtime.h"
 
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
@@ -103,7 +108,8 @@ struct TransformGizmoState {
 
 inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                        const Viewport::ToolbarCallbacks& cb,
-                       GodCameraState& camera_state) {
+                       GodCameraState& camera_state,
+                       Viewport::ViewportSettings& view_settings) {
   static TransformGizmoState gizmo_state;
 
   ImGui::BeginChild("GameCanvas", ImVec2(0, ImGui::GetContentRegionAvail().y),
@@ -387,43 +393,17 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 6.0f));
 
-  // Section background: panel color, translucent so the scene shows through
-  const ImVec4 bg_pill =
-      ImGui::ColorConvertU32ToFloat4(EditorColor::overlay_bg);
-  const ImVec4 bg_pill_hover =
-      ImGui::ColorConvertU32ToFloat4(EditorColor::overlay_hover);
-
   // Tools we only want visible when playing
   if (isGameRunning) {
-    // --- Left Tools: Perspective / Lit (Individual Pills) ---
-    ImGui::SetCursorPos(
-        ImVec2(start_cursor_pos.x + overlay_padding.x, overlay_y));
-    ImGui::BeginGroup();
-
-    ImGui::PushStyleColor(ImGuiCol_Button, bg_pill);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, bg_pill_hover);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, bg_pill);
-
-    ImGui::PushFont(EditorStyles::GetFonts().toolbar);
-    if (IMComponents::IconLabelButton(ICON_FA_VIDEO, "Perspective")) {}
-    ImGui::SameLine(0, 8.0f);
-    if (IMComponents::IconLabelButton(ICON_FA_EYE, "Lit")) {}
-    ImGui::PopFont();
-
-    ImGui::PopStyleColor(3);
-    ImGui::EndGroup();
-
-    // --- Right Tools: Gizmos ---
+    // --- Left Tools: transform tools + snapping ---
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,
                         EditorSizes::overlay_radius);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 6.0f));
     ImGui::PushFont(EditorStyles::GetFonts().toolbar);
 
     const float btn_w = ImGui::GetFrameHeight() + 4.0f;  // near-square buttons
-    static float gizmo_width = 0.0f;
     ImGui::SetCursorPos(
-        ImVec2(start_cursor_pos.x + size.x - gizmo_width - overlay_padding.x,
-               overlay_y));
+        ImVec2(start_cursor_pos.x + overlay_padding.x, overlay_y));
 
     IMComponents::BeginOverlay();
 
@@ -465,7 +445,68 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
 
     ImGui::PopStyleColor(3);
     IMComponents::EndOverlay();
-    gizmo_width = ImGui::GetItemRectSize().x;
+
+    ImGui::PopFont();
+    ImGui::PopStyleVar(2);
+
+    auto& scene_pipeline = Runtime::GetSceneViewPipeline();
+
+    // --- Right Tools: view options ---
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,
+                        EditorSizes::overlay_radius);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, 6.0f));
+    ImGui::PushFont(EditorStyles::GetFonts().toolbar);
+
+    static float view_options_width = 0.0f;  // measured last frame
+    ImGui::SetCursorPos(ImVec2(
+        start_cursor_pos.x + size.x - view_options_width - overlay_padding.x,
+        overlay_y));
+
+    IMComponents::BeginOverlay();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
+
+    IMComponents::SplitToolButton(ICON_FA_LAYER_GROUP, nullptr, "##ViewsMenu",
+                                  ImVec2(btn_w, 0), "Views and overlays");
+    ImGui::SameLine();
+    if (IMComponents::SplitToolButton(
+            ICON_FA_VECTOR_SQUARE, &view_settings.gizmos.enabled,
+            "##GizmosMenu", ImVec2(btn_w, 0), "Gizmos"))
+      Viewport::PostAction(view_settings.gizmos.enabled ? "Gizmos on"
+                                                        : "Gizmos off");
+    ImGui::SameLine();
+    if (IMComponents::SplitToolButton(ICON_FA_TABLE_CELLS,
+                                      &view_settings.grid.enabled, "##GridMenu",
+                                      ImVec2(btn_w, 0), "Grid"))
+      Viewport::PostAction(view_settings.grid.enabled ? "Grid on" : "Grid off");
+    ImGui::SameLine();
+    IMComponents::SplitToolButton(ICON_FA_CAMERA, nullptr, "##CameraMenu",
+                                  ImVec2(btn_w, 0), "Camera");
+
+    ImGui::PopStyleColor(3);
+    IMComponents::EndOverlay();
+    view_options_width = ImGui::GetItemRectSize().x;
+
+    // Viewport menu contents
+    if (IMComponents::BeginToolPopup("##ViewsMenu")) {
+      Viewport::ViewsMenu(view_settings);
+      IMComponents::EndToolPopup();
+    }
+    if (IMComponents::BeginToolPopup("##GizmosMenu")) {
+      Viewport::GizmosMenu(view_settings.gizmos);
+      IMComponents::EndToolPopup();
+    }
+    if (IMComponents::BeginToolPopup("##GridMenu")) {
+      Viewport::GridMenu(view_settings.grid);
+      IMComponents::EndToolPopup();
+    }
+    if (IMComponents::BeginToolPopup("##CameraMenu")) {
+      Viewport::CameraMenu(camera_state,
+                           std::get<0>(scene_pipeline.GetGodCamera()),
+                           std::get<1>(scene_pipeline.GetGodCamera()));
+      IMComponents::EndToolPopup();
+    }
 
     ImGui::PopFont();
     ImGui::PopStyleVar(2);
@@ -477,10 +518,10 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
         ImVec2(pos.x + size.x - overlay_padding.x - axis_extent,
                pos.y + overlay_padding.y + ImGui::GetFrameHeight() + 12.0f +
                    axis_extent);
-    auto& scene_pipeline = Runtime::GetSceneViewPipeline();
-    Viewport::AxisGizmo(axis_center, axis_radius, scene_pipeline.GetView(),
-                        camera_state,
-                        std::get<0>(scene_pipeline.GetGodCamera()));
+    if (view_settings.overlays.axis_gizmo)
+      Viewport::AxisGizmo(axis_center, axis_radius, scene_pipeline.GetView(),
+                          camera_state,
+                          std::get<0>(scene_pipeline.GetGodCamera()));
   }
 
   // --- Center Tools: Play / Stop (Toolbar) ---
@@ -491,10 +532,15 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
   toolbar_width = ImGui::GetItemRectSize().x;
 
   // --- Stats (bottom-right) ---
-  Viewport::StatsOverlay(pos, size, camera_state.move_speed);
+  Viewport::StatsOverlay(pos, size, camera_state.move_speed,
+                         view_settings.overlays.stats);
 
   // --- Action feed (bottom-left) ---
-  Viewport::ActionOverlay(pos, size);
+  if (view_settings.overlays.notifications)
+    Viewport::ActionOverlay(pos, size);
+
+  // --- View settings feed ---
+  Viewport::ApplySettings(view_settings, Runtime::GetSceneViewPipeline());
 
   ImGui::PopStyleVar(3);
 

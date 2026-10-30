@@ -82,6 +82,18 @@ bool GraphicsRenderer::InitBgfx() {
       bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
                             bgfx::copy(&white, sizeof(white)));
 
+  // Reference grid
+  grid_params_uniform_ =
+      bgfx::createUniform("u_gridParams", bgfx::UniformType::Vec4);
+  grid_style_uniform_ =
+      bgfx::createUniform("u_gridStyle", bgfx::UniformType::Vec4);
+  grid_color_uniform_ =
+      bgfx::createUniform("u_gridColor", bgfx::UniformType::Vec4);
+  axis_x_color_uniform_ =
+      bgfx::createUniform("u_axisColorX", bgfx::UniformType::Vec4);
+  axis_z_color_uniform_ =
+      bgfx::createUniform("u_axisColorZ", bgfx::UniformType::Vec4);
+
   ConfigureViews();
 
   auto backend = bgfx::getRendererType();
@@ -359,6 +371,22 @@ void GraphicsRenderer::Destroy() {
 
   if (bgfx::isValid(s_albedo))
     bgfx::destroy(s_albedo);
+
+  // Reference grid
+  if (bgfx::isValid(grid_params_uniform_))
+    bgfx::destroy(grid_params_uniform_);
+
+  if (bgfx::isValid(grid_style_uniform_))
+    bgfx::destroy(grid_style_uniform_);
+
+  if (bgfx::isValid(grid_color_uniform_))
+    bgfx::destroy(grid_color_uniform_);
+
+  if (bgfx::isValid(axis_x_color_uniform_))
+    bgfx::destroy(axis_x_color_uniform_);
+
+  if (bgfx::isValid(axis_z_color_uniform_))
+    bgfx::destroy(axis_z_color_uniform_);
 
   if (bgfx::isValid(white_texture_))
     bgfx::destroy(white_texture_);

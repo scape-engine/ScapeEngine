@@ -146,6 +146,34 @@ void CountBadge(ImDrawList& draw_list, uint32_t count, ImVec2 pos);
 // Use with SameLine() before and after.
 void VerticalDivider(float height_ratio = 0.6f);
 
+// Toolbar split button: the icon toggles *toggle (or opens the popup when
+// toggle is null), the chevron always opens the popup. Pair with
+// BeginToolPopup(popup_id). Returns true when *toggle changed
+bool SplitToolButton(const char* icon, bool* toggle, const char* popup_id,
+                     ImVec2 size, const char* tooltip = nullptr);
+
+// Popup opened by SplitToolButton, right-aligned under its chevron.
+// Call EndToolPopup() only when this returns true
+bool BeginToolPopup(const char* popup_id);
+void EndToolPopup();
+
+// "Title ——————" section header inside a popup
+void PopupSection(const char* title);
+
+// Popup rows. enabled = false shows the row greyed out with a
+// ! "Not implemented yet" tooltip
+bool PopupCheckbox(const char* label, bool* value, bool enabled = true);
+bool PopupSlider(const char* label, float* value, float min, float max,
+                 const char* format = "%.2f", bool enabled = true,
+                 ImGuiSliderFlags flags = 0);
+bool PopupSlider(const char* label, int* value, int min, int max,
+                 bool enabled = true);
+
+// Popup row for a choice of one (radio-style): icon + label, highlighted when
+// selected. Doesn't close the popup. Returns true when clicked
+bool PopupOption(const char* icon, const char* label, bool selected,
+                 bool enabled = true);
+
 }  // namespace IMComponents
 
 #endif  // IM_COMPONENTS_H

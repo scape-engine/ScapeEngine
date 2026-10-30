@@ -10,6 +10,10 @@
 #include "engine/time/time.h"
 #include "engine/transform/transform.h"
 
+namespace {
+const glm::vec3 home_position = glm::vec3(0.0f, 2.0f, -10.0f);
+}  // namespace
+
 void CameraUpdateMovement(GodCameraState& state, TransformComponent& transform,
                           const GodCameraFrameInput& input) {
   // Timing
@@ -180,6 +184,12 @@ void SetCameraTarget(GodCameraState& state, TransformComponent& camera,
                                                 : glm::vec3(0.0f, 1.0f, 0.0f);
   StartCameraTransition(state, camera, target - dir * distance,
                         glm::quatLookAtLH(dir, up));
+}
+
+void ResetCamera(GodCameraState& state, TransformComponent& camera) {
+  const glm::vec3 dir = glm::normalize(-home_position);  // toward the origin
+  StartCameraTransition(state, camera, home_position,
+                        glm::quatLookAtLH(dir, glm::vec3(0.0f, 1.0f, 0.0f)));
 }
 
 // (TODO) moving flag

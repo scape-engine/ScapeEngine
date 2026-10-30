@@ -82,6 +82,23 @@ public:
   bgfx::UniformHandle GetAlbedoSamplerUniform() const { return s_albedo; }
   bgfx::TextureHandle GetWhiteTexture() const { return white_texture_; }
 
+  // Reference grid (scene view)
+  bgfx::UniformHandle GetGridParamsUniform() const {
+    return grid_params_uniform_;
+  }
+  bgfx::UniformHandle GetGridStyleUniform() const {
+    return grid_style_uniform_;
+  }
+  bgfx::UniformHandle GetGridColorUniform() const {
+    return grid_color_uniform_;
+  }
+  bgfx::UniformHandle GetAxisColorXUniform() const {
+    return axis_x_color_uniform_;
+  }
+  bgfx::UniformHandle GetAxisColorZUniform() const {
+    return axis_z_color_uniform_;
+  }
+
 private:
   SDL_Window* window_;
   mutable std::mutex canvas_mutex_;
@@ -113,6 +130,12 @@ private:
   bgfx::TextureHandle white_texture_ = BGFX_INVALID_HANDLE;
   // ! Track uniforms (not used yet)
   std::unordered_map<std::string, bgfx::UniformHandle> uniform_registry_;
+
+  bgfx::UniformHandle grid_params_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle grid_style_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle grid_color_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle axis_x_color_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle axis_z_color_uniform_ = BGFX_INVALID_HANDLE;
 
   ImTextureID scene_tex_id_{0};
 

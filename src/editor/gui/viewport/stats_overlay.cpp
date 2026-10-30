@@ -4,6 +4,7 @@
 
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/gui/viewport/action_overlay.h"
 #include "editor/gui/viewport/viewport_overlay.h"
 #include "engine/diagnostics/frame_stats.h"
 
@@ -11,7 +12,6 @@ namespace Viewport {
 
 namespace {
 
-bool g_visible = false;  // TODO: persist visibility between launches
 ImVec2 g_size = ImVec2(0.0f, 0.0f);  // measured last frame, padding included
 
 const ImVec2 kMargin =
@@ -30,10 +30,13 @@ void FormatCount(char* buffer, size_t size, uint32_t value) {
 
 }  // namespace
 
-void StatsOverlay(ImVec2 canvas_min, ImVec2 canvas_size, float camera_speed) {
-  if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyChordPressed(ImGuiKey_F3))
-    g_visible = !g_visible;
-  if (!g_visible)
+void StatsOverlay(ImVec2 canvas_min, ImVec2 canvas_size, float camera_speed,
+                  bool& visible) {
+  if (!ImGui::GetIO().WantTextInput && ImGui::IsKeyChordPressed(ImGuiKey_F3)) {
+    visible = !visible;
+    PostAction(visible ? "Stats on" : "Stats off", "F3");
+  }
+  if (!visible)
     return;
 
   const Diagnostics::FrameStatsSnapshot& stats = Diagnostics::GetFrameStats();

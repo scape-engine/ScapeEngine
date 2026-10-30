@@ -5,6 +5,7 @@
 #include "editor/runtime/runtime.h"
 #include "editor/vendor/imgui/imgui_impl_bgfx.h"
 
+#include "editor/gui/viewport/viewport_settings.h"
 #include "gui/asset_browser.h"
 #include "gui/asset_browser_window.h"
 #include "gui/asset_graph_editor.h"
@@ -549,7 +550,7 @@ void EditorUI::RenderUI() {
   }
   ImGui::PopStyleVar();
   Panels::GameCanvas(is_game_started_, game_canvas_hovered_,
-                     game_canvas_focused_, cb, god_state_);
+                     game_canvas_focused_, cb, god_state_, viewport_settings_);
   UpdateMovement();
   ImGui::End();
   //------------------------- SEARCH POPUP --------------------------

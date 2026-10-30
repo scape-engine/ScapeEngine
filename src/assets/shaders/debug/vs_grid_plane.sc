@@ -5,9 +5,9 @@ $output v_worldPos
 
 void main()
 {
-    // Pass world position to fragment shader (for grid calculation)
-    v_worldPos = a_position;
-    
-    // Transform to clip space
+    // World position: the quad is moved to follow the camera, so the grid
+    // pattern must come from world space, not the quad's local space
+    v_worldPos = mul(u_model[0], vec4(a_position, 1.0)).xyz;
+
     gl_Position = mul(u_modelViewProj, vec4(a_position, 1.0));
 }

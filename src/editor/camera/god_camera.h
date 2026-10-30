@@ -48,4 +48,7 @@ void SnapCameraToAxis(GodCameraState& state, TransformComponent& camera,
 void SetCameraTarget(GodCameraState& state, TransformComponent& camera,
                      const glm::vec3& target, float distance);
 
+// Animate the camera back to its home pose
+void ResetCamera(GodCameraState& state, TransformComponent& camera);
+
 #endif  // GOD_CAMERA_H

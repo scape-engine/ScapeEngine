@@ -10,6 +10,7 @@
 #include "editor/camera/god_camera.h"
 #include "editor/gizmos/component_gizmos.h"
 #include "editor/gui/search/search_popup.h"
+#include "editor/gui/viewport/viewport_settings.h"
 #include "editor_base.h"
 #include "engine/pcg/procmodel/preview_data.h"  // ! remove once EditorApp is implemented
 
@@ -100,6 +101,8 @@ private:
 
   GodCameraState god_state_{};
   PreviewData procmodel_data_;
+
+  Viewport::ViewportSettings viewport_settings_;
 };
 
 #endif  // EDITOR_UI_H

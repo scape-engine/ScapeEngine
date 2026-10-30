@@ -127,7 +127,17 @@ void SceneViewPipeline::RegisterNodes() {
                              }
                            }});
 
-  // Node 4: Gizmos (transform handles, etc.)
+  // Node 4: Reference grid (transparent, after all opaque geometry)
+  frame_graph.AddNode(Node{.name = "grid",
+                           .reads = {"scene_depth"},
+                           .writes = {"scene_color"},
+                           .execute = [this](const Node::Context& context) {
+                             if (show_grid_) {
+                               RenderGridNode(context);
+                             }
+                           }});
+
+  // Node 5: Gizmos (transform handles, etc.)
   frame_graph.AddNode(Node{.name = "gizmos",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -414,7 +424,7 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
   }
 
   // Don't render outlines if wireframe is enabled
-  if (wireframe_)
+  if (wireframe_ || !show_selection_outline_)
     return;
 
   // Render outlines around the whole selection
@@ -673,29 +683,49 @@ void SceneViewPipeline::RenderGizmosNode(const Node::Context& context) {
                                         projMatrix);
   }*/
 
-  // Show grid
-  if (show_grid_ && bgfx::isValid(debug_program_) && grid_mesh_) {
-    // Snap grid to camera XZ position (infinite grid effect)
-    glm::vec3 cam_pos = camera_transform.position_;
-    glm::vec3 grid_origin =
-        glm::vec3(floor(cam_pos.x / 10.0f) * 10.0f,  // Snap to 10-unit grid
-                  0.0f, floor(cam_pos.z / 10.0f) * 10.0f);
-
-    // Set grid origin transform
-    glm::mat4 grid_transform = glm::translate(glm::mat4(1.0f), grid_origin);
-    bgfx::setTransform(glm::value_ptr(grid_transform));
-
-    // Pass camera position to shader for fog/fade
-    glm::vec4 cam_pos_uniform(cam_pos.x, cam_pos.y, cam_pos.z, 0.0f);
-    bgfx::setUniform(renderer->GetViewPosUniform(), &cam_pos_uniform);
-
-    grid_mesh_->Bind();
-    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                   BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_BLEND_ALPHA);
-    bgfx::submit(ViewID::SCENE_FORWARD, debug_program_);
-  }
-
   gizmos.RenderAll(view_projection);
+}
+
+void SceneViewPipeline::RenderGridNode(const Node::Context& context) {
+  if (!bgfx::isValid(debug_program_) || !grid_mesh_)
+    return;
+
+  auto* renderer = static_cast<GraphicsRenderer*>(Runtime::Renderer());
+  TransformComponent& camera_transform = std::get<0>(god_camera_);
+
+  // Snap grid to camera XZ position (infinite grid effect)
+  glm::vec3 cam_pos = camera_transform.position_;
+  glm::vec3 grid_origin =
+      glm::vec3(floor(cam_pos.x / 10.0f) * 10.0f,  // Snap to 10-unit grid
+                0.0f, floor(cam_pos.z / 10.0f) * 10.0f);
+
+  // Set grid origin transform
+  glm::mat4 grid_transform = glm::translate(glm::mat4(1.0f), grid_origin);
+  bgfx::setTransform(glm::value_ptr(grid_transform));
+
+  // Pass camera position to shader for fog/fade
+  glm::vec4 cam_pos_uniform(cam_pos.x, cam_pos.y, cam_pos.z, 0.0f);
+  bgfx::setUniform(renderer->GetViewPosUniform(), &cam_pos_uniform);
+
+  // Grid appearance
+  const GridParams& p = grid_params_;
+  const glm::vec4 params(p.cell_size, static_cast<float>(p.major_every),
+                         p.fade_start, p.fade_end);
+  const glm::vec4 style(p.opacity, p.axis_lines ? 1.0f : 0.0f, 0.0f, 0.0f);
+  const glm::vec4 line_color(p.line_color, 1.0f);
+  const glm::vec4 axis_x(p.axis_x_color, 1.0f);
+  const glm::vec4 axis_z(p.axis_z_color, 1.0f);
+
+  bgfx::setUniform(renderer->GetGridParamsUniform(), glm::value_ptr(params));
+  bgfx::setUniform(renderer->GetGridStyleUniform(), glm::value_ptr(style));
+  bgfx::setUniform(renderer->GetGridColorUniform(), glm::value_ptr(line_color));
+  bgfx::setUniform(renderer->GetAxisColorXUniform(), glm::value_ptr(axis_x));
+  bgfx::setUniform(renderer->GetAxisColorZUniform(), glm::value_ptr(axis_z));
+
+  grid_mesh_->Bind();
+  bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                 BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_BLEND_ALPHA);
+  bgfx::submit(ViewID::SCENE_FORWARD, debug_program_);
 }
 
 // PLACEHOLDER: Remove this once pipeline is done

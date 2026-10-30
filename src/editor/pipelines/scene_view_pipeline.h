@@ -2,10 +2,24 @@
 #define SCENE_VIEW_PIPELINE_H
 
 #include <bgfx/bgfx.h>
+#include <glm/glm.hpp>
 
 #include "engine/ecs/ecs_collection.h"
 #include "engine/renderer/frame_graph.h"
 #include "engine/transform/transform_system.h"
+
+// Reference grid appearance (world units)
+struct GridParams {
+  float cell_size = 1.0f;
+  int major_every = 10;
+  float fade_start = 200.0f;
+  float fade_end = 500.0f;
+  float opacity = 1.0f;
+  bool axis_lines = true;
+  glm::vec3 line_color = glm::vec3(0.3f);
+  glm::vec3 axis_x_color = glm::vec3(1.0f, 0.3f, 0.3f);
+  glm::vec3 axis_z_color = glm::vec3(0.3f, 0.3f, 1.0f);
+};
 
 class SceneViewPipeline {
 public:
@@ -31,13 +45,16 @@ public:
   // Children are selected with their parent, so selecting a model's root
   // outlines all of its meshes
   void SetSelectedEntities(const std::vector<Entity>& entities);
+  void SetGridParams(const GridParams& params) { grid_params_ = params; }
 
   // Pipeline settings
   void SetWireframe(bool enabled) { wireframe_ = enabled; }
   void SetShowSkybox(bool enabled) { show_skybox_ = enabled; }
   void SetShowGizmos(bool enabled) { show_gizmos_ = enabled; }
   void SetShowGrid(bool enabled) { show_grid_ = enabled; }
-
+  void SetShowSelectionOutline(bool enabled) {
+    show_selection_outline_ = enabled;
+  }
   // Settings
   bool wireframe_;
   bool show_skybox_;
@@ -46,6 +63,8 @@ public:
   bool show_gizmos_;
   bool render_shadows_;
   bool show_grid_;
+  bool show_selection_outline_;
+
   uint32_t msaa_samples_;
 
 private:
@@ -66,6 +85,7 @@ private:
   void RenderSelectionOutlineNode(const Node::Context& context);
   void RenderGizmosNode(const Node::Context& context);
   void RenderShadowNode(const Node::Context& context);
+  void RenderGridNode(const Node::Context& context);
 
   // Mesh helpers
   void RenderMesh(TransformComponent& transform,
@@ -105,6 +125,7 @@ private:
   // Grid resources
   const Mesh* grid_mesh_;
   Geometry::MeshData grid_data_;
+  GridParams grid_params_;
 };
 
 #endif  // SCENE_VIEW_PIPELINE_H

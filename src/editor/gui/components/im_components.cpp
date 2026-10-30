@@ -1069,4 +1069,151 @@ void VerticalDivider(float height_ratio) {
   ImGui::Dummy(ImVec2(0.0f, height));
 }
 
+//=============================================================================
+// TOOL POPUPS
+//=============================================================================
+namespace {
+
+// Tooltip for disabled roadmap rows (disabled items need AllowWhenDisabled)
+void NotImplementedTooltip(bool enabled) {
+  if (!enabled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    Tooltip("Not implemented yet");
+}
+
+}  // namespace
+
+bool SplitToolButton(const char* icon, bool* toggle, const char* popup_id,
+                     ImVec2 size, const char* tooltip) {
+  const float row_h = ImGui::GetFrameHeight();
+  bool changed = false;
+  bool open_popup = false;
+
+  ImGui::PushID(popup_id);
+
+  // Icon: toggles, or opens the popup when there's nothing to toggle
+  if (ToolButton(icon, toggle && *toggle, size)) {
+    if (toggle) {
+      *toggle = !*toggle;
+      changed = true;
+    } else {
+      open_popup = true;
+    }
+  }
+  if (tooltip)
+    Tooltip(tooltip);
+
+  // Chevron: always opens the popup
+  ImGui::SameLine(0.0f, 0.0f);
+  ImGui::PushFont(EditorStyles::GetFonts().s);
+  if (ToolButton(ICON_FA_CHEVRON_DOWN, false, ImVec2(16.0f, row_h),
+                 EditorColor::chevron))
+    open_popup = true;
+  ImGui::PopFont();
+
+  // Remember where the popup should appear (under the chevron's right edge)
+  ImGuiStorage* storage = ImGui::GetStateStorage();
+  storage->SetFloat(ImGui::GetID("##anchor_x"), ImGui::GetItemRectMax().x);
+  storage->SetFloat(ImGui::GetID("##anchor_y"),
+                    ImGui::GetItemRectMax().y + 6.0f);
+
+  ImGui::PopID();
+
+  // Outside the PushID, so the id matches the caller's BeginToolPopup
+  if (open_popup)
+    ImGui::OpenPopup(popup_id);
+  return changed;
+}
+
+bool BeginToolPopup(const char* popup_id) {
+  ImGui::PushID(popup_id);
+  ImGuiStorage* storage = ImGui::GetStateStorage();
+  const ImVec2 anchor = ImVec2(storage->GetFloat(ImGui::GetID("##anchor_x")),
+                               storage->GetFloat(ImGui::GetID("##anchor_y")));
+  ImGui::PopID();
+
+  ImGui::SetNextWindowPos(anchor, ImGuiCond_Appearing, ImVec2(1.0f, 0.0f));
+  ImGui::SetNextWindowSizeConstraints(ImVec2(220.0f, 0.0f),
+                                      ImVec2(FLT_MAX, FLT_MAX));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 10.0f));
+  const bool open = ImGui::BeginPopup(popup_id);
+  ImGui::PopStyleVar();  // read by BeginPopup
+
+  if (open) {
+    // Normal-sized controls inside, whatever the overlay pushed around us
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,
+                        EditorSizes::control_radius);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
+  }
+  return open;
+}
+
+void EndToolPopup() {
+  ImGui::PopStyleVar(3);
+  ImGui::EndPopup();
+}
+
+void PopupSection(const char* title) {
+  const ImVec2 start = ImGui::GetCursorScreenPos();
+  const float right = start.x + ImGui::GetContentRegionAvail().x;
+
+  ImGui::PushStyleColor(ImGuiCol_Text, EditorColor::text_dim);
+  ImGui::TextUnformatted(title);
+  ImGui::PopStyleColor();
+
+  // Line from the end of the title to the right edge, centered on the text
+  const ImVec2 text_min = ImGui::GetItemRectMin();
+  const ImVec2 text_max = ImGui::GetItemRectMax();
+  const float y = std::floor((text_min.y + text_max.y) * 0.5f) + 0.5f;
+  ImGui::GetWindowDrawList()->AddLine(ImVec2(text_max.x + 8.0f, y),
+                                      ImVec2(right, y),
+                                      EditorColor::line_subtle, 1.0f);
+}
+
+bool PopupCheckbox(const char* label, bool* value, bool enabled) {
+  ImGui::BeginDisabled(!enabled);
+  const bool changed = Checkbox(label, value);
+  ImGui::EndDisabled();
+  NotImplementedTooltip(enabled);
+  return changed;
+}
+
+bool PopupSlider(const char* label, float* value, float min, float max,
+                 const char* format, bool enabled, ImGuiSliderFlags flags) {
+  ImGui::BeginDisabled(!enabled);
+  ImGui::SetNextItemWidth(std::floor(ImGui::GetContentRegionAvail().x * 0.55f));
+  const bool changed =
+      ImGui::SliderFloat(label, value, min, max, format, flags);
+  ImGui::EndDisabled();
+  NotImplementedTooltip(enabled);
+  return changed;
+}
+
+bool PopupSlider(const char* label, int* value, int min, int max,
+                 bool enabled) {
+  ImGui::BeginDisabled(!enabled);
+  ImGui::SetNextItemWidth(std::floor(ImGui::GetContentRegionAvail().x * 0.55f));
+  const bool changed = ImGui::SliderInt(label, value, min, max);
+  ImGui::EndDisabled();
+  NotImplementedTooltip(enabled);
+  return changed;
+}
+
+bool PopupOption(const char* icon, const char* label, bool selected,
+                 bool enabled) {
+  char text[128];
+  std::snprintf(text, sizeof(text), "%s  %s", icon, label);
+
+  // The global Header color is transparent; give selection a visible fill
+  ImGui::PushStyleColor(ImGuiCol_Header, EditorColor::accent_deep);
+  ImGui::BeginDisabled(!enabled);
+  const bool clicked =
+      ImGui::Selectable(text, selected, ImGuiSelectableFlags_NoAutoClosePopups);
+  ImGui::EndDisabled();
+  ImGui::PopStyleColor();
+
+  NotImplementedTooltip(enabled);
+  return clicked && enabled;
+}
+
 }  // namespace IMComponents

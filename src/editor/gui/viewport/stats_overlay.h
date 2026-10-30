@@ -5,8 +5,8 @@
 
 namespace Viewport {
 
-// Debug stats panel in the canvas's bottom-right corner; F3 toggles it
-void StatsOverlay(ImVec2 canvas_min, ImVec2 canvas_size, float camera_speed);
+void StatsOverlay(ImVec2 canvas_min, ImVec2 canvas_size, float camera_speed,
+                  bool& visible);
 
 }  // namespace Viewport
 
