@@ -309,6 +309,38 @@ void DrawDirectionalLightComponent(
     _EcsRemove<DirectionalLightComponent>(entity);
 }
 
+void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight) {
+  bool removed = false;
+
+  if (_BeginComponent("Skylight", 0, &skylight.enabled_, &removed)) {
+    _Headline("Properties");
+
+    IMComponents::Input("Intensity", skylight.intensity_);
+    IMComponents::ColorPicker("Color", skylight.color_);
+
+    _SpacingS();
+    _Headline("Capture");
+
+    IMComponents::Input("Real-time Capture", skylight.real_time_capture_);
+    if (!skylight.real_time_capture_ &&
+        IMComponents::ButtonBig("Recapture", "Capture the sky again")) {
+      skylight.recapture_ = true;
+    }
+
+    _SpacingS();
+    _Headline("Lower Hemisphere");
+
+    // Applied when captured, like the rest of this section
+    IMComponents::Input("Solid Color", skylight.lower_hemisphere_is_solid_color_);
+    IMComponents::ColorPicker("Color", skylight.lower_hemisphere_color_);
+
+    _EndComponent();
+  }
+
+  if (removed)
+    _EcsRemove<SkyLightComponent>(entity);
+}
+
 void DrawPointLightComponent(Entity entity, PointLightComponent& point_light) {
   bool removed = false;
 

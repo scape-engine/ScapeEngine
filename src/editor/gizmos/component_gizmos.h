@@ -10,9 +10,8 @@ namespace ComponentGizmos {
 // TODO: Draw debug shapes for components (wireframes, icons, etc.)
 // These will use a custom IMGizmo class for 3D debug rendering
 
-// void DrawSceneViewIcons(IMGizmo& gizmos, TransformComponent&
-// cameraTransform); void DrawEntityGizmos(IMGizmo& gizmos, EntityContainer&
-// entity);
+void DrawSceneViewIcons(IMGizmo& gizmos, TransformComponent& camera_transform);
+// void DrawEntityGizmos(IMGizmo& gizmos, EntityContainer& entity);
 
 // COMPONENTS:
 // void DrawCamera(IMGizmo& gizmos, TransformComponent& transform,

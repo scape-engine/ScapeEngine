@@ -26,6 +26,14 @@ GridParams ToGridParams(const Viewport::GridSettings& settings) {
   return grid;
 }
 
+BillboardParams ToBillboardParams(const Viewport::GizmoSettings& settings) {
+  BillboardParams billboards;
+  billboards.opacity = settings.billboard_opacity;
+  billboards.size = settings.billboard_size;
+  billboards.depth_aware = settings.billboard_depth_aware;
+  return billboards;
+}
+
 }  // namespace
 
 namespace Viewport {
@@ -35,8 +43,10 @@ void ApplySettings(const ViewportSettings& settings,
   pipeline.SetShowGrid(settings.grid.enabled);
   pipeline.SetGridParams(ToGridParams(settings.grid));
   pipeline.SetShowGizmos(settings.gizmos.enabled);
+  pipeline.SetBillboardParams(ToBillboardParams(settings.gizmos));
   pipeline.SetShowSelectionOutline(settings.gizmos.selection_outline);
   pipeline.SetWireframe(settings.view_mode == ViewMode::Wireframe);
+  pipeline.SetUnlit(settings.view_mode == ViewMode::Unlit);
 }
 
 }  // namespace Viewport

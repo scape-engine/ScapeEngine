@@ -23,7 +23,6 @@ void SceneTemplate::Create() {
   sky_light.enabled_ = true;
   sky_light.real_time_capture_ = true;
   sky_light.intensity_ = 1.0f;
-  sky_light.color_ = glm::vec3(0.3f, 0.35f, 0.4f);
 
   // Directional light (sun)
   auto [sun_entity, sun_transform] = world.CreateEntity("Sun");

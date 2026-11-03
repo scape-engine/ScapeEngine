@@ -23,7 +23,6 @@ constexpr uint32_t MAX_POINT_LIGHTS = 32;
 constexpr uint32_t MAX_SPOT_LIGHTS = 16;
 
 // Uniform handles
-bgfx::UniformHandle u_ambient = BGFX_INVALID_HANDLE;
 bgfx::UniformHandle u_lightCounts = BGFX_INVALID_HANDLE;
 
 bgfx::UniformHandle u_dirLight_direction = BGFX_INVALID_HANDLE;
@@ -46,7 +45,6 @@ bgfx::UniformHandle u_spotLight_attenuation = BGFX_INVALID_HANDLE;
 bgfx::UniformHandle u_spotLight_cutoff = BGFX_INVALID_HANDLE;
 
 // Data arrays
-float ambient[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 float lightCounts[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
 float dirLightDirection[MAX_DIRECTIONAL_LIGHTS * 4] = {0};
@@ -78,7 +76,6 @@ static float SmoothStepRange(float edge0, float edge1, float x) {
 
 void Create() {
   // TODO: Move this! Uniforms should be created in GraphicsRenderer
-  u_ambient = bgfx::createUniform("u_ambient", bgfx::UniformType::Vec4);
   u_lightCounts = bgfx::createUniform("u_lightCounts", bgfx::UniformType::Vec4);
 
   u_dirLight_direction = bgfx::createUniform(
@@ -127,7 +124,6 @@ void Destroy() {
     }
   };
 
-  destroy(u_ambient);
   destroy(u_lightCounts);
   destroy(u_dirLight_direction);
   destroy(u_dirLight_ambient);
@@ -243,14 +239,7 @@ void SetLightCounts(int dirCount, int pointCount, int spotCount) {
   lightCounts[2] = static_cast<float>(std::min(spotCount, (int)MAX_SPOT_LIGHTS));
 }
 
-void SetAmbient(const glm::vec3& color) {
-  ambient[0] = color.r;
-  ambient[1] = color.g;
-  ambient[2] = color.b;
-}
-
 void ApplyUniforms() {
-  bgfx::setUniform(u_ambient, ambient);
   bgfx::setUniform(u_lightCounts, lightCounts);
 
   if (lightCounts[0] > 0) {

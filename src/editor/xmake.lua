@@ -75,6 +75,8 @@ after_build(function(target)
 	local bindir = target:targetdir()
 	os.cp("src/assets/textures", path.join(bindir, "assets/textures"))
 	os.cp("src/assets/audio", path.join(bindir, "assets/audio"))
+	-- os.cp nests into a folder that already exists
+	os.tryrm(path.join(bindir, "resources/icons"))
 	os.cp("src/editor/resources/icons", path.join(bindir, "resources/icons"))
 	os.cp("src/editor/resources/fonts", path.join(bindir, "resources/fonts"))
 	os.cp("src/editor/resources/app", path.join(bindir, "resources/app"))

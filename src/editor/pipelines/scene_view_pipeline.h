@@ -21,6 +21,13 @@ struct GridParams {
   glm::vec3 axis_z_color = glm::vec3(0.3f, 0.3f, 1.0f);
 };
 
+// Scene view icon appearance (world units)
+struct BillboardParams {
+  float opacity = 0.75f;
+  float size = 0.5f;
+  bool depth_aware = false;
+};
+
 class SceneViewPipeline {
 public:
   SceneViewPipeline();
@@ -46,6 +53,9 @@ public:
   // outlines all of its meshes
   void SetSelectedEntities(const std::vector<Entity>& entities);
   void SetGridParams(const GridParams& params) { grid_params_ = params; }
+  void SetBillboardParams(const BillboardParams& params) {
+    billboard_params_ = params;
+  }
 
   // Pipeline settings
   void SetWireframe(bool enabled) { wireframe_ = enabled; }
@@ -55,6 +65,7 @@ public:
   void SetShowSelectionOutline(bool enabled) {
     show_selection_outline_ = enabled;
   }
+  void SetUnlit(bool enabled) { unlit_ = enabled; }
   // Settings
   bool wireframe_;
   bool show_skybox_;
@@ -64,6 +75,7 @@ public:
   bool render_shadows_;
   bool show_grid_;
   bool show_selection_outline_;
+  bool unlit_ = false;  // matcap placeholder shading instead of lighting
 
   uint32_t msaa_samples_;
 
@@ -118,6 +130,7 @@ private:
 
   // Shader handles (loaded once)
   bgfx::ProgramHandle default_program_;
+  bgfx::ProgramHandle lit_program_ = BGFX_INVALID_HANDLE;
   bgfx::ProgramHandle selection_program_;
   bgfx::ProgramHandle debug_program_;
   bgfx::ProgramHandle shadow_program_;
@@ -126,6 +139,9 @@ private:
   const Mesh* grid_mesh_;
   Geometry::MeshData grid_data_;
   GridParams grid_params_;
+
+  // Scene icon settings
+  BillboardParams billboard_params_;
 };
 
 #endif  // SCENE_VIEW_PIPELINE_H

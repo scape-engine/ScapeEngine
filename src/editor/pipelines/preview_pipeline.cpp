@@ -177,11 +177,7 @@ void PreviewPipeline::Render() {
                          glm::value_ptr(color));  // Matte Lighting
 
         // ----------------------------
-        // 1. Set ambient light (Brightened to 0.4 so dark materials are
-        // visible)
-        Light::SetAmbient(glm::vec3(0.4f));
-
-        // 2. Set primary directional light (Bright white sunlight to pop the
+        // 1. Set primary directional light (Bright white sunlight to pop the
         // model details)
         Light::SetDirectionalLight(
             0, glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)),  // Direction
@@ -190,10 +186,10 @@ void PreviewPipeline::Render() {
             glm::vec3(1.0f)   // Specular intensity
         );
 
-        // 3. using exactly 1 directional light, 0 point, 0 spot
+        // 2. using exactly 1 directional light, 0 point, 0 spot
         Light::SetLightCounts(1, 0, 0);
 
-        // 4. Push data to BGFX uniforms for this render pass
+        // 3. Push data to BGFX uniforms for this render pass
         Light::ApplyUniforms();
 
         mesh->Bind();

@@ -49,6 +49,7 @@
 #include "engine/ecs/ecs_collection.h"
 #include "engine/renderer/icons/icon_loader.h"
 #include "engine/renderer/lighting/light.h"
+#include "engine/renderer/lighting/sky_light.h"
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/renderer/skybox/skybox.h"
 #include "engine/scene/scene_manager.h"
@@ -144,6 +145,7 @@ static void _CreateResources() {
   // Init lighting
   // Uniform creation should be moved to GraphicsRenderer or ShaderManager!
   Light::Create();  // ! remove once material system is done
+  SkyLight::Create();
 
   // Setup shadows
   g_main_shadow_map.Create();
@@ -343,6 +345,7 @@ int TERMINATE() {
   g_default_skybox.Destroy();
 
   Light::Destroy();
+  SkyLight::Destroy();
 
   EngineContext::Destroy();
 

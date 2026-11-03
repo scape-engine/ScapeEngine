@@ -20,6 +20,12 @@ constexpr uint8_t SHADOW_PASS = 6;
 constexpr uint8_t SCENE_FORWARD = 7;
 constexpr uint8_t SCENE_SKYBOX = 8;
 
+// Sky light capture (offscreen). Runs after the scene views, so the scene
+// is lit by the previous frame's capture
+constexpr uint8_t SKY_CAPTURE_BASE = 9;     // 6 cube faces
+constexpr uint8_t SKY_SH = 15;              // diffuse SH projection
+constexpr uint8_t SKY_PREFILTER_BASE = 16;  // 6 faces per roughness mip
+
 // For preview thumbnails
 constexpr uint8_t PREVIEW_PASS_BASE = 50;
 constexpr uint8_t PREVIEW_PASS_MAX = 150;

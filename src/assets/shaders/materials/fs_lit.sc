@@ -1,6 +1,7 @@
-$input v_worldPos, v_normal, v_color
+$input v_worldPos, v_normal, v_texcoord0
 
 #include "../common/common.sh"
+#include "../includes/sky_light.sh"
 
 //
 // LIGHT LIMITS (check light.cpp to match constants)
@@ -17,8 +18,19 @@ $input v_worldPos, v_normal, v_color
 // Camera
 uniform vec4 u_viewPos;  // xyz = camera position
 
-// Global ambient
-uniform vec4 u_ambient;  // rgb = accumulated ambient color
+// Material
+uniform vec4 u_meshColor;       // base color fallback
+uniform vec4 u_AlbedoMap;       // x=1 if texture bound, 0 otherwise
+uniform vec4 u_materialParams;  // x = metallic, y = roughness
+
+SAMPLER2D(s_albedo, 0);
+
+// Sky light (ambient): diffuse SH + prefiltered reflections
+uniform vec4 u_skyLight;        // rgb = color * intensity, w = 1 if enabled
+uniform vec4 u_skyLightParams;  // x = last prefiltered mip
+
+SAMPLER2D(s_skySH, 1);
+SAMPLERCUBE(s_skyPrefilter, 2);
 
 // Light counts: x=dir, y=point, z=spot, w=unused
 uniform vec4 u_lightCounts;
@@ -137,19 +149,68 @@ vec3 CalcSpotLight(int idx, vec3 fragPos, vec3 normal, vec3 viewDir, vec3 baseCo
     return ambient * attenuation + (diffuse + specular) * attenuation * intensity;
 }
 
-// 
+// Diffuse sky radiance for a normal, from the projected SH
+vec3 SkyIrradiance(vec3 normal)
+{
+    vec3 irradiance = vec3_splat(0.0);
+    for (int i = 0; i < 9; ++i)
+    {
+        vec2 uv = vec2((float(i) + 0.5) / 9.0, 0.5);
+        vec3 coefficient = texture2DLod(s_skySH, uv, 0.0).rgb;
+        irradiance += coefficient * ShCosineLobe(i) * ShBasis(i, normal);
+    }
+    return max(irradiance, vec3_splat(0.0));
+}
+
+// Split sum environment BRDF, analytic fit (Karis, mobile)
+vec3 EnvBRDFApprox(vec3 specularColor, float roughness, float NoV)
+{
+    const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+    const vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+    vec4 r = roughness * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * NoV)) * r.x + r.y;
+    vec2 AB = vec2(-1.04, 1.04) * a004 + r.zw;
+    return specularColor * AB.x + AB.y;
+}
+
+//
 // MAIN
-// 
+//
 
 void main()
 {
     vec3 normal = normalize(v_normal);
     vec3 viewDir = normalize(u_viewPos.xyz - v_worldPos);
-    vec3 baseColor = v_color.rgb;
-    
-    // Start with global ambient
-    vec3 result = u_ambient.rgb * baseColor;
-    
+
+    // Resolve base color
+    vec3 albedo;
+    if (u_AlbedoMap.x > 0.5) {
+        albedo = texture2D(s_albedo, v_texcoord0).rgb;
+    } else {
+        albedo = u_meshColor.rgb;
+    }
+
+    float metallic = u_materialParams.x;
+    float roughness = u_materialParams.y;
+    vec3 baseColor = albedo * (1.0 - metallic);  // diffuse color
+    vec3 specularColor = mix(vec3_splat(0.04), albedo, metallic);
+
+    vec3 result = vec3_splat(0.0);
+
+    // Sky light
+    if (u_skyLight.w > 0.5)
+    {
+        vec3 R = reflect(-viewDir, normal);
+        float NoV = max(dot(normal, viewDir), 0.0);
+        float lod = roughness * u_skyLightParams.x;
+
+        vec3 skyDiffuse = SkyIrradiance(normal) * baseColor;
+        vec3 skySpecular = textureCubeLod(s_skyPrefilter, R, lod).rgb *
+                           EnvBRDFApprox(specularColor, roughness, NoV);
+
+        result += (skyDiffuse + skySpecular) * u_skyLight.rgb;
+    }
+
     // Get light counts
     int numDirLights   = int(u_lightCounts.x);
     int numPointLights = int(u_lightCounts.y);
@@ -178,5 +239,5 @@ void main()
     
     // Output with gamma correction
     result = toGamma(result);
-    gl_FragColor = vec4(result, v_color.a);
+    gl_FragColor = vec4(result, u_meshColor.a);
 }

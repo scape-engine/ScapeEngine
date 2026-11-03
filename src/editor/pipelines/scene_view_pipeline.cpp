@@ -15,6 +15,7 @@
 #include "engine/ecs/world.h"
 #include "engine/math/transformation.h"
 #include "engine/renderer/lighting/light.h"
+#include "engine/renderer/lighting/sky_light.h"
 #include "engine/renderer/model/mesh.h"
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/transform/transform.h"
@@ -58,11 +59,10 @@ void SceneViewPipeline::Create() {
   std::get<1>(god_camera_).fov_ = 90.0f;
 
   // Load shared shaders
+  lit_program_ =
+      Runtime::Shader()->LoadProgram("materials", "vs_lit.bin", "fs_lit.bin");
+  // ! GLTF shaders are placeholders, kept for the unlit view mode
   default_program_ =
-      // ! Check lighting shaders (not working)
-      // Runtime::Shader()->LoadProgram("materials", "vs_lit.bin",
-      // "fs_lit.bin");
-      // ! GLTF shaders are placeholders
       Runtime::Shader()->LoadProgram("gltf", "vs_gltf.bin", "fs_gltf.bin");
   selection_program_ = Runtime::Shader()->LoadProgram(
       "selection", "vs_selection.bin", "fs_selection.bin");
@@ -280,28 +280,40 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
     Transform::UpdateMVP(transform, view_projection);
   }
 
-  // Collect ambient from sky lights
-  glm::vec3 total_ambient(0.0f);
+  // Camera position for specular lighting
+  const glm::vec4 view_pos(camera_transform.position_, 0.0f);
+  bgfx::setUniform(renderer->GetViewPosUniform(), glm::value_ptr(view_pos));
+
+  // Sky light: only the first enabled one is used, as in UE
+  SkyLightComponent* sky_light = nullptr;
+  int ignored_sky_lights = 0;
   auto sky_light_view = world.View<SkyLightComponent>();
-  for (auto [e, sky_light] : sky_light_view.each()) {
-    if (!sky_light.enabled_)
+  for (auto [e, light] : sky_light_view.each()) {
+    if (!light.enabled_)
       continue;
 
-    glm::vec3 color = sky_light.color_;
-    if (sky_light.real_time_capture_ && context.globals.skybox) {
-      const auto& params = context.globals.skybox->GetParams();
-      color = glm::vec3(params._skyAmbientArray[0], params._skyAmbientArray[1],
-                        params._skyAmbientArray[2]);
+    if (sky_light) {
+      ignored_sky_lights++;
+    } else {
+      sky_light = &light;
     }
-    // DEBUG: Check what skybox is providing
-    /* Logger::getInstance().Log(
-        LogLevel::Debug,
-        "SkyLight ambient from skybox: " + std::to_string(color.r) + ", " +
-            std::to_string(color.g) + ", " + std::to_string(color.b));*/
-
-    total_ambient += color * sky_light.intensity_;
   }
-  Light::SetAmbient(total_ambient);
+
+  // Warn once each time extra sky lights appear, not every frame
+  static bool warned_sky_lights = false;
+  if (ignored_sky_lights > 0 && !warned_sky_lights) {
+    Logger::getInstance().Log(
+        LogLevel::Warning,
+        "Only one sky light is used per scene, ignoring " +
+            std::to_string(ignored_sky_lights));
+  }
+  warned_sky_lights = ignored_sky_lights > 0;
+
+  if (sky_light && context.globals.skybox) {
+    SkyLight::Update(*context.globals.skybox, *sky_light);
+  } else {
+    SkyLight::Disable();
+  }
 
   // Collect directional lights
   int dir_count = 0;
@@ -611,6 +623,14 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
     bgfx::setUniform(graphics->GetMeshColorUniform(), default_color);
   }
 
+  // Metallic, roughness (fallback: rough dielectric)
+  float material_params[4] = {0.0f, 0.5f, 0.0f, 0.0f};
+  if (mat) {
+    material_params[0] = mat->metallic;
+    material_params[1] = mat->roughness;
+  }
+  bgfx::setUniform(graphics->GetMaterialParamsUniform(), material_params);
+
   // Bind mesh
   bgfx::setTransform(glm::value_ptr(transform.model_));
   renderer.mesh_->Bind();
@@ -625,10 +645,11 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
 
   bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
                    graphics->GetWhiteTexture());
+  SkyLight::BindTextures();
 
   // Render mesh
   bgfx::setState(render_state);
-  bgfx::submit(ViewID::SCENE_FORWARD, default_program_);
+  bgfx::submit(ViewID::SCENE_FORWARD, unlit_ ? default_program_ : lit_program_);
 }
 
 void SceneViewPipeline::BuildReferenceGrid(const glm::mat4& view_projection) {
@@ -735,7 +756,12 @@ void SceneViewPipeline::Render() {
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();
   gizmos.NewFrame(ViewID::SCENE_FORWARD);
-  // ComponentGizmos::DrawSceneViewIcons(gizmos, CameraTransform);
+
+  // Icons capture the gizmo state when queued
+  gizmos.opacity = billboard_params_.opacity;
+  gizmos.icon_scale = billboard_params_.size;
+  gizmos.foreground = !billboard_params_.depth_aware;
+  ComponentGizmos::DrawSceneViewIcons(gizmos, std::get<0>(god_camera_));
 
   // Execute frame graph
   Runtime::GetFrameGraph().Render();

@@ -34,6 +34,7 @@ public:
   glm::vec3 color;
   float opacity;
   bool foreground;
+  float icon_scale;
 
   // Primitives & shapes
   void Line(const glm::vec3& start, const glm::vec3& end);
@@ -56,6 +57,7 @@ private:
     bool loaded = false;
     bgfx::ProgramHandle line_shader = BGFX_INVALID_HANDLE;
     bgfx::ProgramHandle fill_shader = BGFX_INVALID_HANDLE;
+    bgfx::ProgramHandle icon_shader = BGFX_INVALID_HANDLE;
     bgfx::VertexLayout line_layout;
 
     const Mesh* plane_mesh = nullptr;

@@ -26,14 +26,12 @@ void SetSpotLight(int index, const glm::vec3& position,
                   float innerCutoff, float outerCutoff, float constant,
                   float linear, float quadratic);
 
-// Set counts and ambient
+// Set counts (ambient comes from the sky light, see sky_light.h)
 void SetLightCounts(int dirCount, int pointCount, int spotCount);
-void SetAmbient(const glm::vec3& color);
 
 void ApplyUniforms();
 
 // Getters
-bgfx::UniformHandle GetAmbientUniform();
 bgfx::UniformHandle GetSunDirectionUniform();
 bgfx::UniformHandle GetSunLuminanceUniform();
 bgfx::UniformHandle GetColorsUniform();

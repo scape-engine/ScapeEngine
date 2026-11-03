@@ -14,6 +14,7 @@ void DrawDirectionalLightComponent(
     Entity entity, DirectionalLightComponent& directional_light);
 void DrawPointLightComponent(Entity entity, PointLightComponent& point_light);
 void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight);
+void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight);
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
 // TODO: velocity component, box collider, sphere collider, rigidbody, audio
 // listener, audio source

@@ -1,55 +1,64 @@
 #include "imgizmo.h"
 
 #include <bgfx/bgfx.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/math/transformation.h"
+#include "engine/renderer/graphics_renderer.h"
+#include "engine/renderer/model/mesh.h"
 
 // Global resource
 IMGizmo::StaticData IMGizmo::static_data_;
 
-// TODO: add icon_scale
 IMGizmo::IMGizmo()
     : color(glm::vec3(1.0f)),
       opacity(1.0f),
       foreground(false),
+      icon_scale(0.5f),
       shape_render_stack_(),
       icon_render_stack_() {}
 
 void IMGizmo::Create() {
-  if (static_data_.loaded) {
+  if (static_data_.loaded)
+    return;
 
-    ResourceManager& resource = EngineContext::resourceManager();
+  ResourceManager& resource = EngineContext::resourceManager();
 
-    // TODO: Load shape meshes for component gizmos, include icons
-    // handle shaders
-    // auto [boxId, box] =
-    // EngineContext::resourceManager().Create<Model>("gizmo-box");
-    // box->Load("resources/primitives/box.fbx");
-    // static_data_.box_mesh = box->QueryMesh(0);
+  // TODO: Load shape meshes for component gizmos, include icons
+  // handle shaders
+  // auto [boxId, box] =
+  // EngineContext::resourceManager().Create<Model>("gizmo-box");
+  // box->Load("resources/primitives/box.fbx");
+  // static_data_.box_mesh = box->QueryMesh(0);
 
-    // Initialize line vertex layout
-    static_data_.line_layout.begin()
-        .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-        .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-        .end();
+  // Initialize line vertex layout
+  static_data_.line_layout.begin()
+      .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
+      .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
+      .end();
 
-    // Load gizmo shaders
-    // TODO: use 'shader_pool' instead
-    static_data_.line_shader = EngineContext::Shader().LoadProgram(
-        "gizmo", "vs_grid_plane.bin", "fs_grid_plane.bin");
+  // Load gizmo shaders
+  // TODO: use 'shader_pool' instead
+  static_data_.line_shader = EngineContext::Shader().LoadProgram(
+      "gizmo", "vs_grid_plane.bin", "fs_grid_plane.bin");
+  static_data_.icon_shader = EngineContext::Shader().LoadProgram(
+      "gizmo_icon", "vs_gizmo_icon.bin", "fs_gizmo_icon.bin");
 
-    if (!bgfx::isValid(static_data_.line_shader)) {
-      Logger::getInstance().Log(LogLevel::Warning,
-                                "IMGizmo: Failed to load line shader, "
-                                "using fallback rendering");
-    }
-
-    // Create plane mesh
-    static_data_.plane_mesh = CreatePlaneMesh();
+  if (!bgfx::isValid(static_data_.line_shader)) {
+    Logger::getInstance().Log(LogLevel::Warning,
+                              "IMGizmo: Failed to load line shader, "
+                              "using fallback rendering");
   }
-  return;
+
+  if (!bgfx::isValid(static_data_.icon_shader)) {
+    Logger::getInstance().Log(LogLevel::Warning,
+                              "IMGizmo: Failed to load icon shader");
+  }
+
+  // Create plane mesh
+  static_data_.plane_mesh = CreatePlaneMesh();
 
   static_data_.loaded = true;
   Logger::getInstance().Log(LogLevel::Debug, "IMGizmo: Initialized");
@@ -58,17 +67,14 @@ void IMGizmo::Create() {
 void IMGizmo::NewFrame(bgfx::ViewId view_id) {
   primitive_render_stack_.clear();
   shape_render_stack_.clear();
-  // icon_render_stack_.clear();
+  icon_render_stack_.clear();
   current_view_id_ = view_id;
 }
 
 void IMGizmo::RenderAll(const glm::mat4& view_projection) {
-  if (primitive_render_stack_.empty())
-    return;
-
   RenderPrimitives(view_projection);
   RenderShapes(view_projection);
-  // RenderIcons(view_projection);
+  RenderIcons(view_projection);
 }
 
 // RENDER
@@ -157,8 +163,40 @@ void IMGizmo::RenderShapes(const glm::mat4& view_projection) {
 }
 
 void IMGizmo::RenderIcons(const glm::mat4& view_projection) {
-  if (!bgfx::isValid(static_data_.line_shader))
+  if (!bgfx::isValid(static_data_.icon_shader))
     return;
+
+  auto& graphics = static_cast<GraphicsRenderer&>(EngineContext::Renderer());
+  const Mesh* mesh = QueryMesh(Shape::PLANE);
+
+  // Stands the XZ plane up, so -Z (v = 0) is the top of the icon
+  const glm::quat upright =
+      glm::angleAxis(glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+  for (const auto& icon : icon_render_stack_) {
+    glm::mat4 model =
+        GetModelMatrix(icon.position, icon.camera_transform.rotation_ * upright,
+                       glm::vec3(icon.scale));
+    const float tint[4] = {icon.state.color.r, icon.state.color.g,
+                           icon.state.color.b, icon.state.opacity};
+    bgfx::TextureHandle texture = {static_cast<uint16_t>(icon.icon_texture)};
+
+    bgfx::setUniform(graphics.GetMeshColorUniform(), tint);
+    bgfx::setTexture(0, graphics.GetAlbedoSamplerUniform(), texture);
+    bgfx::setTransform(glm::value_ptr(model));
+    mesh->Bind();
+
+    // Transparent: tested against depth, but never written to it
+    uint64_t render_state =
+        BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA;
+
+    if (!icon.state.foreground) {
+      render_state |= BGFX_STATE_DEPTH_TEST_LESS;
+    }
+
+    bgfx::setState(render_state);
+    bgfx::submit(current_view_id_, static_data_.icon_shader);
+  }
 }
 
 // PRIMITIVES
@@ -177,6 +215,15 @@ void IMGizmo::Plane(const glm::vec3& position, const glm::vec3& scale,
 }
 
 // ICONS
+void IMGizmo::Icon3D(uint32_t IconTexture, const glm::vec3& position,
+                     TransformComponent& CameraTransform) {
+  if (IconTexture == bgfx::kInvalidHandle)
+    return;
+
+  IconRenderTarget icon(IconTexture, position, icon_scale, CameraTransform,
+                        GetCurrentState());
+  icon_render_stack_.push_back(icon);
+}
 
 IMGizmo::RenderState IMGizmo::GetCurrentState() {
   RenderState state;

@@ -44,6 +44,7 @@ void Skybox::Create(ShaderManager* ShaderManager) {
   _betaMUniform = bgfx::createUniform("u_betaM", bgfx::UniformType::Vec4);
   _viewInvUniform = bgfx::createUniform("u_viewInv", bgfx::UniformType::Mat4);
   _projInvUniform = bgfx::createUniform("u_projInv", bgfx::UniformType::Mat4);
+  _outputUniform = bgfx::createUniform("u_skyOutput", bgfx::UniformType::Vec4);
 
   // Geometry
   CreateFullscreenQuad();
@@ -101,6 +102,7 @@ void Skybox::Destroy() {
   destroy(_scatterParamsUniform);
   destroy(_betaRUniform);
   destroy(_betaMUniform);
+  destroy(_outputUniform);
 }
 
 // ---------------------------------------------------------------
@@ -205,7 +207,8 @@ void Skybox::ComputeSun() {
 // Submit (draw skybox)
 // ---------------------------------------------------------------
 void Skybox::Submit(bgfx::ViewId viewId, const float* viewMatrix,
-                    const float* projMatrix, bool useInverseViewProj) {
+                    const float* projMatrix, bool useInverseViewProj,
+                    bool capture) {
   if (!bgfx::isValid(_skyProgram) || !bgfx::isValid(_skyVbh) ||
       !bgfx::isValid(_skyIbh))
     return;
@@ -244,8 +247,18 @@ void Skybox::Submit(bgfx::ViewId viewId, const float* viewMatrix,
   bgfx::setUniform(_betaMUniform, params_.totalBetaM);
   bgfx::setUniform(_scatterParamsUniform, params_.scatterParams);
 
-  bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                 BGFX_STATE_DEPTH_TEST_LEQUAL);
+  // Display: tonemapped with sun disk; capture: linear, no sun disk
+  const float output[4] = {capture ? 0.0f : 1.0f, capture ? 0.0f : 1.0f, 0.0f,
+                           0.0f};
+  bgfx::setUniform(_outputUniform, output);
+
+  // Capture targets have no depth attachment
+  uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
+  if (!capture) {
+    state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
+  }
+
+  bgfx::setState(state);
 
   bgfx::submit(viewId, _skyProgram);
 }

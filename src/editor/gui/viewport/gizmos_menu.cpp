@@ -14,14 +14,14 @@ void GizmosMenu(GizmoSettings& settings) {
   IMComponents::PopupCheckbox("Selection Wireframe",
                               &settings.selection_wireframe, false);
 
-  // Roadmap: needs ComponentGizmos billboard drawing
   IMComponents::PopupSection("Billboards");
   IMComponents::PopupSlider("Opacity", &settings.billboard_opacity, 0.0f, 1.0f,
-                            "%.2f", false);
+                            "%.2f");
   IMComponents::PopupSlider("Size", &settings.billboard_size, 0.1f, 2.0f,
-                            "%.2f", false);
-  IMComponents::PopupCheckbox("Depth Aware", &settings.billboard_depth_aware,
-                              false);
+                            "%.2f");
+  IMComponents::PopupCheckbox("Depth Aware", &settings.billboard_depth_aware);
+
+  // Roadmap: needs a category per scene icon in ComponentRegistry
   IMComponents::PopupCheckbox("Camera", &settings.billboard_camera, false);
   IMComponents::PopupCheckbox("Light", &settings.billboard_light, false);
 
@@ -30,7 +30,7 @@ void GizmosMenu(GizmoSettings& settings) {
   IMComponents::PopupCheckbox("Camera Gizmos", &settings.camera_gizmos, false);
   IMComponents::PopupCheckbox("Model Gizmos", &settings.model_gizmos, false);
   IMComponents::PopupCheckbox("Light Gizmos", &settings.light_gizmos, false);
-  IMComponents::PopupCheckbox("Volume Gizmos", &settings.volume_gizmos, false);
+  IMComponents::PopupCheckbox("Sound Gizmos", &settings.sound_gizmos, false);
 }
 
 }  // namespace Viewport

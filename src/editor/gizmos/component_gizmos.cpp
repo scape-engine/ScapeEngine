@@ -2,9 +2,18 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include "editor/registry/component_registry.h"
+
 namespace ComponentGizmos {
 // TODO: Depends on IMGizmo debug drawing
 // This will render 3D debug shapes (wireframes, icons) for various components
+
+void DrawSceneViewIcons(IMGizmo& gizmos, TransformComponent& camera_transform) {
+  // Try draw scene icon of every component instance
+  for (const auto& [name, component] : ComponentRegistry::Get()) {
+    component.try_draw_scene_icons(gizmos, camera_transform);
+  }
+}
 
 /*  void DrawReferenceGrid(IMGizmo& gizmos, float gridSize, float gridSpacing) {
   // Set grid color

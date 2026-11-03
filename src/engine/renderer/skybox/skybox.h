@@ -40,8 +40,11 @@ public:
   // u_viewInv/u_projInv accordingly (this matches your main skybox path). If
   // false: we assume the caller passed a "rotation-only" view (e.g.,
   // reflection) and set uniforms directly
+  // If capture==true: linear HDR output without the sun disk or depth test,
+  // for sky light cubemap faces
   void Submit(bgfx::ViewId viewId, const float* viewMatrix,
-              const float* projMatrix, bool useInverseViewProj);
+              const float* projMatrix, bool useInverseViewProj,
+              bool capture = false);
 
   // Give access to the computed parameters (for terrain/water)
   const SkyboxParams& GetParams() const { return params_; }
@@ -93,6 +96,7 @@ private:
   bgfx::UniformHandle _scatterParamsUniform = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle _betaRUniform = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle _betaMUniform = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle _outputUniform = BGFX_INVALID_HANDLE;
 
   // Stored values/params
   SkyboxParams params_{};

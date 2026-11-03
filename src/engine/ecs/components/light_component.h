@@ -56,15 +56,25 @@ struct SpotlightComponent {
   float shadow_softness_ = 1.0f;
 };
 
+// Captures the sky and lights the scene with it (diffuse + reflections), like
+// UE's Sky Light. Only one sky light is used per scene
 struct SkyLightComponent {
   bool enabled_ = true;
-  glm::vec3 color_ = glm::vec3(0.15f, 0.18f, 0.25f);
-  float intensity_ = 1.0f;  // ambient radiance scale
+  glm::vec3 color_ = glm::vec3(1.0f);  // tint of the captured sky
+  float intensity_ = 1.0f;             // ambient radiance scale
 
   bool cast_shadows_ = true;
+
+  // Recapture every frame, otherwise only when recapture_ is set
   bool real_time_capture_ = false;
-  // TODO: source type, cubemap res, cubemap angle, affects world, volumetric..
-  // scattering intensity
+  bool recapture_ = false;  // consumed by the next capture
+
+  // Replace light from below the horizon (applied when captured)
+  bool lower_hemisphere_is_solid_color_ = true;
+  glm::vec3 lower_hemisphere_color_ = glm::vec3(0.0f);
+
+  // TODO: source type (specified cubemap), cubemap res, cubemap angle,
+  // affects world, volumetric scattering intensity
 };
 
 #endif  // LIGHT_COMPONENT_H

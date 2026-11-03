@@ -219,6 +219,8 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		debug = "varying_debug.def.sc",
 		materials = "varying_materials.def.sc",
 		selection = "varying_default.def.sc",
+		gizmo = "varying_gizmo.def.sc",
+		sky_light = "varying_sky_light.def.sc",
 	}
 
 	-- pick first key matching anywhere in relative path

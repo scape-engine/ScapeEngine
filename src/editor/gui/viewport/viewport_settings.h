@@ -35,7 +35,7 @@ struct GizmoSettings {
   bool camera_gizmos = true;
   bool model_gizmos = true;
   bool light_gizmos = true;
-  bool volume_gizmos = true;
+  bool sound_gizmos = true;
 };
 
 struct OverlaySettings {

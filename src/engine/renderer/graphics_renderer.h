@@ -76,6 +76,9 @@ public:
   bgfx::UniformHandle GetViewPosUniform() const { return u_viewPos; }
   bgfx::UniformHandle GetMeshColorUniform() const { return u_meshColor; }
   bgfx::UniformHandle GetAlbedoUniform() const { return u_albedoMap; }
+  bgfx::UniformHandle GetMaterialParamsUniform() const {
+    return u_materialParams;
+  }
   bgfx::UniformHandle GetOutlineParamsUniform() const {
     return u_outlineParams;
   }
@@ -125,6 +128,7 @@ private:
   bgfx::UniformHandle u_viewPos = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_meshColor = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_albedoMap = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle u_materialParams = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_outlineParams = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle s_albedo = BGFX_INVALID_HANDLE;
   bgfx::TextureHandle white_texture_ = BGFX_INVALID_HANDLE;

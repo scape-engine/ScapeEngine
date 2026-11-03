@@ -73,6 +73,9 @@ bool GraphicsRenderer::InitBgfx() {
   u_meshColor = bgfx::createUniform("u_meshColor", bgfx::UniformType::Vec4);
   u_albedoMap = bgfx::createUniform("u_AlbedoMap",  // must match fs_gltf.sc
                                     bgfx::UniformType::Vec4);
+  // x = metallic, y = roughness (fs_lit.sc)
+  u_materialParams =
+      bgfx::createUniform("u_materialParams", bgfx::UniformType::Vec4);
   u_outlineParams =
       bgfx::createUniform("u_outlineParams", bgfx::UniformType::Vec4);
   // fs_gltf samples s_albedo at stage 0: Metal requires a texture bound there
@@ -365,6 +368,9 @@ void GraphicsRenderer::Destroy() {
 
   if (bgfx::isValid(u_albedoMap))
     bgfx::destroy(u_albedoMap);
+
+  if (bgfx::isValid(u_materialParams))
+    bgfx::destroy(u_materialParams);
 
   if (bgfx::isValid(u_outlineParams))
     bgfx::destroy(u_outlineParams);

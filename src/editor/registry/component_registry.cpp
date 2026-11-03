@@ -7,6 +7,7 @@
 #include "editor/gizmos/component_gizmos.h"
 #include "editor/gui/components/inspectable_components.h"
 
+#include "engine/renderer/icons/icon_loader.h"
 #include "engine/transform/transform.h"
 
 namespace ComponentRegistry {
@@ -77,14 +78,14 @@ void RegisterComponent(
         if (!has_scene_icon)
           return;
 
-        // TODO: Use IconPool here
-        // std::string scene_icon = icon + "_gizmo";
+        // Looked up each frame, scene icons load asynchronously
+        uint32_t scene_icon = IconLoader::GetIconHandle(icon + "_gizmo");
 
         for (auto [entity, transform, component] :
              ECS::Main().View<TransformComponent, T>().each()) {
-          // gizmos.Icon3D(IconPool::Get(scene_icon),
-          //               Transform::GetPosition(transform, Space::WORLD),
-          //               camera_transform);
+          gizmos.Icon3D(scene_icon,
+                        Transform::GetPosition(transform, Space::WORLD),
+                        camera_transform);
         }
       }};
 
@@ -120,6 +121,10 @@ void Create() {
   RegisterComponent<DirectionalLightComponent>(
       "Directional Light", InspectableComponents::DrawDirectionalLightComponent,
       std::nullopt,  // TODO: ComponentGizmos::DrawDirectionalLight
+      true);
+
+  RegisterComponent<SkyLightComponent>(
+      "Skylight", InspectableComponents::DrawSkylightComponent, std::nullopt,
       true);
 
   RegisterComponent<VolumeComponent>(

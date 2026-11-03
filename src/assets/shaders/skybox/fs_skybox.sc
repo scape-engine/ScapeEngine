@@ -9,6 +9,7 @@ uniform vec4 u_scatterParams;      // x = mie anisotropy (g)
 uniform vec4 u_betaR;              // rgb = Rayleigh coeff
 uniform vec4 u_betaM;              // rgb = Mie coeff
 uniform vec4 u_artisticInfluence;  // Unused
+uniform vec4 u_skyOutput;          // x = tonemap for display, y = draw sun disk
 
 // --- Constants ---
 #define PI 3.14159265359
@@ -251,7 +252,8 @@ void main() {
     vec3 sunDirectTransmittance = getTransmittance(viewDir.y, u_betaR.rgb, u_betaM.rgb);
     
     // Final Sun Color
-    vec3 sunRender = sunLight * sunDirectTransmittance * sunEdge * aboveHorizon;
+    // Sky light captures leave it out, the directional light already adds it
+    vec3 sunRender = sunLight * sunDirectTransmittance * sunEdge * aboveHorizon * u_skyOutput.y;
     
     // --- 6. Compositing ---
     // Start with Sky + Stars + Sun
@@ -264,8 +266,12 @@ void main() {
 
     // --- 7. Post Processing ---
     finalComp = finalComp * u_parameters.z; // Exposure
-    finalComp = ACESTonemap(finalComp);     // HDR -> LDR
-    finalComp = toGamma(finalComp);         // Linear -> sRGB
+
+    // Sky light captures keep linear HDR radiance
+    if (u_skyOutput.x > 0.5) {
+        finalComp = ACESTonemap(finalComp);     // HDR -> LDR
+        finalComp = toGamma(finalComp);         // Linear -> sRGB
+    }
 
     gl_FragColor = vec4(finalComp, 1.0);
 }
