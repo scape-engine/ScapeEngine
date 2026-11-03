@@ -2,10 +2,9 @@ $input v_position , v_normal , v_texcoord0
 
 #include "common.sh"
 
-uniform vec4 u_meshColor; // base_color fallback
-uniform vec4 u_AlbedoMap; // x=1 if texture bound, 0 otherwise
+uniform vec4 u_meshColor; // base color factor
 
-SAMPLER2D(s_albedo, 0);
+SAMPLER2D(s_albedo, 0);   // base color texture (white when unset)
 
 void main()
 {
@@ -17,13 +16,8 @@ void main()
     // The lighting will now "stick" to the camera.
     vec3 viewNormal = normalize(mul(u_view, vec4(normal, 0.0)).xyz);
 
-    // Resolve base color
-    vec3 base_color;
-    if (u_AlbedoMap.x > 0.5) {
-        base_color = texture2D(s_albedo, v_texcoord0).rgb;
-    } else {
-        base_color = u_meshColor.rgb;
-    }
+    // Base color = factor * texture (glTF 2.0 spec, Materials)
+    vec3 base_color = texture2D(s_albedo, v_texcoord0).rgb * u_meshColor.rgb;
 
     // Procedural Blender MatCap Lighting
     // Light 1: Key Light (Top-Left-Front) - Bright & Warm

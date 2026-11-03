@@ -97,12 +97,15 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
                             "[MeshLoader] Loading from base_dir: " + base_dir);
 
   // The flat mesh list has no nodes, so node transforms (e.g. a model's
-  // up-axis rotation) are baked into the vertices
+  // up-axis rotation) are baked into the vertices.
+  // aiProcess_FlipUVs: Assimp returns texture coordinates with a bottom left
+  // origin, while textures are sampled with a top left one (the first stored
+  // row at v = 0) on every bgfx backend
   const aiScene* scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_GenSmoothNormals |
                 aiProcess_JoinIdenticalVertices |
                 aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace |
-                aiProcess_PreTransformVertices);
+                aiProcess_PreTransformVertices | aiProcess_FlipUVs);
 
   if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
       !scene->mRootNode) {
@@ -133,9 +136,11 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
 
   // aiProcess_OptimizeGraph and aiProcess_PreTransformVertices omitted to
   // preserve hierarchy
+  // aiProcess_FlipUVs: top left texture coordinate origin, see Load()
   const aiScene* scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace);
+                aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace |
+                aiProcess_FlipUVs);
 
   if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
       !scene->mRootNode) {

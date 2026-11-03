@@ -71,19 +71,20 @@ bool GraphicsRenderer::InitBgfx() {
   // Create uniforms
   u_viewPos = bgfx::createUniform("u_viewPos", bgfx::UniformType::Vec4);
   u_meshColor = bgfx::createUniform("u_meshColor", bgfx::UniformType::Vec4);
-  u_albedoMap = bgfx::createUniform("u_AlbedoMap",  // must match fs_gltf.sc
-                                    bgfx::UniformType::Vec4);
-  // x = metallic, y = roughness (fs_lit.sc)
-  u_materialParams =
-      bgfx::createUniform("u_materialParams", bgfx::UniformType::Vec4);
   u_outlineParams =
       bgfx::createUniform("u_outlineParams", bgfx::UniformType::Vec4);
-  // fs_gltf samples s_albedo at stage 0: Metal requires a texture bound there
+  // Every sampler a shader declares must have a texture bound: Metal and
+  // Vulkan reject unbound samplers, D3D11 reads zeros and GL is undefined.
+  // Unset texture slots bind these neutral defaults instead
   s_albedo = bgfx::createUniform("s_albedo", bgfx::UniformType::Sampler);
   const uint32_t white = 0xffffffff;
   white_texture_ =
       bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
                             bgfx::copy(&white, sizeof(white)));
+  const uint32_t flat_normal = 0xffff8080;  // ABGR: (128, 128, 255, 255)
+  flat_normal_texture_ =
+      bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RGBA8, 0,
+                            bgfx::copy(&flat_normal, sizeof(flat_normal)));
 
   // Reference grid
   grid_params_uniform_ =
@@ -411,12 +412,6 @@ void GraphicsRenderer::Destroy() {
   if (bgfx::isValid(u_meshColor))
     bgfx::destroy(u_meshColor);
 
-  if (bgfx::isValid(u_albedoMap))
-    bgfx::destroy(u_albedoMap);
-
-  if (bgfx::isValid(u_materialParams))
-    bgfx::destroy(u_materialParams);
-
   if (bgfx::isValid(u_outlineParams))
     bgfx::destroy(u_outlineParams);
 
@@ -453,8 +448,18 @@ void GraphicsRenderer::Destroy() {
       bgfx::destroy(handle);
   }
 
+  // Uniforms created by name
+  for (const auto& [name, handle] : uniform_registry_) {
+    if (bgfx::isValid(handle))
+      bgfx::destroy(handle);
+  }
+  uniform_registry_.clear();
+
   if (bgfx::isValid(white_texture_))
     bgfx::destroy(white_texture_);
+
+  if (bgfx::isValid(flat_normal_texture_))
+    bgfx::destroy(flat_normal_texture_);
 
   // 3. Clear ImGui texture ID before shutdown
   scene_tex_id_ = 0;
@@ -479,19 +484,16 @@ SDL_Window* GraphicsRenderer::GetWindow() const {
 
 // UNIFORM METHODS
 bgfx::UniformHandle GraphicsRenderer::CreateUniform(
-    const std::string& name, bgfx::UniformType::Enum type) {
+    const std::string& name, bgfx::UniformType::Enum type, uint16_t num) {
 
-  // Check if already exists
+  // Already created: every user of a name shares one handle
   auto it = uniform_registry_.find(name);
-  if (it != uniform_registry_.end()) {
-    Logger::getInstance().Log(
-        LogLevel::Warning,
-        "Uniform '" + name + "' already exists, returning existing handle");
+  if (it != uniform_registry_.end())
     return it->second;
-  }
 
-  // Create uniform via BGFX
-  bgfx::UniformHandle handle = bgfx::createUniform(name.c_str(), type);
+  // bgfx ref counts uniforms by name, so a name also created elsewhere (e.g.
+  // s_albedo) returns that handle; each create is matched by one destroy
+  bgfx::UniformHandle handle = bgfx::createUniform(name.c_str(), type, num);
 
   // Track uniform
   if (bgfx::isValid(handle)) {

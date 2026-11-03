@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <array>
 
+#include "engine/content/image_data.h"
+
 // --------------------------------------------------------------------------
 //  2D texture wrapper
 //  -------------------------------------------------------------------------
@@ -43,17 +45,18 @@ public:
   [[nodiscard]] uint32_t Id() const { return handle_.idx; }
   [[nodiscard]] bgfx::TextureHandle Handle() const { return handle_; }
 
+  // Upload a decoded image (color space and format follow the type)
+  static std::shared_ptr<Texture> Create(
+      const Content::ImageData& image, TextureType type,
+      uint64_t sampler_flags = BGFX_SAMPLER_NONE);
+
   // load texture from file
   static std::shared_ptr<Texture> Load2D(
       const std::filesystem::path& file, TextureType type = TextureType::IMAGE,
       uint64_t sampler_flags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
 
 private:
-  // Load2D for TextureType::HDR
-  static std::shared_ptr<Texture> LoadHDR(const std::filesystem::path& file,
-                                          uint64_t sampler_flags);
-
-  // constructor used by Load2D; Creates textures with existing GPU handles
+  // constructor used by Create; Creates textures with existing GPU handles
   Texture(bgfx::TextureHandle handle_param, uint16_t width_param,
           uint16_t height_param, TextureType type_param);
 

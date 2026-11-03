@@ -99,9 +99,9 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
       uint32_t mat_idx = mesh->MaterialIndex();
       if (mat_idx < materials.size()) {
         renderer.material_ =
-            Renderer::MaterialRegistry::Instance().Register(materials[mat_idx]);
+            MaterialRegistry::Instance().Register(materials[mat_idx]);
       } else {
-        renderer.material_ = Renderer::INVALID_MATERIAL;
+        renderer.material_ = INVALID_MATERIAL;
       }
     }
   } else if (descriptor.mesh_indices.size() > 1) {
@@ -126,9 +126,9 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
       uint32_t mat_idx = mesh->MaterialIndex();
       if (mat_idx < materials.size()) {
         renderer.material_ =
-            Renderer::MaterialRegistry::Instance().Register(materials[mat_idx]);
+            MaterialRegistry::Instance().Register(materials[mat_idx]);
       } else {
-        renderer.material_ = Renderer::INVALID_MATERIAL;
+        renderer.material_ = INVALID_MATERIAL;
       }
     }
   }

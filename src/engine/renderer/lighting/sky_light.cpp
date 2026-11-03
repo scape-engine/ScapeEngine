@@ -274,10 +274,10 @@ void Disable() {
 
 void BindTextures() {
   auto& graphics = Graphics();
-  bgfx::setTexture(1, graphics.GetSkySHSamplerUniform(),
-                   bgfx::getTexture(sh_fb));
-  bgfx::setTexture(2, graphics.GetSkyPrefilterSamplerUniform(),
-                   prefilter_cube);
+  bgfx::setTexture(GraphicsRenderer::SKY_SH_STAGE,
+                   graphics.GetSkySHSamplerUniform(), bgfx::getTexture(sh_fb));
+  bgfx::setTexture(GraphicsRenderer::SKY_PREFILTER_STAGE,
+                   graphics.GetSkyPrefilterSamplerUniform(), prefilter_cube);
 }
 
 }  // namespace SkyLight

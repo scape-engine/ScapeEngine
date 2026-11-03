@@ -38,9 +38,11 @@ public:
   // Called when window resizes to update BGFX viewport
   void onResize(uint32_t width, uint32_t height);
 
-  // Handle uniforms (not used)
+  // Uniforms by name, for materials and custom shaders: created on first
+  // request, returned as is afterwards, destroyed with the renderer
   bgfx::UniformHandle CreateUniform(const std::string& name,
-                                    bgfx::UniformType::Enum type);
+                                    bgfx::UniformType::Enum type,
+                                    uint16_t num = 1);
   void DestroyUniform(bgfx::UniformHandle handle);
   void ValidateUniforms();
 
@@ -75,15 +77,29 @@ public:
   bgfx::UniformHandle GetSunLuminanceUniform() const { return sunLumUniform_; }
   bgfx::UniformHandle GetViewPosUniform() const { return u_viewPos; }
   bgfx::UniformHandle GetMeshColorUniform() const { return u_meshColor; }
-  bgfx::UniformHandle GetAlbedoUniform() const { return u_albedoMap; }
-  bgfx::UniformHandle GetMaterialParamsUniform() const {
-    return u_materialParams;
-  }
   bgfx::UniformHandle GetOutlineParamsUniform() const {
     return u_outlineParams;
   }
   bgfx::UniformHandle GetAlbedoSamplerUniform() const { return s_albedo; }
   bgfx::TextureHandle GetWhiteTexture() const { return white_texture_; }
+
+  // Tangent space (0, 0, 1): a normal map that keeps the surface normal
+  bgfx::TextureHandle GetFlatNormalTexture() const {
+    return flat_normal_texture_;
+  }
+
+  // Texture stages shared by the scene shaders. Stages below
+  // MATERIAL_STAGE_COUNT belong to the bound material, so any material can
+  // use them freely; the rest are bound by the pipeline (must match the
+  // SAMPLER2D/SAMPLERCUBE stages in the shaders)
+  enum TextureStage : uint8_t {
+    MATERIAL_STAGE_COUNT = 5,  // TODO: more stages for custom materials
+
+    SKY_SH_STAGE = 5,
+    SKY_PREFILTER_STAGE = 6,
+    AMBIENT_OCCLUSION_STAGE = 7,
+    SHADOW_MAP_STAGE = 8,
+  };
 
   // Reference grid (scene view)
   bgfx::UniformHandle GetGridParamsUniform() const {
@@ -192,12 +208,12 @@ private:
   bgfx::UniformHandle sunLumUniform_ = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_viewPos = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_meshColor = BGFX_INVALID_HANDLE;
-  bgfx::UniformHandle u_albedoMap = BGFX_INVALID_HANDLE;
-  bgfx::UniformHandle u_materialParams = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle u_outlineParams = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle s_albedo = BGFX_INVALID_HANDLE;
   bgfx::TextureHandle white_texture_ = BGFX_INVALID_HANDLE;
-  // ! Track uniforms (not used yet)
+  bgfx::TextureHandle flat_normal_texture_ = BGFX_INVALID_HANDLE;
+
+  // Uniforms created by name (CreateUniform)
   std::unordered_map<std::string, bgfx::UniformHandle> uniform_registry_;
 
   bgfx::UniformHandle grid_params_uniform_ = BGFX_INVALID_HANDLE;

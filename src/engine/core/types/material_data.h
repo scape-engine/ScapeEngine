@@ -15,11 +15,13 @@ struct MaterialData {
   float metallic{0.0f};
   float roughness{0.5f};
 
-  // Texture paths (relative to model file)
+  // Textures, as Content::ImageCache keys: an absolute file path, or
+  // "<model path>#<reference>" for images embedded in the model file
   std::string albedo_map;
   std::string normal_map;
-  std::string metallic_roughness_map;
-  std::string ao_map;
+  std::string metallic_roughness_map;  // glTF: roughness in G, metallic in B
+  std::string ao_map;                  // occlusion in R
+  std::string emissive_map;
 
   // Emission
   glm::vec3 emissive{0.0f};

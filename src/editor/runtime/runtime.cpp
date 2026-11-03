@@ -50,8 +50,10 @@
 #include "engine/renderer/icons/icon_loader.h"
 #include "engine/renderer/lighting/light.h"
 #include "engine/renderer/lighting/sky_light.h"
+#include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/renderer/skybox/skybox.h"
+#include "engine/renderer/texture/texture_registry.h"
 #include "engine/scene/scene_manager.h"
 #include "engine/scene/scene_template.h"
 #include "engine/time/time.h"
@@ -346,6 +348,10 @@ int TERMINATE() {
 
   Light::Destroy();
   SkyLight::Destroy();
+
+  // GPU textures must be released while bgfx is alive
+  MaterialRegistry::Instance().Clear();
+  TextureRegistry::Instance().Clear();
 
   EngineContext::Destroy();
 

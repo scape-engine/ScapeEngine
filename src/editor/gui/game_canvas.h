@@ -330,8 +330,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                 uint32_t mat_idx = mesh->MaterialIndex();
                 if (mat_idx < materials.size()) {
                   mr.material_ =
-                      Renderer::MaterialRegistry::Instance().Register(
-                          materials[mat_idx]);
+                      MaterialRegistry::Instance().Register(materials[mat_idx]);
 
                   Logger::getInstance().Log(
                       LogLevel::Debug, "[GameCanvas] Registered material '" +
@@ -339,7 +338,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                                            "' with handle " +
                                            std::to_string(mr.material_));
                 } else {
-                  mr.material_ = Renderer::INVALID_MATERIAL;
+                  mr.material_ = INVALID_MATERIAL;
 
                   Logger::getInstance().Log(
                       LogLevel::Warning,

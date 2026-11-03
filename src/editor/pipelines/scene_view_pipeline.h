@@ -140,7 +140,6 @@ private:
 
   // Shader handles (loaded once)
   bgfx::ProgramHandle default_program_;
-  bgfx::ProgramHandle lit_program_ = BGFX_INVALID_HANDLE;
   bgfx::ProgramHandle selection_program_;
   bgfx::ProgramHandle debug_program_;
   bgfx::ProgramHandle shadow_program_;

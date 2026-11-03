@@ -2,11 +2,11 @@
 #define MATERIAL_REGISTRY_H
 
 #include <cstdint>
+#include <memory>
 #include <unordered_map>
 
 #include "engine/core/types/material_data.h"
-
-namespace Renderer {
+#include "engine/renderer/material/material.h"
 
 using MaterialHandle = uint32_t;
 constexpr MaterialHandle INVALID_MATERIAL = 0;
@@ -15,11 +15,18 @@ class MaterialRegistry {
 public:
   static MaterialRegistry& Instance();
 
-  // Register a material and return its handle
+  // Register an imported material as a standard (PBR) material
   MaterialHandle Register(const Content::MaterialData& data);
 
-  // Get material data by handle (returns nullptr if invalid)
-  const Content::MaterialData* Get(MaterialHandle handle) const;
+  // Register any material, e.g. one using a custom shader
+  MaterialHandle Register(Material material);
+
+  // Get material by handle (returns nullptr if invalid)
+  const Material* Get(MaterialHandle handle) const;
+
+  // Set the material's params and textures for the next draw, and return
+  // the program to submit with. Invalid handles use a default material
+  bgfx::ProgramHandle Bind(MaterialHandle handle);
 
   // Unregister a material by handle
   void Unregister(MaterialHandle handle);
@@ -30,10 +37,12 @@ public:
 private:
   MaterialRegistry() = default;
 
-  std::unordered_map<MaterialHandle, Content::MaterialData> materials_;
+  // Grey standard material, for meshes without a valid material
+  const Material& DefaultMaterial();
+
+  std::unordered_map<MaterialHandle, Material> materials_;
+  std::unique_ptr<Material> default_material_;
   MaterialHandle next_handle_{1};
 };
-
-}  // namespace Renderer
 
 #endif  // MATERIAL_REGISTRY_H

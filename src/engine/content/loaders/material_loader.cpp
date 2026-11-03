@@ -5,16 +5,60 @@
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 
+#include <filesystem>
+
+#include "engine/content/cache/image_cache.h"
+#include "engine/content/loaders/image_loader.h"
 #include "engine/core/logger.h"
 
 namespace Content {
+
+namespace {
+
+// Image cache key of the first texture of the given types (in order), or
+// empty if the material has none. Embedded images (e.g. in a .glb) are
+// decoded now, while the scene that owns them is alive
+std::string TextureKey(const aiScene* scene, const aiMaterial* material,
+                       std::initializer_list<aiTextureType> types,
+                       const std::string& model_path,
+                       const std::filesystem::path& base_dir) {
+  aiString reference;
+  for (aiTextureType type : types) {
+    if (material->GetTexture(type, 0, &reference) == AI_SUCCESS)
+      break;
+    reference.Clear();
+  }
+  if (reference.length == 0)
+    return {};
+
+  // Embedded: "*<index>" references, or the image name in some formats
+  if (const aiTexture* embedded = scene->GetEmbeddedTexture(reference.C_Str())) {
+    const std::string key = model_path + "#" + reference.C_Str();
+    auto& cache = ImageCache::Instance();
+
+    // Compressed (PNG, JPG, ...) when mHeight is 0, mWidth is the byte size
+    if (!cache.Contains(key) && embedded->mHeight == 0) {
+      cache.Put(key, ImageLoader::LoadMemory(embedded->pcData,
+                                             embedded->mWidth));
+    }
+
+    // TODO: uncompressed embedded texels (mHeight > 0, BGRA aiTexel)
+    return cache.Contains(key) ? key : std::string{};
+  }
+
+  // TODO: decode URL-encoded URIs (e.g. "%20")
+  return (base_dir / reference.C_Str()).lexically_normal().string();
+}
+
+}  // namespace
 
 std::vector<MaterialData> MaterialLoader::ExtractMaterials(
     const aiScene* scene, const std::string& model_path) {
   std::vector<MaterialData> materials;
   materials.reserve(scene->mNumMaterials);
 
-  std::string base_dir = model_path.substr(0, model_path.find_last_of("/\\"));
+  const std::filesystem::path base_dir =
+      std::filesystem::path(model_path).parent_path();
 
   // Query Assimp's shading model
   for (unsigned int i = 0; i < scene->mNumMaterials; ++i) {
@@ -56,21 +100,19 @@ std::vector<MaterialData> MaterialLoader::ExtractMaterials(
         mat.roughness = 1.0f - glm::clamp(shininess / 256.0f, 0.0f, 1.0f);
     }
 
-    // Texture slots
-    aiString tex;
-    if (ai_mat->GetTexture(aiTextureType_DIFFUSE, 0, &tex) == AI_SUCCESS)
-      mat.albedo_map = tex.C_Str();
-    else if (ai_mat->GetTexture(aiTextureType_BASE_COLOR, 0, &tex) ==
-             AI_SUCCESS)
-      mat.albedo_map = tex.C_Str();
-
-    if (ai_mat->GetTexture(aiTextureType_NORMALS, 0, &tex) == AI_SUCCESS)
-      mat.normal_map = tex.C_Str();
-    if (ai_mat->GetTexture(aiTextureType_UNKNOWN, 0, &tex) == AI_SUCCESS)
-      mat.metallic_roughness_map = tex.C_Str();
-    if (ai_mat->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &tex) ==
-        AI_SUCCESS)
-      mat.ao_map = tex.C_Str();
+    // Texture slots. Assimp's glTF 2.0 importer stores metallic-roughness in
+    // aiTextureType_GLTF_METALLIC_ROUGHNESS and occlusion in
+    // aiTextureType_LIGHTMAP; the other types cover other formats
+    const auto key = [&](std::initializer_list<aiTextureType> types) {
+      return TextureKey(scene, ai_mat, types, model_path, base_dir);
+    };
+    mat.albedo_map = key({aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE});
+    mat.normal_map = key({aiTextureType_NORMALS});
+    mat.metallic_roughness_map =
+        key({aiTextureType_GLTF_METALLIC_ROUGHNESS, aiTextureType_UNKNOWN});
+    mat.ao_map =
+        key({aiTextureType_LIGHTMAP, aiTextureType_AMBIENT_OCCLUSION});
+    mat.emissive_map = key({aiTextureType_EMISSIVE});
 
     aiColor3D emissive;
     if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)

@@ -11,7 +11,7 @@
 /* ────────────────────────────── MESH RENDERER ──────────────────────────── */
 struct MeshRendererComponent {
   const Mesh* mesh_{nullptr};
-  Renderer::MaterialHandle material_{Renderer::INVALID_MATERIAL};
+  MaterialHandle material_{INVALID_MATERIAL};
   bool enabled_{true};
 };
 

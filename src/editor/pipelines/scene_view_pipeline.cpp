@@ -16,6 +16,7 @@
 #include "engine/math/transformation.h"
 #include "engine/renderer/lighting/light.h"
 #include "engine/renderer/lighting/sky_light.h"
+#include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/transform/transform.h"
@@ -62,8 +63,7 @@ void SceneViewPipeline::Create() {
   std::get<1>(god_camera_).fov_ = 90.0f;
 
   // Load shared shaders
-  lit_program_ =
-      Runtime::Shader()->LoadProgram("materials", "vs_lit.bin", "fs_lit.bin");
+  // Lit programs come from the materials (MaterialRegistry)
   // ! GLTF shaders are placeholders, kept for the unlit view mode
   default_program_ =
       Runtime::Shader()->LoadProgram("gltf", "vs_gltf.bin", "fs_gltf.bin");
@@ -100,10 +100,10 @@ void SceneViewPipeline::RegisterNodes() {
       AttachmentDesc{.name = "reflection", .width = 0, .height = 0});
   frame_graph.AddAttachment(
       AttachmentDesc{.name = "scene_normals", .width = 0, .height = 0});
-  frame_graph.AddAttachment(AttachmentDesc{
-      .name = "scene_linear_depth", .width = 0, .height = 0});
-  frame_graph.AddAttachment(AttachmentDesc{
-      .name = "ambient_occlusion", .width = 0, .height = 0});
+  frame_graph.AddAttachment(
+      AttachmentDesc{.name = "scene_linear_depth", .width = 0, .height = 0});
+  frame_graph.AddAttachment(
+      AttachmentDesc{.name = "ambient_occlusion", .width = 0, .height = 0});
 
   // --- NODES ---
   // Node 0: Shadows
@@ -262,11 +262,10 @@ void SceneViewPipeline::RenderSSAONode(const Node::Context& context) {
   if (!bgfx::isValid(renderer->GetSceneFramebuffer()))
     return;
 
-  ssao_pass_.Render(ambient_occlusion_, projection_,
-                    pre_pass_.GetNormalOutput(), pre_pass_.GetDepthOutput(),
-                    canvasViewportW, canvasViewportH,
-                    renderer->GetFramebufferWidth(),
-                    renderer->GetFramebufferHeight());
+  ssao_pass_.Render(
+      ambient_occlusion_, projection_, pre_pass_.GetNormalOutput(),
+      pre_pass_.GetDepthOutput(), canvasViewportW, canvasViewportH,
+      renderer->GetFramebufferWidth(), renderer->GetFramebufferHeight());
 }
 
 void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
@@ -347,9 +346,8 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   static bool warned_sky_lights = false;
   if (ignored_sky_lights > 0 && !warned_sky_lights) {
     Logger::getInstance().Log(
-        LogLevel::Warning,
-        "Only one sky light is used per scene, ignoring " +
-            std::to_string(ignored_sky_lights));
+        LogLevel::Warning, "Only one sky light is used per scene, ignoring " +
+                               std::to_string(ignored_sky_lights));
   }
   warned_sky_lights = ignored_sky_lights > 0;
 
@@ -639,41 +637,25 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   // Textures are per-draw in bgfx
   if (render_shadows_) {
     auto& shadow_map = Runtime::MainShadowMap();
-    bgfx::setTexture(4, shadow_map.GetSamplerUniform(),
-                     shadow_map.GetTexture());
+    bgfx::setTexture(GraphicsRenderer::SHADOW_MAP_STAGE,
+                     shadow_map.GetSamplerUniform(), shadow_map.GetTexture());
   }
 
-  // Set material uniforms via material registry
-  const Content::MaterialData* mat =
-      Renderer::MaterialRegistry::Instance().Get(renderer.material_);
+  // Material params and textures, and the program to draw with
+  const bgfx::ProgramHandle material_program =
+      MaterialRegistry::Instance().Bind(renderer.material_);
 
-  float has_albedo[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+  // Scene textures read by the lit shaders
+  SkyLight::BindTextures();
 
-  if (mat && !mat->albedo_map.empty()) {
-    // ! texture upload not yet implemented - placeholder
-    // bgfx::setTexture(0, s_albedo_sampler, albedo_texture_handle);
-    // has_albedo[0] = 1.0f;
+  // White (unoccluded) while ambient occlusion is off
+  bgfx::TextureHandle ambient_occlusion = ssao_pass_.GetOutput();
+  if (!ambient_occlusion_.enabled || !bgfx::isValid(ambient_occlusion)) {
+    ambient_occlusion = graphics->GetWhiteTexture();
   }
-
-  bgfx::setUniform(graphics->GetAlbedoUniform(), has_albedo);
-
-  if (mat) {
-    float mesh_color[4] = {mat->base_color.r, mat->base_color.g,
-                           mat->base_color.b, mat->base_color.a};
-    bgfx::setUniform(graphics->GetMeshColorUniform(), mesh_color);
-  } else {
-    // Fallback gray material
-    float default_color[4] = {0.8f, 0.8f, 0.8f, 1.0f};
-    bgfx::setUniform(graphics->GetMeshColorUniform(), default_color);
-  }
-
-  // Metallic, roughness (fallback: rough dielectric)
-  float material_params[4] = {0.0f, 0.5f, 0.0f, 0.0f};
-  if (mat) {
-    material_params[0] = mat->metallic;
-    material_params[1] = mat->roughness;
-  }
-  bgfx::setUniform(graphics->GetMaterialParamsUniform(), material_params);
+  bgfx::setTexture(GraphicsRenderer::AMBIENT_OCCLUSION_STAGE,
+                   graphics->GetAmbientOcclusionSamplerUniform(),
+                   ambient_occlusion);
 
   // Bind mesh
   bgfx::setTransform(glm::value_ptr(transform.model_));
@@ -687,21 +669,10 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
     render_state |= BGFX_STATE_PT_LINES;
   }
 
-  bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
-                   graphics->GetWhiteTexture());
-  SkyLight::BindTextures();
-
-  // White (unoccluded) while ambient occlusion is off
-  bgfx::TextureHandle ambient_occlusion = ssao_pass_.GetOutput();
-  if (!ambient_occlusion_.enabled || !bgfx::isValid(ambient_occlusion)) {
-    ambient_occlusion = graphics->GetWhiteTexture();
-  }
-  bgfx::setTexture(3, graphics->GetAmbientOcclusionSamplerUniform(),
-                   ambient_occlusion);
-
-  // Render mesh
+  // Render mesh, the unlit view mode overrides the material's program
   bgfx::setState(render_state);
-  bgfx::submit(ViewID::SCENE_FORWARD, unlit_ ? default_program_ : lit_program_);
+  bgfx::submit(ViewID::SCENE_FORWARD,
+               unlit_ ? default_program_ : material_program);
 }
 
 void SceneViewPipeline::BuildReferenceGrid(const glm::mat4& view_projection) {
