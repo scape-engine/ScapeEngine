@@ -637,6 +637,19 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
       ImGui::Text("Import %s", node->path_.filename().string().c_str());
       ImGui::EndDragDropSource();
     }
+
+    // Drag operation for textures (e.g. a sky light cubemap)
+    const bool is_texture = EditorIcons::GetAssetKind(extension) ==
+                            EditorIcons::AssetKind::Texture;
+    if (is_texture &&
+        ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+      std::string path_str = node->path_.string();
+      ImGui::SetDragDropPayload("TEXTURE_FILE", path_str.c_str(),
+                                path_str.size() + 1);
+
+      ImGui::Text("%s", node->path_.filename().string().c_str());
+      ImGui::EndDragDropSource();
+    }
   }
 
   return true;

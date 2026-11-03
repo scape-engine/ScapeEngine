@@ -4,12 +4,14 @@
 #include <imgui.h>
 
 #include <cstdint>
+#include <filesystem>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 #include <unordered_map>
 
 #include "editor/editor_ui.h"
 #include "editor/events.h"
+#include "editor/runtime/runtime.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 
@@ -319,20 +321,72 @@ void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight) {
     IMComponents::ColorPicker("Color", skylight.color_);
 
     _SpacingS();
-    _Headline("Capture");
+    _Headline("Source");
 
-    IMComponents::Input("Real-time Capture", skylight.real_time_capture_);
-    if (!skylight.real_time_capture_ &&
-        IMComponents::ButtonBig("Recapture", "Capture the sky again")) {
-      skylight.recapture_ = true;
+    // Every edit below needs a new capture
+    bool source_changed = false;
+
+    int source = static_cast<int>(skylight.source_type_);
+    const char* sources[] = {"Captured Scene", "Specified Cubemap"};
+    if (ImGui::Combo("Source Type", &source, sources, IM_ARRAYSIZE(sources))) {
+      skylight.source_type_ = static_cast<SkyLightSource>(source);
+      source_changed = true;
+    }
+
+    if (skylight.source_type_ == SkyLightSource::SourceCubemap) {
+      // Equirect image dropped from the asset browser
+      const std::string file =
+          skylight.cubemap_path_.empty()
+              ? "None (drop a texture)"
+              : std::filesystem::path(skylight.cubemap_path_)
+                    .filename()
+                    .string();
+      IMComponents::Label("Cubemap: " + file);
+
+      if (ImGui::BeginDragDropTarget()) {
+        if (const ImGuiPayload* payload =
+                ImGui::AcceptDragDropPayload("TEXTURE_FILE")) {
+          std::string relative(static_cast<const char*>(payload->Data));
+          skylight.cubemap_path_ =
+              Runtime::Project().AbsolutePath(relative).string();
+          source_changed = true;
+        }
+        ImGui::EndDragDropTarget();
+      }
+
+      if (!skylight.cubemap_path_.empty() &&
+          ImGui::Button(ICON_FA_XMARK " Clear")) {
+        skylight.cubemap_path_.clear();
+        source_changed = true;
+      }
+
+      if (ImGui::SliderFloat("Source Cubemap Angle",
+                             &skylight.source_cubemap_angle_, 0.0f, 360.0f,
+                             "%.0f deg")) {
+        source_changed = true;
+      }
+    } else {
+      IMComponents::Input("Real-time Capture", skylight.real_time_capture_);
+      if (!skylight.real_time_capture_ &&
+          IMComponents::ButtonBig("Recapture", "Capture the sky again")) {
+        skylight.recapture_ = true;
+      }
     }
 
     _SpacingS();
     _Headline("Lower Hemisphere");
 
-    // Applied when captured, like the rest of this section
+    // Applied when captured, like the source
+    bool solid = skylight.lower_hemisphere_is_solid_color_;
+    glm::vec3 color = skylight.lower_hemisphere_color_;
     IMComponents::Input("Solid Color", skylight.lower_hemisphere_is_solid_color_);
     IMComponents::ColorPicker("Color", skylight.lower_hemisphere_color_);
+    source_changed |= solid != skylight.lower_hemisphere_is_solid_color_ ||
+                      color != skylight.lower_hemisphere_color_;
+
+    if (source_changed) {
+      skylight.recapture_ = true;
+    }
 
     _EndComponent();
   }

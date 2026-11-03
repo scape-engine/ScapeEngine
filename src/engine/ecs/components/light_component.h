@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <glm/glm.hpp>
+#include <string>
 
 enum class ShadowResolution : uint16_t {
   NONE = 0,
@@ -56,6 +57,12 @@ struct SpotlightComponent {
   float shadow_softness_ = 1.0f;
 };
 
+// Where the sky light gets its lighting from (UE: Source Type)
+enum class SkyLightSource {
+  CaptureScene,  // the sky rendered by the skybox
+  SourceCubemap  // an equirect (latitude/longitude) image, e.g. an HDRI
+};
+
 // Captures the sky and lights the scene with it (diffuse + reflections), like
 // UE's Sky Light. Only one sky light is used per scene
 struct SkyLightComponent {
@@ -65,7 +72,13 @@ struct SkyLightComponent {
 
   bool cast_shadows_ = true;
 
-  // Recapture every frame, otherwise only when recapture_ is set
+  // Source of the lighting
+  SkyLightSource source_type_ = SkyLightSource::CaptureScene;
+  std::string cubemap_path_;           // absolute path, SourceCubemap only
+  float source_cubemap_angle_ = 0.0f;  // degrees around the up axis
+
+  // Recapture every frame (CaptureScene only), otherwise only when recapture_
+  // is set
   bool real_time_capture_ = false;
   bool recapture_ = false;  // consumed by the next capture
 
@@ -73,8 +86,7 @@ struct SkyLightComponent {
   bool lower_hemisphere_is_solid_color_ = true;
   glm::vec3 lower_hemisphere_color_ = glm::vec3(0.0f);
 
-  // TODO: source type (specified cubemap), cubemap res, cubemap angle,
-  // affects world, volumetric scattering intensity
+  // TODO: cubemap res, affects world, volumetric scattering intensity
 };
 
 #endif  // LIGHT_COMPONENT_H

@@ -47,7 +47,10 @@ SceneViewPipeline::SceneViewPipeline()
       show_grid_(true),
       selection_program_(BGFX_INVALID_HANDLE),
       shadow_program_(BGFX_INVALID_HANDLE),
-      grid_mesh_(nullptr) {
+      grid_mesh_(nullptr),
+      pre_pass_(),
+      ssao_pass_(),
+      ambient_occlusion_() {
   // TODO: Initialize other members e.g. profile, viewport, passes, etc.
   // Check reference project for details
 }
@@ -72,6 +75,7 @@ void SceneViewPipeline::Create() {
                                                    "fs_shadow.bin");
 
   BuildReferenceGrid(glm::mat4(1.0f));
+  CreatePasses();
   RegisterNodes();
 
   Logger::getInstance().Log(LogLevel::Info,
@@ -94,6 +98,12 @@ void SceneViewPipeline::RegisterNodes() {
       AttachmentDesc{.name = "scene_depth", .width = 0, .height = 0});
   frame_graph.AddAttachment(
       AttachmentDesc{.name = "reflection", .width = 0, .height = 0});
+  frame_graph.AddAttachment(
+      AttachmentDesc{.name = "scene_normals", .width = 0, .height = 0});
+  frame_graph.AddAttachment(AttachmentDesc{
+      .name = "scene_linear_depth", .width = 0, .height = 0});
+  frame_graph.AddAttachment(AttachmentDesc{
+      .name = "ambient_occlusion", .width = 0, .height = 0});
 
   // --- NODES ---
   // Node 0: Shadows
@@ -109,15 +119,35 @@ void SceneViewPipeline::RegisterNodes() {
   // broken: reflect[5] must be -1.0f (it's identity now), and
   // Skybox::Submit needs inverse view/proj, not the raw matrices.
 
-  // Node 2: Forward opaque rendering
+  // Node 2: Pre-pass, geometry for screen space effects
+  frame_graph.AddNode(Node{.name = "pre_pass",
+                           .reads = {},
+                           .writes = {"scene_normals", "scene_linear_depth"},
+                           .execute = [this](const Node::Context& context) {
+                             if (ambient_occlusion_.enabled) {
+                               RenderPrePassNode(context);
+                             }
+                           }});
+
+  // Node 3: Screen space ambient occlusion
+  frame_graph.AddNode(Node{.name = "ssao",
+                           .reads = {"scene_normals", "scene_linear_depth"},
+                           .writes = {"ambient_occlusion"},
+                           .execute = [this](const Node::Context& context) {
+                             if (ambient_occlusion_.enabled) {
+                               RenderSSAONode(context);
+                             }
+                           }});
+
+  // Node 4: Forward opaque rendering
   frame_graph.AddNode(Node{.name = "forward_opaque",
-                           .reads = {"shadow_map"},
+                           .reads = {"shadow_map", "ambient_occlusion"},
                            .writes = {"scene_color", "scene_depth"},
                            .execute = [this](const Node::Context& context) {
                              RenderForwardNode(context);
                            }});
 
-  // Node 3: Selected entities and their outline
+  // Node 5: Selected entities and their outline
   frame_graph.AddNode(Node{.name = "selection_outline",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -127,7 +157,7 @@ void SceneViewPipeline::RegisterNodes() {
                              }
                            }});
 
-  // Node 4: Reference grid (transparent, after all opaque geometry)
+  // Node 6: Reference grid (transparent, after all opaque geometry)
   frame_graph.AddNode(Node{.name = "grid",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -137,7 +167,7 @@ void SceneViewPipeline::RegisterNodes() {
                              }
                            }});
 
-  // Node 5: Gizmos (transform handles, etc.)
+  // Node 7: Gizmos (transform handles, etc.)
   frame_graph.AddNode(Node{.name = "gizmos",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -214,6 +244,31 @@ void SceneViewPipeline::RenderReflectionNode(const Node::Context& context) {
   // TODO: Render scene geometry for reflection
 }
 
+void SceneViewPipeline::RenderPrePassNode(const Node::Context& context) {
+  auto* renderer = static_cast<GraphicsRenderer*>(Runtime::Renderer());
+
+  // Targets follow the scene framebuffer, which must exist first
+  if (!bgfx::isValid(renderer->GetSceneFramebuffer()))
+    return;
+
+  pre_pass_.Render(view_, projection_, canvasViewportW, canvasViewportH,
+                   renderer->GetFramebufferWidth(),
+                   renderer->GetFramebufferHeight());
+}
+
+void SceneViewPipeline::RenderSSAONode(const Node::Context& context) {
+  auto* renderer = static_cast<GraphicsRenderer*>(Runtime::Renderer());
+
+  if (!bgfx::isValid(renderer->GetSceneFramebuffer()))
+    return;
+
+  ssao_pass_.Render(ambient_occlusion_, projection_,
+                    pre_pass_.GetNormalOutput(), pre_pass_.GetDepthOutput(),
+                    canvasViewportW, canvasViewportH,
+                    renderer->GetFramebufferWidth(),
+                    renderer->GetFramebufferHeight());
+}
+
 void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
 
   // TODO: In this function, we should:
@@ -228,14 +283,6 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   // Get Camera
   TransformComponent& camera_transform = std::get<0>(god_camera_);
   CameraComponent& camera_component = std::get<1>(god_camera_);
-
-  // TODO: revise code here
-  // Build view and projection matrices
-  view_ = Transformation::View(camera_transform.position_,
-                               camera_transform.rotation_);
-  projection_ = Transformation::Projection(
-      camera_component.fov_, CanvasAspect(), camera_component.near_plane_,
-      camera_component.far_plane_);
 
   float viewMatrix[16];
   float projMatrix[16];
@@ -267,22 +314,19 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   // Get shadows
   auto& shadow_map = Runtime::MainShadowMap();
 
-  // Build view_projection matrix
-  glm::mat4 view = glm::make_mat4(viewMatrix);
-  glm::mat4 projection = glm::make_mat4(projMatrix);
-  glm::mat4 view_projection = projection * view;
-
-  // Update transforms
-  transform_system_.Perform(view_projection);
-
-  // Bulk MVP update
-  for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
-    Transform::UpdateMVP(transform, view_projection);
-  }
+  // Transforms were evaluated in Render(), before any node
 
   // Camera position for specular lighting
   const glm::vec4 view_pos(camera_transform.position_, 0.0f);
   bgfx::setUniform(renderer->GetViewPosUniform(), glm::value_ptr(view_pos));
+
+  // Ambient occlusion of the sky light, from the SSAO node (same size as
+  // the scene framebuffer)
+  const float ambient_occlusion[4] = {
+      ambient_occlusion_.enabled ? 1.0f : 0.0f,
+      1.0f / float(renderer->GetFramebufferWidth()),
+      1.0f / float(renderer->GetFramebufferHeight()), 0.0f};
+  bgfx::setUniform(renderer->GetAmbientOcclusionUniform(), ambient_occlusion);
 
   // Sky light: only the first enabled one is used, as in UE
   SkyLightComponent* sky_light = nullptr;
@@ -647,6 +691,14 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
                    graphics->GetWhiteTexture());
   SkyLight::BindTextures();
 
+  // White (unoccluded) while ambient occlusion is off
+  bgfx::TextureHandle ambient_occlusion = ssao_pass_.GetOutput();
+  if (!ambient_occlusion_.enabled || !bgfx::isValid(ambient_occlusion)) {
+    ambient_occlusion = graphics->GetWhiteTexture();
+  }
+  bgfx::setTexture(3, graphics->GetAmbientOcclusionSamplerUniform(),
+                   ambient_occlusion);
+
   // Render mesh
   bgfx::setState(render_state);
   bgfx::submit(ViewID::SCENE_FORWARD, unlit_ ? default_program_ : lit_program_);
@@ -753,6 +805,27 @@ void SceneViewPipeline::RenderGridNode(const Node::Context& context) {
 void SceneViewPipeline::Render() {
   // TODO: add missing inits and calls noted in RealRender?
 
+  // Get camera bindings
+  TransformComponent& camera_transform = std::get<0>(god_camera_);
+  CameraComponent& camera_component = std::get<1>(god_camera_);
+
+  // Get transformation matrices
+  view_ = Transformation::View(camera_transform.position_,
+                               camera_transform.rotation_);
+  projection_ = Transformation::Projection(
+      camera_component.fov_, CanvasAspect(), camera_component.near_plane_,
+      camera_component.far_plane_);
+  glm::mat4 view_projection = projection_ * view_;
+
+  //
+  // TRANSFORM PASS
+  // Evaluate and update transforms, before any node renders meshes
+  //
+  transform_system_.Perform(view_projection);
+  for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
+    Transform::UpdateMVP(transform, view_projection);
+  }
+
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();
   gizmos.NewFrame(ViewID::SCENE_FORWARD);
@@ -768,6 +841,8 @@ void SceneViewPipeline::Render() {
 }
 
 void SceneViewPipeline::Destroy() {
+  DestroyPasses();
+
   delete grid_mesh_;
   grid_mesh_ = nullptr;
 
@@ -853,12 +928,15 @@ for (const auto& item : render_queue) {
 // TODO: Stop profiler ("scene_view")
 // }
 
-/* void SceneViewPipeline::CreatePasses() {}
+void SceneViewPipeline::CreatePasses() {
+  pre_pass_.Create();
+  ssao_pass_.Create();
+}
 
 void SceneViewPipeline::DestroyPasses() {
-  scene_view_forward_pass_.Destroy();
-  // make frame graph destory passes?
-}*/
+  pre_pass_.Destroy();
+  ssao_pass_.Destroy();
+}
 
 void SceneViewPipeline::SetSelectedEntities(
     const std::vector<Entity>& entities) {

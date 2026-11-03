@@ -1,6 +1,9 @@
 #include "engine/renderer/skybox/skybox.h"
 
 #include <cstring>
+
+#include "engine/context/engine_context.h"
+#include "engine/renderer/graphics_renderer.h"
 #include "engine/resources/shader_utils.h"
 
 // Static member definition
@@ -33,6 +36,7 @@ void Skybox::Create(ShaderManager* ShaderManager) {
   // TODO: check that names are like in GameTest
   // Move
   // Uniforms
+  // TODO: move uniform ownership to GraphicsRenderer
   _sunDirUniform =
       bgfx::createUniform("u_sunDirection", bgfx::UniformType::Vec4);
   _sunLumUniform =
@@ -44,7 +48,6 @@ void Skybox::Create(ShaderManager* ShaderManager) {
   _betaMUniform = bgfx::createUniform("u_betaM", bgfx::UniformType::Vec4);
   _viewInvUniform = bgfx::createUniform("u_viewInv", bgfx::UniformType::Mat4);
   _projInvUniform = bgfx::createUniform("u_projInv", bgfx::UniformType::Mat4);
-  _outputUniform = bgfx::createUniform("u_skyOutput", bgfx::UniformType::Vec4);
 
   // Geometry
   CreateFullscreenQuad();
@@ -102,7 +105,6 @@ void Skybox::Destroy() {
   destroy(_scatterParamsUniform);
   destroy(_betaRUniform);
   destroy(_betaMUniform);
-  destroy(_outputUniform);
 }
 
 // ---------------------------------------------------------------
@@ -250,7 +252,8 @@ void Skybox::Submit(bgfx::ViewId viewId, const float* viewMatrix,
   // Display: tonemapped with sun disk; capture: linear, no sun disk
   const float output[4] = {capture ? 0.0f : 1.0f, capture ? 0.0f : 1.0f, 0.0f,
                            0.0f};
-  bgfx::setUniform(_outputUniform, output);
+  auto& graphics = static_cast<GraphicsRenderer&>(EngineContext::Renderer());
+  bgfx::setUniform(graphics.GetSkyOutputUniform(), output);
 
   // Capture targets have no depth attachment
   uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;

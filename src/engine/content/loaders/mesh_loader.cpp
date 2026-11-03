@@ -96,10 +96,13 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loading from base_dir: " + base_dir);
 
+  // The flat mesh list has no nodes, so node transforms (e.g. a model's
+  // up-axis rotation) are baked into the vertices
   const aiScene* scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_GenSmoothNormals |
                 aiProcess_JoinIdenticalVertices |
-                aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace);
+                aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace |
+                aiProcess_PreTransformVertices);
 
   if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
       !scene->mRootNode) {

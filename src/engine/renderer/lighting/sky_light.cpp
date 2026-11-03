@@ -3,13 +3,17 @@
 #include <bgfx/bgfx.h>
 #include <bx/math.h>
 
-#include <cstring>
+#include <memory>
+#include <string>
 
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/core/view_ids.h"
 #include "engine/ecs/components/light_component.h"
+#include "engine/renderer/graphics_renderer.h"
+#include "engine/renderer/primitives/global_quad.h"
 #include "engine/renderer/skybox/skybox.h"
+#include "engine/renderer/texture/texture2d.h"
 
 namespace SkyLight {
 
@@ -23,8 +27,8 @@ constexpr uint16_t SH_COEFFICIENTS = 9;
 static_assert(ViewID::SKY_SH == ViewID::SKY_CAPTURE_BASE + 6,
               "Sky light views overlap");
 static_assert(ViewID::SKY_PREFILTER_BASE + 6 * PREFILTER_MIPS <=
-                  ViewID::PREVIEW_PASS_BASE,
-              "Sky light views overlap the preview views");
+                  ViewID::PRE_PASS,
+              "Sky light views overlap the ambient occlusion views");
 
 // Render targets
 bgfx::TextureHandle capture_cube = BGFX_INVALID_HANDLE;
@@ -36,50 +40,43 @@ bgfx::FrameBufferHandle sh_fb = BGFX_INVALID_HANDLE;
 // Programs (owned by the shader manager)
 bgfx::ProgramHandle sh_program = BGFX_INVALID_HANDLE;
 bgfx::ProgramHandle prefilter_program = BGFX_INVALID_HANDLE;
+bgfx::ProgramHandle equirect_program = BGFX_INVALID_HANDLE;
 
-// Uniform handles
-bgfx::UniformHandle s_skyCapture = BGFX_INVALID_HANDLE;
-bgfx::UniformHandle s_skySH = BGFX_INVALID_HANDLE;
-bgfx::UniformHandle s_skyPrefilter = BGFX_INVALID_HANDLE;
-bgfx::UniformHandle u_skyLight = BGFX_INVALID_HANDLE;
-bgfx::UniformHandle u_skyLightParams = BGFX_INVALID_HANDLE;
-bgfx::UniformHandle u_skyLightCapture = BGFX_INVALID_HANDLE;
-bgfx::UniformHandle u_lowerHemisphere = BGFX_INVALID_HANDLE;
-
-bgfx::VertexLayout screen_layout;
+// SourceCubemap image, reloaded when its path changes
+std::shared_ptr<Texture> equirect;
+std::string equirect_path;
 
 // Captured since the sky light was last enabled
 bool captured = false;
 
-}  // namespace
-
-// Oversized triangle covering the whole view
-static void SubmitFullscreen(bgfx::ViewId view_id,
-                             bgfx::ProgramHandle program) {
-  if (bgfx::getAvailTransientVertexBuffer(3, screen_layout) < 3)
-    return;
-
-  bgfx::TransientVertexBuffer tvb;
-  bgfx::allocTransientVertexBuffer(&tvb, 3, screen_layout);
-
-  const float triangle[6] = {-1.0f, -1.0f, 3.0f, -1.0f, -1.0f, 3.0f};
-  memcpy(tvb.data, triangle, sizeof(triangle));
-
-  bgfx::setVertexBuffer(0, &tvb);
-  bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A);
-  bgfx::submit(view_id, program);
+GraphicsRenderer& Graphics() {
+  return static_cast<GraphicsRenderer&>(EngineContext::Renderer());
 }
 
-static void Capture(Skybox& skybox, const SkyLightComponent& light) {
-  // Cube faces are sampled with a top left origin
-  const bool origin_bottom_left = bgfx::getCaps()->originBottomLeft;
-  const float flip_y = origin_bottom_left ? -1.0f : 1.0f;
+// Cube faces are sampled with a top left origin
+float FlipY() {
+  return bgfx::getCaps()->originBottomLeft ? -1.0f : 1.0f;
+}
 
+}  // namespace
+
+// Returns true once a valid image is loaded for the path
+static bool LoadEquirect(const std::string& path) {
+  if (path != equirect_path) {
+    equirect_path = path;
+    equirect = path.empty() ? nullptr
+                            : Texture::Load2D(path, TextureType::HDR);
+  }
+  return equirect && equirect->Valid();
+}
+
+// Sky radiance into the capture cube
+static void CaptureScene(Skybox& skybox) {
   // 90 degree square projection, one view per face
   float projection[16];
   bx::mtxProj(projection, 90.0f, 1.0f, 0.1f, 10.0f,
               bgfx::getCaps()->homogeneousDepth, bx::Handedness::Left);
-  if (origin_bottom_left) {
+  if (bgfx::getCaps()->originBottomLeft) {
     projection[5] = -projection[5];
   }
 
@@ -93,7 +90,6 @@ static void Capture(Skybox& skybox, const SkyLightComponent& light) {
       bx::Vec3(0.0f, 0.0f, -1.0f), bx::Vec3(0.0f, 0.0f, 1.0f),
       bx::Vec3(0.0f, 1.0f, 0.0f),  bx::Vec3(0.0f, 1.0f, 0.0f)};
 
-  // Sky radiance into the capture cube, mips generated after each face
   for (uint16_t face = 0; face < 6; ++face) {
     const bgfx::ViewId view_id = ViewID::SKY_CAPTURE_BASE + face;
 
@@ -106,20 +102,46 @@ static void Capture(Skybox& skybox, const SkyLightComponent& light) {
     skybox.Submit(view_id, view, projection, /*useInverseViewProj=*/true,
                   /*capture=*/true);
   }
+}
 
+// Equirect image into the capture cube
+static void CaptureCubemap(const SkyLightComponent& light) {
+  auto& graphics = Graphics();
+  const float source[4] = {bx::toRad(light.source_cubemap_angle_), 0.0f, 0.0f,
+                           0.0f};
+
+  for (uint16_t face = 0; face < 6; ++face) {
+    const bgfx::ViewId view_id = ViewID::SKY_CAPTURE_BASE + face;
+    const float params[4] = {float(face), FlipY(), 0.0f, float(CAPTURE_SIZE)};
+
+    bgfx::setViewRect(view_id, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE);
+    bgfx::setViewFrameBuffer(view_id, capture_fb[face]);
+    bgfx::setUniform(graphics.GetSkyLightCaptureUniform(), params);
+    bgfx::setUniform(graphics.GetSkyLightSourceUniform(), source);
+
+    // Wraps around horizontally, clamped at the poles
+    bgfx::setTexture(0, graphics.GetSkyEquirectSamplerUniform(),
+                     equirect->Handle(), BGFX_SAMPLER_V_CLAMP);
+    GlobalQuad::Submit(view_id, equirect_program);
+  }
+}
+
+// Diffuse SH and prefiltered reflections from the capture cube
+static void Filter(const SkyLightComponent& light) {
+  auto& graphics = Graphics();
   const float lower_hemisphere[4] = {
       light.lower_hemisphere_color_.r, light.lower_hemisphere_color_.g,
       light.lower_hemisphere_color_.b,
       light.lower_hemisphere_is_solid_color_ ? 1.0f : 0.0f};
 
   // Diffuse: project the capture onto SH
-  const float sh_params[4] = {0.0f, flip_y, 0.0f, float(CAPTURE_SIZE)};
+  const float sh_params[4] = {0.0f, FlipY(), 0.0f, float(CAPTURE_SIZE)};
   bgfx::setViewRect(ViewID::SKY_SH, 0, 0, SH_COEFFICIENTS, 1);
   bgfx::setViewFrameBuffer(ViewID::SKY_SH, sh_fb);
-  bgfx::setUniform(u_skyLightCapture, sh_params);
-  bgfx::setUniform(u_lowerHemisphere, lower_hemisphere);
-  bgfx::setTexture(0, s_skyCapture, capture_cube);
-  SubmitFullscreen(ViewID::SKY_SH, sh_program);
+  bgfx::setUniform(graphics.GetSkyLightCaptureUniform(), sh_params);
+  bgfx::setUniform(graphics.GetLowerHemisphereUniform(), lower_hemisphere);
+  bgfx::setTexture(0, graphics.GetSkyCaptureSamplerUniform(), capture_cube);
+  GlobalQuad::Submit(ViewID::SKY_SH, sh_program);
 
   // Specular: one roughness level per mip, from mirror to fully rough
   for (uint16_t mip = 0; mip < PREFILTER_MIPS; ++mip) {
@@ -129,15 +151,16 @@ static void Capture(Skybox& skybox, const SkyLightComponent& light) {
     for (uint16_t face = 0; face < 6; ++face) {
       const uint16_t index = mip * 6 + face;
       const bgfx::ViewId view_id = ViewID::SKY_PREFILTER_BASE + index;
-      const float params[4] = {float(face), flip_y, roughness,
+      const float params[4] = {float(face), FlipY(), roughness,
                                float(CAPTURE_SIZE)};
 
       bgfx::setViewRect(view_id, 0, 0, size, size);
       bgfx::setViewFrameBuffer(view_id, prefilter_fb[index]);
-      bgfx::setUniform(u_skyLightCapture, params);
-      bgfx::setUniform(u_lowerHemisphere, lower_hemisphere);
-      bgfx::setTexture(0, s_skyCapture, capture_cube);
-      SubmitFullscreen(view_id, prefilter_program);
+      bgfx::setUniform(graphics.GetSkyLightCaptureUniform(), params);
+      bgfx::setUniform(graphics.GetLowerHemisphereUniform(), lower_hemisphere);
+      bgfx::setTexture(0, graphics.GetSkyCaptureSamplerUniform(),
+                       capture_cube);
+      GlobalQuad::Submit(view_id, prefilter_program);
     }
   }
 }
@@ -176,24 +199,11 @@ void Create() {
       "sky_light_sh", "vs_sky_light.bin", "fs_sky_light_sh.bin");
   prefilter_program = EngineContext::Shader().LoadProgram(
       "sky_light_prefilter", "vs_sky_light.bin", "fs_sky_light_prefilter.bin");
+  equirect_program = EngineContext::Shader().LoadProgram(
+      "sky_light_equirect", "vs_sky_light.bin", "fs_sky_light_equirect.bin");
 
-  s_skyCapture = bgfx::createUniform("s_skyCapture", bgfx::UniformType::Sampler);
-  s_skySH = bgfx::createUniform("s_skySH", bgfx::UniformType::Sampler);
-  s_skyPrefilter =
-      bgfx::createUniform("s_skyPrefilter", bgfx::UniformType::Sampler);
-  u_skyLight = bgfx::createUniform("u_skyLight", bgfx::UniformType::Vec4);
-  u_skyLightParams =
-      bgfx::createUniform("u_skyLightParams", bgfx::UniformType::Vec4);
-  u_skyLightCapture =
-      bgfx::createUniform("u_skyLightCapture", bgfx::UniformType::Vec4);
-  u_lowerHemisphere =
-      bgfx::createUniform("u_lowerHemisphere", bgfx::UniformType::Vec4);
-
-  screen_layout.begin()
-      .add(bgfx::Attrib::Position, 2, bgfx::AttribType::Float)
-      .end();
-
-  if (!bgfx::isValid(sh_program) || !bgfx::isValid(prefilter_program)) {
+  if (!bgfx::isValid(sh_program) || !bgfx::isValid(prefilter_program) ||
+      !bgfx::isValid(equirect_program)) {
     Logger::getInstance().Log(LogLevel::Error,
                               "SkyLight: Failed to load capture shaders");
   }
@@ -217,28 +227,41 @@ void Destroy() {
   destroy(capture_cube);
   destroy(prefilter_cube);
 
-  destroy(s_skyCapture);
-  destroy(s_skySH);
-  destroy(s_skyPrefilter);
-  destroy(u_skyLight);
-  destroy(u_skyLightParams);
-  destroy(u_skyLightCapture);
-  destroy(u_lowerHemisphere);
+  equirect.reset();
+  equirect_path.clear();
 }
 
 void Update(Skybox& skybox, SkyLightComponent& light) {
-  if (light.real_time_capture_ || !captured || light.recapture_) {
-    Capture(skybox, light);
+  const bool source_cubemap =
+      light.source_type_ == SkyLightSource::SourceCubemap;
+
+  // Nothing to light with until a valid image is assigned
+  if (source_cubemap && !LoadEquirect(light.cubemap_path_)) {
+    Disable();
+    return;
+  }
+
+  // Real-time capture only applies to the scene, an image never changes
+  const bool real_time = light.real_time_capture_ && !source_cubemap;
+  if (real_time || !captured || light.recapture_) {
+    if (source_cubemap) {
+      CaptureCubemap(light);
+    } else {
+      CaptureScene(skybox);
+    }
+    Filter(light);
+
     captured = true;
     light.recapture_ = false;
   }
 
+  auto& graphics = Graphics();
   const float sky_light[4] = {light.color_.r * light.intensity_,
                               light.color_.g * light.intensity_,
                               light.color_.b * light.intensity_, 1.0f};
   const float params[4] = {float(PREFILTER_MIPS - 1), 0.0f, 0.0f, 0.0f};
-  bgfx::setUniform(u_skyLight, sky_light);
-  bgfx::setUniform(u_skyLightParams, params);
+  bgfx::setUniform(graphics.GetSkyLightUniform(), sky_light);
+  bgfx::setUniform(graphics.GetSkyLightParamsUniform(), params);
 }
 
 void Disable() {
@@ -246,12 +269,15 @@ void Disable() {
   captured = false;
 
   const float none[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-  bgfx::setUniform(u_skyLight, none);
+  bgfx::setUniform(Graphics().GetSkyLightUniform(), none);
 }
 
 void BindTextures() {
-  bgfx::setTexture(1, s_skySH, bgfx::getTexture(sh_fb));
-  bgfx::setTexture(2, s_skyPrefilter, prefilter_cube);
+  auto& graphics = Graphics();
+  bgfx::setTexture(1, graphics.GetSkySHSamplerUniform(),
+                   bgfx::getTexture(sh_fb));
+  bgfx::setTexture(2, graphics.GetSkyPrefilterSamplerUniform(),
+                   prefilter_cube);
 }
 
 }  // namespace SkyLight

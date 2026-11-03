@@ -96,7 +96,6 @@ private:
   bgfx::UniformHandle _scatterParamsUniform = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle _betaRUniform = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle _betaMUniform = BGFX_INVALID_HANDLE;
-  bgfx::UniformHandle _outputUniform = BGFX_INVALID_HANDLE;
 
   // Stored values/params
   SkyboxParams params_{};

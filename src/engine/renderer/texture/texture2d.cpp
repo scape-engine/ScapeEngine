@@ -1,6 +1,7 @@
 #include "texture2d.h"
 #include "engine/core/logger.h"
 
+#include <bx/math.h>
 #include <stb/stb_image.h>
 #include <unordered_map>
 #include <array>
@@ -91,10 +92,54 @@ Texture& Texture::operator=(Texture&& other) noexcept {
   return *this;
 }
 
+// Float images keep their full range (e.g. a bright sun in an HDRI). LDR
+// files load too, stb converts them to linear
+std::shared_ptr<Texture> Texture::LoadHDR(const std::filesystem::path& file,
+                                          uint64_t sampler_flags) {
+  int width{}, height{}, channels{};
+  float* pixels =
+      stbi_loadf(file.string().c_str(), &width, &height, &channels, 4);
+  if (!pixels) {
+    Logger::getInstance().Log(
+        LogLevel::Error, "Texture2D: failed to load '" + file.string() + '\'');
+    return {};
+  }
+
+  // RGBA16F: filterable on every backend, unlike RGBA32F
+  const uint32_t count = uint32_t(width) * uint32_t(height) * 4;
+  const bgfx::Memory* memory = bgfx::alloc(count * sizeof(uint16_t));
+  uint16_t* halfs = reinterpret_cast<uint16_t*>(memory->data);
+  for (uint32_t i = 0; i < count; ++i) {
+    halfs[i] = bx::halfFromFloat(pixels[i]);
+  }
+  stbi_image_free(pixels);
+
+  bgfx::TextureHandle handle = bgfx::createTexture2D(
+      uint16_t(width), uint16_t(height), false, 1,
+      bgfx::TextureFormat::RGBA16F, sampler_flags, memory);
+
+  if (!bgfx::isValid(handle)) {
+    Logger::getInstance().Log(
+        LogLevel::Error,
+        "bgfx::createTexture2D failed for '" + file.string() + '\'');
+    return {};
+  }
+
+  Logger::getInstance().Log(LogLevel::Debug, "Texture2D: uploaded HDR '" +
+                                                 file.filename().string() +
+                                                 '\'');
+
+  return std::shared_ptr<Texture>(new Texture(
+      handle, uint16_t(width), uint16_t(height), TextureType::HDR));
+}
+
 // Method to load 2D texture from disk, uploads it to GPU
 std::shared_ptr<Texture> Texture::Load2D(
     const std::filesystem::path& file, TextureType type,
     uint64_t sampler_flags /* = BGFX_SAMPLER_NONE */) {
+
+  if (type == TextureType::HDR)
+    return LoadHDR(file, sampler_flags);
 
   // Load image data using from disk using stb_image
   int width{}, height{}, channels{};

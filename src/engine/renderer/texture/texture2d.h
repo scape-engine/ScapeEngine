@@ -23,6 +23,7 @@ enum class TextureType {
   OCCLUSION,
   EMISSIVE,
   HEIGHT,
+  HDR,   // float image (e.g. .hdr), kept linear in RGBA16F
   EMPTY  // uninitialised or invalid
 };
 
@@ -48,6 +49,10 @@ public:
       uint64_t sampler_flags = BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
 
 private:
+  // Load2D for TextureType::HDR
+  static std::shared_ptr<Texture> LoadHDR(const std::filesystem::path& file,
+                                          uint64_t sampler_flags);
+
   // constructor used by Load2D; Creates textures with existing GPU handles
   Texture(bgfx::TextureHandle handle_param, uint16_t width_param,
           uint16_t height_param, TextureType type_param);

@@ -127,7 +127,17 @@ inline void WorldSettings() {
   // ═══════════════════════════════════════════════════════════
   if (ImGui::CollapsingHeader(ICON_FA_WAND_MAGIC_SPARKLES " Post-Processing")) {
     ImGui::Indent();
-    ImGui::TextDisabled("Coming soon...");
+
+    // Darkens the sky light only, direct lights are unaffected
+    // TODO: move to a post-process volume/profile (UE: Post Process Volume)
+    ImGui::SeparatorText("Ambient Occlusion");
+    auto& ao = Runtime::GetSceneViewPipeline().GetAmbientOcclusionSettings();
+    IMComponents::Checkbox("Enabled##ambient_occlusion", &ao.enabled);
+    ImGui::SliderInt("Samples", &ao.samples, 1, 64);
+    ImGui::SliderFloat("Radius", &ao.radius, 0.05f, 5.0f, "%.2f");
+    ImGui::SliderFloat("Bias", &ao.bias, 0.0f, 0.2f, "%.3f");
+    ImGui::SliderFloat("Power", &ao.power, 0.1f, 4.0f, "%.2f");
+
     ImGui::Unindent();
   }
 

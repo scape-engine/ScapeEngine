@@ -75,7 +75,7 @@ static float SmoothStepRange(float edge0, float edge1, float x) {
 }
 
 void Create() {
-  // TODO: Move this! Uniforms should be created in GraphicsRenderer
+  // TODO: move uniform ownership to GraphicsRenderer
   u_lightCounts = bgfx::createUniform("u_lightCounts", bgfx::UniformType::Vec4);
 
   u_dirLight_direction = bgfx::createUniform(

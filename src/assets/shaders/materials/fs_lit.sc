@@ -32,6 +32,11 @@ uniform vec4 u_skyLightParams;  // x = last prefiltered mip
 SAMPLER2D(s_skySH, 1);
 SAMPLERCUBE(s_skyPrefilter, 2);
 
+// Ambient occlusion of the sky light (screen space)
+uniform vec4 u_ambientOcclusion;  // x = 1 if enabled, yz = 1 / target size
+
+SAMPLER2D(s_ambientOcclusion, 3);
+
 // Light counts: x=dir, y=point, z=spot, w=unused
 uniform vec4 u_lightCounts;
 
@@ -173,6 +178,12 @@ vec3 EnvBRDFApprox(vec3 specularColor, float roughness, float NoV)
     return specularColor * AB.x + AB.y;
 }
 
+// Specular occlusion from ambient occlusion (Lagarde, Moving Frostbite to PBR)
+float SpecularOcclusion(float NoV, float ao, float roughness)
+{
+    return clamp(pow(NoV + ao, exp2(-16.0 * roughness - 1.0)) - 1.0 + ao, 0.0, 1.0);
+}
+
 //
 // MAIN
 //
@@ -204,9 +215,16 @@ void main()
         float NoV = max(dot(normal, viewDir), 0.0);
         float lod = roughness * u_skyLightParams.x;
 
-        vec3 skyDiffuse = SkyIrradiance(normal) * baseColor;
+        // Occlusion only darkens the sky light, direct lights are unaffected
+        float ao = 1.0;
+        if (u_ambientOcclusion.x > 0.5) {
+            ao = texture2D(s_ambientOcclusion, gl_FragCoord.xy * u_ambientOcclusion.yz).r;
+        }
+
+        vec3 skyDiffuse = SkyIrradiance(normal) * baseColor * ao;
         vec3 skySpecular = textureCubeLod(s_skyPrefilter, R, lod).rgb *
-                           EnvBRDFApprox(specularColor, roughness, NoV);
+                           EnvBRDFApprox(specularColor, roughness, NoV) *
+                           SpecularOcclusion(NoV, ao, roughness);
 
         result += (skyDiffuse + skySpecular) * u_skyLight.rgb;
     }

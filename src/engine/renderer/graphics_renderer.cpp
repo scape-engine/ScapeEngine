@@ -97,6 +97,51 @@ bool GraphicsRenderer::InitBgfx() {
   axis_z_color_uniform_ =
       bgfx::createUniform("u_axisColorZ", bgfx::UniformType::Vec4);
 
+  // Skybox: x = tonemap for display, y = draw sun disk (fs_skybox.sc)
+  sky_output_uniform_ =
+      bgfx::createUniform("u_skyOutput", bgfx::UniformType::Vec4);
+
+  // Sky light (sky_light.sh, sky_light_capture.sh, fs_lit.sc)
+  sky_light_uniform_ =
+      bgfx::createUniform("u_skyLight", bgfx::UniformType::Vec4);
+  sky_light_params_uniform_ =
+      bgfx::createUniform("u_skyLightParams", bgfx::UniformType::Vec4);
+  sky_light_capture_uniform_ =
+      bgfx::createUniform("u_skyLightCapture", bgfx::UniformType::Vec4);
+  sky_light_source_uniform_ =
+      bgfx::createUniform("u_skyLightSource", bgfx::UniformType::Vec4);
+  lower_hemisphere_uniform_ =
+      bgfx::createUniform("u_lowerHemisphere", bgfx::UniformType::Vec4);
+  sky_capture_sampler_ =
+      bgfx::createUniform("s_skyCapture", bgfx::UniformType::Sampler);
+  sky_equirect_sampler_ =
+      bgfx::createUniform("s_skyEquirect", bgfx::UniformType::Sampler);
+  sky_sh_sampler_ = bgfx::createUniform("s_skySH", bgfx::UniformType::Sampler);
+  sky_prefilter_sampler_ =
+      bgfx::createUniform("s_skyPrefilter", bgfx::UniformType::Sampler);
+
+  // Ambient occlusion (fs_ssao.sc, fs_ssao_blur.sc, fs_lit.sc)
+  ssao_kernel_uniform_ = bgfx::createUniform(
+      "u_ssaoKernel", bgfx::UniformType::Vec4, kSSAOKernelSize);
+  ssao_params_uniform_ =
+      bgfx::createUniform("u_ssaoParams", bgfx::UniformType::Vec4);
+  ssao_projection_uniform_ =
+      bgfx::createUniform("u_ssaoProjection", bgfx::UniformType::Vec4);
+  ssao_screen_uniform_ =
+      bgfx::createUniform("u_ssaoScreen", bgfx::UniformType::Vec4);
+  ssao_normals_sampler_ =
+      bgfx::createUniform("s_ssaoNormals", bgfx::UniformType::Sampler);
+  ssao_depth_sampler_ =
+      bgfx::createUniform("s_ssaoDepth", bgfx::UniformType::Sampler);
+  ssao_noise_sampler_ =
+      bgfx::createUniform("s_ssaoNoise", bgfx::UniformType::Sampler);
+  ssao_input_sampler_ =
+      bgfx::createUniform("s_ssaoInput", bgfx::UniformType::Sampler);
+  ambient_occlusion_uniform_ =
+      bgfx::createUniform("u_ambientOcclusion", bgfx::UniformType::Vec4);
+  ambient_occlusion_sampler_ =
+      bgfx::createUniform("s_ambientOcclusion", bgfx::UniformType::Sampler);
+
   ConfigureViews();
 
   auto backend = bgfx::getRendererType();
@@ -393,6 +438,20 @@ void GraphicsRenderer::Destroy() {
 
   if (bgfx::isValid(axis_z_color_uniform_))
     bgfx::destroy(axis_z_color_uniform_);
+
+  // Skybox, sky light and ambient occlusion
+  for (bgfx::UniformHandle handle :
+       {sky_output_uniform_, sky_light_uniform_, sky_light_params_uniform_,
+        sky_light_capture_uniform_, sky_light_source_uniform_,
+        lower_hemisphere_uniform_, sky_capture_sampler_, sky_equirect_sampler_,
+        sky_sh_sampler_, sky_prefilter_sampler_, ssao_kernel_uniform_,
+        ssao_params_uniform_, ssao_projection_uniform_, ssao_screen_uniform_,
+        ssao_normals_sampler_, ssao_depth_sampler_, ssao_noise_sampler_,
+        ssao_input_sampler_, ambient_occlusion_uniform_,
+        ambient_occlusion_sampler_}) {
+    if (bgfx::isValid(handle))
+      bgfx::destroy(handle);
+  }
 
   if (bgfx::isValid(white_texture_))
     bgfx::destroy(white_texture_);

@@ -39,6 +39,8 @@ add_files(
 	"renderer/gizmos/*.cpp",
 	"renderer/shadows/*.cpp",
 	"renderer/material/*.cpp",
+	"renderer/passes/*.cpp",
+	"renderer/primitives/*.cpp",
 
 	-- Math files
 	"math/noise/OpenSimplex2S.cpp",
@@ -93,6 +95,8 @@ add_headerfiles(
 	"renderer/gizmos/*.h",
 	"renderer/shadows/*.h",
 	"renderer/material/*.h",
+	"renderer/passes/*.h",
+	"renderer/primitives/*.h",
 
 	-- math files
 	"math/noise/stb_perlin.h",
@@ -220,7 +224,9 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		materials = "varying_materials.def.sc",
 		selection = "varying_default.def.sc",
 		gizmo = "varying_gizmo.def.sc",
-		sky_light = "varying_sky_light.def.sc",
+		sky_light = "varying_fullscreen.def.sc",
+		ssao = "varying_fullscreen.def.sc",
+		pre_pass = "varying_pre_pass.def.sc",
 	}
 
 	-- pick first key matching anywhere in relative path

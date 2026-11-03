@@ -25,6 +25,7 @@ void PreviewPipeline::Create() {
       Runtime::Shader()->LoadProgram("preview", "vs_gltf.bin", "fs_gltf.bin");
 
   // ! REMOVE THIS
+  // TODO: move uniform ownership to GraphicsRenderer (GetMeshColorUniform)
   u_mesh_color_ = bgfx::createUniform("u_meshColor", bgfx::UniformType::Vec4);
 
   if (!bgfx::isValid(preview_program_)) {

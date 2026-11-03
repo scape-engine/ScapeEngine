@@ -6,6 +6,8 @@
 
 #include "engine/ecs/ecs_collection.h"
 #include "engine/renderer/frame_graph.h"
+#include "engine/renderer/passes/pre_pass.h"
+#include "engine/renderer/passes/ssao_pass.h"
 #include "engine/transform/transform_system.h"
 
 // Reference grid appearance (world units)
@@ -66,6 +68,12 @@ public:
     show_selection_outline_ = enabled;
   }
   void SetUnlit(bool enabled) { unlit_ = enabled; }
+
+  // TODO: move to a post-process volume/profile (UE: Post Process Volume)
+  AmbientOcclusionSettings& GetAmbientOcclusionSettings() {
+    return ambient_occlusion_;
+  }
+
   // Settings
   bool wireframe_;
   bool show_skybox_;
@@ -81,10 +89,10 @@ public:
 
 private:
   // Creates all passes
-  /* void CreatePasses();
+  void CreatePasses();
 
   // Destroys all passes
-  void DestroyPasses();*/
+  void DestroyPasses();
 
   // Forward pass for scene view
   // SceneViewForwardPass scene_view_forward_pass_;
@@ -93,6 +101,8 @@ private:
   void RegisterNodes();
 
   void RenderReflectionNode(const Node::Context& context);
+  void RenderPrePassNode(const Node::Context& context);
+  void RenderSSAONode(const Node::Context& context);
   void RenderForwardNode(const Node::Context& context);
   void RenderSelectionOutlineNode(const Node::Context& context);
   void RenderGizmosNode(const Node::Context& context);
@@ -142,6 +152,11 @@ private:
 
   // Scene icon settings
   BillboardParams billboard_params_;
+
+  // Screen space ambient occlusion of the sky light
+  PrePass pre_pass_;
+  SSAOPass ssao_pass_;
+  AmbientOcclusionSettings ambient_occlusion_;
 };
 
 #endif  // SCENE_VIEW_PIPELINE_H

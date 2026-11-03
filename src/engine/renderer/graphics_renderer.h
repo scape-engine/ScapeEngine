@@ -102,6 +102,71 @@ public:
     return axis_z_color_uniform_;
   }
 
+  // Skybox
+  bgfx::UniformHandle GetSkyOutputUniform() const {
+    return sky_output_uniform_;
+  }
+
+  // Sky light
+  bgfx::UniformHandle GetSkyLightUniform() const { return sky_light_uniform_; }
+  bgfx::UniformHandle GetSkyLightParamsUniform() const {
+    return sky_light_params_uniform_;
+  }
+  bgfx::UniformHandle GetSkyLightCaptureUniform() const {
+    return sky_light_capture_uniform_;
+  }
+  bgfx::UniformHandle GetSkyLightSourceUniform() const {
+    return sky_light_source_uniform_;
+  }
+  bgfx::UniformHandle GetLowerHemisphereUniform() const {
+    return lower_hemisphere_uniform_;
+  }
+  bgfx::UniformHandle GetSkyCaptureSamplerUniform() const {
+    return sky_capture_sampler_;
+  }
+  bgfx::UniformHandle GetSkyEquirectSamplerUniform() const {
+    return sky_equirect_sampler_;
+  }
+  bgfx::UniformHandle GetSkySHSamplerUniform() const {
+    return sky_sh_sampler_;
+  }
+  bgfx::UniformHandle GetSkyPrefilterSamplerUniform() const {
+    return sky_prefilter_sampler_;
+  }
+
+  // Ambient occlusion (must match fs_ssao.sc)
+  static constexpr uint16_t kSSAOKernelSize = 64;
+  bgfx::UniformHandle GetSSAOKernelUniform() const {
+    return ssao_kernel_uniform_;
+  }
+  bgfx::UniformHandle GetSSAOParamsUniform() const {
+    return ssao_params_uniform_;
+  }
+  bgfx::UniformHandle GetSSAOProjectionUniform() const {
+    return ssao_projection_uniform_;
+  }
+  bgfx::UniformHandle GetSSAOScreenUniform() const {
+    return ssao_screen_uniform_;
+  }
+  bgfx::UniformHandle GetSSAONormalsSamplerUniform() const {
+    return ssao_normals_sampler_;
+  }
+  bgfx::UniformHandle GetSSAODepthSamplerUniform() const {
+    return ssao_depth_sampler_;
+  }
+  bgfx::UniformHandle GetSSAONoiseSamplerUniform() const {
+    return ssao_noise_sampler_;
+  }
+  bgfx::UniformHandle GetSSAOInputSamplerUniform() const {
+    return ssao_input_sampler_;
+  }
+  bgfx::UniformHandle GetAmbientOcclusionUniform() const {
+    return ambient_occlusion_uniform_;
+  }
+  bgfx::UniformHandle GetAmbientOcclusionSamplerUniform() const {
+    return ambient_occlusion_sampler_;
+  }
+
 private:
   SDL_Window* window_;
   mutable std::mutex canvas_mutex_;
@@ -140,6 +205,32 @@ private:
   bgfx::UniformHandle grid_color_uniform_ = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle axis_x_color_uniform_ = BGFX_INVALID_HANDLE;
   bgfx::UniformHandle axis_z_color_uniform_ = BGFX_INVALID_HANDLE;
+
+  // Skybox
+  bgfx::UniformHandle sky_output_uniform_ = BGFX_INVALID_HANDLE;
+
+  // Sky light
+  bgfx::UniformHandle sky_light_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_light_params_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_light_capture_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_light_source_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle lower_hemisphere_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_capture_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_equirect_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_sh_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle sky_prefilter_sampler_ = BGFX_INVALID_HANDLE;
+
+  // Ambient occlusion
+  bgfx::UniformHandle ssao_kernel_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_params_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_projection_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_screen_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_normals_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_depth_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_noise_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ssao_input_sampler_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ambient_occlusion_uniform_ = BGFX_INVALID_HANDLE;
+  bgfx::UniformHandle ambient_occlusion_sampler_ = BGFX_INVALID_HANDLE;
 
   ImTextureID scene_tex_id_{0};
 
