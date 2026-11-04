@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
 
 #include "imgui_internal.h"
 
 #include "engine/renderer/icons/icon_loader.h"
+#include "engine/renderer/primitives/shapes.h"
 #include "engine/transform/transform.h"
 
 #include "editor/events.h"
@@ -31,9 +33,6 @@ HierarchyPanel::HierarchyPanel()
     : search_buffer(""),
       popup_menu_used(false),
       current_hierarchy(),
-      selected_items(),
-      last_selected(nullptr),
-      last_hovered(nullptr),
       dragging_hierarchy(false),
       hierarchy_dirty_(true) {
 
@@ -46,12 +45,23 @@ HierarchyPanel::HierarchyPanel()
                               .connect<&HierarchyPanel::OnEntityChanged>(this);
   on_destroy_connection_ = reg.on_destroy<TransformComponent>()
                                .connect<&HierarchyPanel::OnEntityChanged>(this);
+  on_camera_create_connection_ =
+      reg.on_construct<CameraComponent>()
+          .connect<&HierarchyPanel::OnEntityChanged>(this);
+  on_camera_destroy_connection_ =
+      reg.on_destroy<CameraComponent>()
+          .connect<&HierarchyPanel::OnEntityChanged>(this);
 }
 
 //=============================================================================
 // RENDER
 //=============================================================================
 void HierarchyPanel::Render() {
+  if (hierarchy_dirty_) {
+    BuildSceneHierarchy();
+    hierarchy_dirty_ = false;
+  }
+
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   GUIUtils::HideDockTabBar();
   ImGui::Begin("Hierarchy", nullptr, EditorFlag::fixed);
@@ -61,10 +71,20 @@ void HierarchyPanel::Render() {
     ImDrawList& draw_list = *ImGui::GetWindowDrawList();
     RenderHeader(draw_list);
     RenderHierarchy(draw_list);
+    HandleShortcuts();
     RenderDraggedItem();
     PerformAutoScroll();
   }
   ImGui::End();
+
+  // Apply the queued entity changes now that the tree is no longer in use
+  if (!pending_.empty()) {
+    const auto actions = std::move(pending_);
+    pending_.clear();
+    for (const auto& action : actions)
+      action();
+    hierarchy_dirty_ = true;
+  }
 }
 
 void HierarchyPanel::RenderSearch(ImDrawList& draw_list, ImVec2 position,
@@ -132,22 +152,17 @@ void HierarchyPanel::RenderActions(ImDrawList& draw_list, ImVec2 position,
 }
 
 void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
-  if (hierarchy_dirty_) {
-    BuildSceneHierarchy();
-    hierarchy_dirty_ = false;
+  // Follow selections made elsewhere (viewport picking, inspector)
+  const Entity active = Runtime::State().selected_entity;
+  if (active == entt::null) {
+    selected_.clear();
+  } else if (!selected_.count(active)) {
+    selected_ = {active};
+    last_selected_ = active;
   }
 
-  // FOCUS SHORTCUT: F; once per frame
-  if (GUIUtils::WindowFocused() && !ImGui::GetIO().WantTextInput &&
-      ImGui::IsKeyChordPressed(ImGuiKey_F)) {
-    const Entity selected = Runtime::State().selected_entity;
-    if (selected != entt::null &&
-        ECS::Main().Has<TransformComponent>(selected)) {
-      EditorEvents::focus_entity(selected);
-      Viewport::PostAction(
-          "Focus: " + ECS::Main().Get<TransformComponent>(selected).name_, "F");
-    }
-  }
+  hovered_ = entt::null;
+  drawn_rows_.clear();
 
   ImGui::PushFont(EditorStyles::GetFonts().p);
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -173,6 +188,8 @@ void HierarchyPanel::RenderHierarchy(ImDrawList& draw_list) {
 
   ImGui::PopStyleVar();
   ImGui::PopFont();
+
+  std::swap(visible_rows_, drawn_rows_);
 }
 
 void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
@@ -183,10 +200,16 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
   const bool hovered =
       ImGui::IsMouseHoveringRect(rect_min, rect_max) && !popup_menu_used;
   if (hovered)
-    draw_list.AddRectFilled(rect_min, rect_max, EditorColor::hover_overlay,
+    draw_list.AddRectFilled(rect_min, rect_max,
+                            dragging_hierarchy ? EditorColor::accent_deep
+                                               : EditorColor::hover_overlay,
                             2.0f);
   if (hovered && ImGui::IsMouseClicked(0))
     root_expanded_ = !root_expanded_;
+
+  // Dropping on the scene row moves the entities to the root
+  if (hovered && dragging_hierarchy && !ImGui::IsMouseDown(0))
+    MoveEntities(DraggedEntities(), entt::null);
 
   const float x0 = rect_min.x + row_pad_x_;
   DrawChevron(draw_list, ImVec2(x0, rect_min.y), root_expanded_, true,
@@ -210,8 +233,10 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   ImGuiIO& io = ImGui::GetIO();
 
   // EVALUATE
-  const uint32_t item_id = item.entity.Id();
-  const bool selected = selected_items.count(item_id) > 0;
+  const Entity entity = item.entity.Handle();
+  const bool selected = selected_.count(entity) > 0;
+  const bool expanded = expanded_.count(entity) > 0;
+  const bool renaming = renaming_ == entity;
   const bool has_children = item.children.size() > 0;
   const float x_offset = indentation * indent_;
 
@@ -235,7 +260,8 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   const bool dragging_this = hovered && ImGui::IsMouseDragging(0);
 
   if (hovered)
-    last_hovered = &item;
+    hovered_ = entity;
+  drawn_rows_.push_back(entity);
 
   // DROP TYPE (unchanged)
   DropType drop_type = NO_DROP;
@@ -308,10 +334,14 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   // CHEVRON (only when there are children)
   bool chevron_clicked = false;
   if (has_children) {
-    chevron_clicked = DrawChevron(draw_list, caret_min, item.expanded, true,
-                                  chevron_color);
-    if (chevron_clicked || wheel_clicked)
-      item.expanded = !item.expanded;
+    chevron_clicked =
+        DrawChevron(draw_list, caret_min, expanded, true, chevron_color);
+    if (chevron_clicked || wheel_clicked) {
+      if (expanded)
+        expanded_.erase(entity);
+      else
+        expanded_.insert(entity);
+    }
   }
 
   // TYPE ICON + NAME
@@ -322,55 +352,48 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   const ImVec2 text_pos =
       ImVec2(caret_min.x + caret_slot_ + icon_slot_ + text_gap_,
              rect_min.y + (row_height_ - ImGui::GetFontSize()) * 0.5f);
-  draw_list.AddText(text_pos, text_color, item.entity.Name().c_str());
+  if (renaming)
+    RenderRename(ImVec2(text_pos.x, rect_min.y),
+                 rect_max.x - row_pad_x_ - toggle_slot_ * 3 - text_pos.x);
+  else
+    draw_list.AddText(text_pos, text_color, item.entity.Name().c_str());
 
   // SELECTION (unchanged logic; ignores clicks consumed by chevron/icons)
   const bool clicked =
       hovered && ImGui::IsMouseClicked(0) && !chevron_clicked && !icon_clicked;
   if (clicked) {
-    auto select = [this](HierarchyItem& _item) -> void {
-      selected_items[_item.entity.Id()] = &_item;
-      Runtime::State().SelectEntity(_item.entity.Handle());
-    };
-
     if (io.KeyCtrl) {
-      if (selected_items.find(item_id) == selected_items.end())
-        select(item);
-      else
-        selected_items.erase(item_id);
-    } else if (io.KeyShift) {
-      if (!last_selected)
-        last_selected = &item;
-      auto start = std::find(current_hierarchy.begin(), current_hierarchy.end(),
-                             *last_selected);
-      auto end =
-          std::find(current_hierarchy.begin(), current_hierarchy.end(), item);
-      if (start != current_hierarchy.end() && end != current_hierarchy.end()) {
-        if (start <= end) {
-          for (auto i = start; i != end; ++i)
-            select(*i);
-        } else {
-          for (auto i = start; i != end; --i)
-            select(*i);
-        }
-        select(*end);
-      }
-    } else {
-      if (selected_items.size() > 1) {
-        if (selected_items.find(item_id) == selected_items.end()) {
-          selected_items.clear();
-          select(item);
-        }
+      if (!selected) {
+        Select(entity, true);
       } else {
-        selected_items.clear();
-        select(item);
+        selected_.erase(entity);
+        // Hand the inspector another selected entity, or none
+        if (Runtime::State().selected_entity == entity) {
+          if (selected_.empty())
+            Runtime::State().ClearSelection();
+          else
+            Runtime::State().SelectEntity(*selected_.begin());
+        }
       }
+    } else if (io.KeyShift && last_selected_ != entt::null) {
+      // Range over last frame's rows, in the order they were drawn
+      auto from = std::find(visible_rows_.begin(), visible_rows_.end(),
+                            last_selected_);
+      auto to = std::find(visible_rows_.begin(), visible_rows_.end(), entity);
+      if (from != visible_rows_.end() && to != visible_rows_.end()) {
+        if (from > to)
+          std::swap(from, to);
+        selected_.insert(from, to + 1);
+      }
+      Runtime::State().SelectEntity(entity);
+    } else if (!selected || selected_.size() == 1) {
+      // Clicking inside a multi-selection keeps it, so it can be dragged
+      Select(entity, false);
     }
-    last_selected = &item;
   }
 
   // FOCUS CAMERA
-  if (double_clicked) {
+  if (double_clicked && !renaming) {
     EditorEvents::focus_entity(item.entity.Handle());
     Viewport::PostAction("Focus: " + item.entity.Name());
   }
@@ -379,25 +402,22 @@ void HierarchyPanel::RenderItem(ImDrawList& draw_list, HierarchyItem& item,
   ImGui::Dummy(ImVec2(0.0f, row_height_));
 
   // START DRAG (unchanged)
-  if (dragging_this && !dragging_hierarchy && selected)
+  if (dragging_this && !dragging_hierarchy && selected && !renaming)
     dragging_hierarchy = true;
 
-  // DROP (unchanged TODOs)
+  // DROP: onto the row makes a child, above/below places next to it
   if (dragging_hierarchy && !ImGui::IsMouseDown(0) && drop_type != NO_DROP) {
-    switch (drop_type) {
-      case DROP_ITEM: /* TODO */
-        break;
-      case MOVE_ITEM_UP: /* TODO */
-        break;
-      case MOVE_ITEM_DOWN: /* TODO */
-        break;
-      default:
-        break;
+    if (drop_type == DROP_ITEM) {
+      MoveEntities(DraggedEntities(), entity);
+      expanded_.insert(entity);
+    } else {
+      MoveEntities(DraggedEntities(), item.entity.Transform().parent_, entity,
+                   drop_type == MOVE_ITEM_DOWN);
     }
   }
 
   // CHILDREN (auto-expanded while searching)
-  if (has_children && (item.expanded || Searching())) {
+  if (has_children && (expanded || Searching())) {
     const float children_top = ImGui::GetCursorScreenPos().y;
     float last_row_center = children_top;
     for (auto& child : item.children) {
@@ -533,11 +553,13 @@ void HierarchyPanel::RenderDraggedItem() {
   ImDrawList* fg = ImGui::GetForegroundDrawList();
   ImVec2 pos = ImGui::GetMousePos() + ImVec2(12.0f, 12.0f);
 
-  size_t n_selected = selected_items.size();
+  size_t n_selected = selected_.size();
+  auto& world = ECS::Main();
   std::string text =
       n_selected > 1 ? std::to_string(n_selected) + " selected"
-                     : (last_selected ? "Moving " + last_selected->entity.Name()
-                                      : "Moving");
+      : world.Has<TransformComponent>(last_selected_)
+          ? "Moving " + world.Get<TransformComponent>(last_selected_).name_
+          : "Moving";
 
   std::string label = std::string(ICON_FA_LEFT_LONG) + "   " + text;
 
@@ -554,74 +576,98 @@ void HierarchyPanel::RenderPopupMenu() {
   if (PopupMenu::Begin()) {
     popup_menu_used = true;
 
-    if (last_hovered) {
-      if (PopupMenu::Item(ICON_FA_TRASH, "Delete")) {
-        // TODO: Handle delete
-      }
+    // The menu acts on the row it opened over (none from + or empty space);
+    // right-clicking an unselected row selects it first
+    if (ImGui::IsWindowAppearing()) {
+      popup_target_ = hovered_;
+      if (hovered_ != entt::null && !selected_.count(hovered_))
+        Select(hovered_, false);
+    }
 
-      if (PopupMenu::Item(ICON_FA_COPY, "Duplicate")) {
-        // TODO: Handle duplicate
-      }
-
-      if (PopupMenu::Item(ICON_FA_PENCIL, "Rename")) {
-        // TODO: Handle rename
-      }
+    if (popup_target_ != entt::null) {
+      if (PopupMenu::Item(ICON_FA_TRASH, "Delete"))
+        DeleteSelected();
+      if (PopupMenu::Item(ICON_FA_COPY, "Duplicate"))
+        DuplicateSelected();
+      if (PopupMenu::Item(ICON_FA_PENCIL, "Rename"))
+        StartRename(popup_target_);
 
       PopupMenu::Separator();
     }
 
-    if (PopupMenu::Item(ICON_FA_PLUS, "Empty Entity")) {
-      // TODO: Handle empty entity
-    }
+    // New entities go under the row the menu opened over
+    if (PopupMenu::Item(ICON_FA_PLUS, "Empty Entity"))
+      CreateEntity("Entity");
 
-    if (PopupMenu::Item(ICON_FA_CAMERA, "Camera")) {
-      // TODO: Handle camera
-    }
+    if (PopupMenu::Item(ICON_FA_CAMERA, "Camera"))
+      CreateEntity("Camera",
+                   [](Entity e) { ECS::Main().Add<CameraComponent>(e); });
 
+    // Each shape's mesh is created once and shared by its entities
     if (PopupMenu::Menu(ICON_FA_CUBE, "3D Primitives")) {
-      if (PopupMenu::ItemLight("Cube")) { /* TODO: Handle cube */
-      }
-      if (PopupMenu::ItemLight("Sphere")) { /* TODO: Handle sphere */
-      }
-      if (PopupMenu::ItemLight("Capsule")) { /* TODO: Handle capsule */
-      }
-      if (PopupMenu::ItemLight("Cylinder")) { /* TODO: Handle cylinder */
-      }
-      if (PopupMenu::ItemLight("Pyramid")) { /* TODO: Handle pyramid */
-      }
-      if (PopupMenu::ItemLight("Plane")) { /* TODO: Handle plane */
-      }
+      if (PopupMenu::ItemLight("Cube"))
+        CreateEntity("Cube", [](Entity e) {
+          static const Mesh* mesh = Shapes::CreateCube();
+          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+        });
+      if (PopupMenu::ItemLight("Sphere"))
+        CreateEntity("Sphere", [](Entity e) {
+          static const Mesh* mesh = Shapes::CreateSphere();
+          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+        });
+      if (PopupMenu::ItemLight("Capsule"))
+        CreateEntity("Capsule", [](Entity e) {
+          static const Mesh* mesh = Shapes::CreateCapsule();
+          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+        });
+      if (PopupMenu::ItemLight("Cylinder"))
+        CreateEntity("Cylinder", [](Entity e) {
+          static const Mesh* mesh = Shapes::CreateCylinder();
+          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+        });
+      if (PopupMenu::ItemLight("Pyramid"))
+        CreateEntity("Pyramid", [](Entity e) {
+          static const Mesh* mesh = Shapes::CreatePyramid();
+          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+        });
+      if (PopupMenu::ItemLight("Plane"))
+        CreateEntity("Plane", [](Entity e) {
+          static const Mesh* mesh = Shapes::CreatePlane();
+          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+        });
 
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_LIGHTBULB, "Light")) {
-      if (PopupMenu::ItemLight("Directional Light")) { /* TODO */
-      }
-      if (PopupMenu::ItemLight("Point Light")) { /* TODO */
-      }
-      if (PopupMenu::ItemLight("Spotlight")) { /* TODO */
-      }
+      if (PopupMenu::ItemLight("Directional Light"))
+        CreateEntity("Directional Light", [](Entity e) {
+          ECS::Main().Add<DirectionalLightComponent>(e);
+        });
+      if (PopupMenu::ItemLight("Point Light"))
+        CreateEntity("Point Light", [](Entity e) {
+          ECS::Main().Add<PointLightComponent>(e);
+        });
+      if (PopupMenu::ItemLight("Spotlight"))
+        CreateEntity("Spotlight",
+                     [](Entity e) { ECS::Main().Add<SpotlightComponent>(e); });
 
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_VOLUME_HIGH, "Audio")) {
-      if (PopupMenu::ItemLight("Audio Source")) { /* TODO */
+      if (PopupMenu::ItemLight("Audio Source")) { /* TODO: Handle audio source */
       }
 
       PopupMenu::EndMenu();
     }
 
     if (PopupMenu::Menu(ICON_FA_DIAGRAM_PROJECT, "PCG")) {
-      if (PopupMenu::ItemLight("PCG Graph")) {
-        auto& world = ECS::Main();
-        auto [entity, transform] = world.CreateEntity("PCG Graph");
-
-        world.Add<VolumeComponent>(entity);
-        // ? MeshRendererComponent should be added later when generator produces
-        // geometry
-      }
+      // ? MeshRendererComponent should be added later when generator produces
+      // geometry
+      if (PopupMenu::ItemLight("PCG Graph"))
+        CreateEntity("PCG Graph",
+                     [](Entity e) { ECS::Main().Add<VolumeComponent>(e); });
 
       PopupMenu::EndMenu();
     }
@@ -629,30 +675,232 @@ void HierarchyPanel::RenderPopupMenu() {
     PopupMenu::End();
   } else {
     popup_menu_used = false;
-    last_hovered = nullptr;
+    popup_target_ = entt::null;
   }
 
   PopupMenu::Pop();
 }
 
+void HierarchyPanel::RenderRename(const ImVec2& position, float width) {
+  const ImVec2 cursor = ImGui::GetCursorScreenPos();
+  const float frame_height = ImGui::GetFontSize() + 2.0f;
+  ImGui::SetCursorScreenPos(ImVec2(
+      position.x - 2.0f, position.y + (row_height_ - frame_height) * 0.5f));
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2.0f, 1.0f));
+  ImGui::SetNextItemWidth(std::max(width, 40.0f));
+
+  if (rename_focus_) {
+    ImGui::SetKeyboardFocusHere();
+    rename_focus_ = false;
+  }
+  const bool entered = ImGui::InputText(
+      "##Rename", rename_buffer_, sizeof(rename_buffer_),
+      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+  const bool done = entered || ImGui::IsItemDeactivated();
+
+  ImGui::PopStyleVar();
+  ImGui::SetCursorScreenPos(cursor);
+
+  if (!done)
+    return;
+
+  // Enter or clicking away keeps the name, Esc cancels
+  if (!ImGui::IsKeyPressed(ImGuiKey_Escape) && rename_buffer_[0] != '\0') {
+    const Entity entity = renaming_;
+    const std::string name = rename_buffer_;
+    Defer([entity, name] {
+      if (ECS::Main().Has<TransformComponent>(entity))
+        ECS::Main().Get<TransformComponent>(entity).name_ = name;
+    });
+  }
+  renaming_ = entt::null;
+}
+
+//=============================================================================
+// ENTITY ACTIONS
+//=============================================================================
+void HierarchyPanel::HandleShortcuts() {
+  if (!GUIUtils::WindowFocused() || ImGui::GetIO().WantTextInput)
+    return;
+
+  if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
+    DeleteSelected();
+  if (ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_D))
+    DuplicateSelected();
+  if (ImGui::IsKeyPressed(ImGuiKey_F2, false) && last_selected_ != entt::null)
+    StartRename(last_selected_);
+
+  // FOCUS: F
+  if (ImGui::IsKeyChordPressed(ImGuiKey_F)) {
+    const Entity selected = Runtime::State().selected_entity;
+    if (selected != entt::null &&
+        ECS::Main().Has<TransformComponent>(selected)) {
+      EditorEvents::focus_entity(selected);
+      Viewport::PostAction(
+          "Focus: " + ECS::Main().Get<TransformComponent>(selected).name_, "F");
+    }
+  }
+}
+
+void HierarchyPanel::CreateEntity(const std::string& name,
+                                  std::function<void(Entity)> setup) {
+  const Entity parent = popup_target_;
+  Defer([this, name, setup, parent] {
+    auto& world = ECS::Main();
+    const bool has_parent = world.Has<TransformComponent>(parent);
+    const Entity entity = has_parent
+                              ? std::get<0>(world.CreateEntity(name, parent))
+                              : std::get<0>(world.CreateEntity(name));
+    if (setup)
+      setup(entity);
+    if (has_parent)
+      expanded_.insert(parent);
+    Select(entity, false);
+    StartRename(entity);
+  });
+}
+
+void HierarchyPanel::DeleteSelected() {
+  const std::vector<Entity> targets = DraggedEntities();
+  Defer([this, targets] {
+    auto& world = ECS::Main();
+    for (Entity entity : targets) {
+      if (!world.Has<TransformComponent>(entity))
+        continue;
+      if (world.IsAncestorOf(entity, Runtime::State().selected_entity))
+        Runtime::State().ClearSelection();
+      world.DestroyEntity(entity);
+    }
+    selected_.clear();
+    last_selected_ = entt::null;
+  });
+}
+
+void HierarchyPanel::DuplicateSelected() {
+  const std::vector<Entity> targets = DraggedEntities();
+  Defer([this, targets] {
+    auto& world = ECS::Main();
+    selected_.clear();
+    for (Entity entity : targets) {
+      const Entity copy = world.DuplicateEntity(entity);
+      if (copy == entt::null)
+        continue;
+
+      // Place the copy right below the original
+      if (Transform::HasParent(world.Get<TransformComponent>(entity))) {
+        world.MoveNextTo(copy, entity, true);
+      } else {
+        auto it = std::find(root_order_.begin(), root_order_.end(), entity);
+        root_order_.insert(it == root_order_.end() ? it : it + 1, copy);
+      }
+      Select(copy, true);
+    }
+  });
+}
+
+void HierarchyPanel::StartRename(Entity entity) {
+  if (!ECS::Main().Has<TransformComponent>(entity))
+    return;
+  renaming_ = entity;
+  rename_focus_ = true;
+  const std::string& name = ECS::Main().Get<TransformComponent>(entity).name_;
+  std::snprintf(rename_buffer_, sizeof(rename_buffer_), "%s", name.c_str());
+}
+
+void HierarchyPanel::Select(Entity entity, bool additive) {
+  if (!additive)
+    selected_.clear();
+  selected_.insert(entity);
+  last_selected_ = entity;
+  Runtime::State().SelectEntity(entity);
+}
+
+std::vector<Entity> HierarchyPanel::DraggedEntities() const {
+  auto& world = ECS::Main();
+  auto parent_selected = [&](Entity entity) {
+    Entity parent = world.Get<TransformComponent>(entity).parent_;
+    for (; world.Has<TransformComponent>(parent);
+         parent = world.Get<TransformComponent>(parent).parent_) {
+      if (selected_.count(parent))
+        return true;
+    }
+    return false;
+  };
+
+  // Tree order; a selected row hidden by a collapsed parent moves with it
+  std::vector<Entity> entities;
+  for (Entity entity : visible_rows_) {
+    if (selected_.count(entity) && world.Has<TransformComponent>(entity) &&
+        !parent_selected(entity))
+      entities.push_back(entity);
+  }
+  return entities;
+}
+
+void HierarchyPanel::MoveEntities(const std::vector<Entity>& entities,
+                                  Entity parent, Entity sibling, bool after) {
+  Defer([this, entities, parent, sibling, after]() mutable {
+    auto& world = ECS::Main();
+    for (Entity entity : entities) {
+      // No dropping an entity into itself or its own subtree
+      if (entity == sibling || world.IsAncestorOf(entity, parent))
+        continue;
+      // Keep the entity where it is in the world under its new parent
+      TransformComponent& transform = world.Get<TransformComponent>(entity);
+      if (transform.parent_ != parent) {
+        const glm::mat4 model = Transform::GetModel(transform, Space::WORLD);
+        if (parent == entt::null)
+          world.RemoveParent(entity);
+        else
+          world.SetParent(entity, parent);
+        Transform::SetModel(transform, model, Space::WORLD);
+      }
+      if (sibling == entt::null)
+        continue;
+
+      if (parent != entt::null) {
+        world.MoveNextTo(entity, sibling, after);
+      } else {
+        root_order_.erase(
+            std::remove(root_order_.begin(), root_order_.end(), entity),
+            root_order_.end());
+        auto it = std::find(root_order_.begin(), root_order_.end(), sibling);
+        if (after && it != root_order_.end())
+          ++it;
+        root_order_.insert(it, entity);
+      }
+      // Each next entity goes below the previous one, keeping their order
+      if (after)
+        sibling = entity;
+    }
+  });
+}
+
 void HierarchyPanel::BuildSceneHierarchy() {
-  // Clear current hierarchy before rebuilding
   current_hierarchy.clear();
 
-  // Get all transforms
-  auto transforms = ECS::Main().View<TransformComponent>();
-  std::vector<std::pair<entt::entity, TransformComponent*>> transform_list;
+  auto& world = ECS::Main();
+  auto is_root = [&](Entity entity) {
+    return world.Has<TransformComponent>(entity) &&
+           !Transform::HasParent(world.Get<TransformComponent>(entity));
+  };
 
-  // Fill transform list for reversed iteration
-  for (auto [entity, transform] : transforms.each()) {
-    transform_list.push_back({entity, &transform});
+  // Keep the known order; drop entities that were destroyed or got a parent
+  root_order_.erase(std::remove_if(root_order_.begin(), root_order_.end(),
+                                   [&](Entity e) { return !is_root(e); }),
+                    root_order_.end());
+
+  // New roots go last, oldest first (views iterate newest first)
+  const std::unordered_set<Entity> known(root_order_.begin(),
+                                         root_order_.end());
+  std::vector<Entity> found;
+  for (Entity entity : world.View<TransformComponent>()) {
+    if (is_root(entity) && !known.count(entity))
+      found.push_back(entity);
   }
+  root_order_.insert(root_order_.end(), found.rbegin(), found.rend());
 
-  // Recursively build root entities in reverse
-  for (auto it = transform_list.rbegin(); it != transform_list.rend(); ++it) {
-    auto& [entity, transform] = *it;
-    if (Transform::HasParent(*transform))
-      continue;
+  for (Entity entity : root_order_) {
     HierarchyItem item = HierarchyItem(EntityContainer(entity));
     BuildHierarchyChildren(item);
     current_hierarchy.push_back(item);

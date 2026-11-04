@@ -29,9 +29,20 @@ public:
   std::tuple<Entity, TransformComponent&> CreateEntity(const std::string& name,
                                                        Entity parent);
 
+  // Destroys the entity and its whole subtree
+  void DestroyEntity(Entity entity);
+  // Copies every component of the entity and its subtree; the copy gets the
+  // same parent. Returns the copy, or entt::null for an invalid entity
+  Entity DuplicateEntity(Entity entity);
+
   /* ---------- hierarchy ---------- */
   void SetParent(Entity child, Entity parent);
   void RemoveParent(Entity child);
+  // Moves the entity among its parent's children, right before (or after)
+  // the given sibling. Both must share a parent
+  void MoveNextTo(Entity entity, Entity sibling, bool after);
+  // True if ancestor is the entity itself or one of its parents
+  bool IsAncestorOf(Entity ancestor, Entity entity);
 
   /* ---------- queries ---------- */
   std::optional<Camera> GetActiveCamera();

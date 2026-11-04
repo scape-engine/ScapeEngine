@@ -42,6 +42,13 @@ glm::vec3 GetEulerAngles(TransformComponent& transform,
                          Space space = Space::LOCAL);
 glm::vec3 GetScale(TransformComponent& transform, Space space = Space::LOCAL);
 
+// Model matrix, evaluated from the local values (and the parent chain in world
+// space), so it doesn't depend on the transform system having run
+glm::mat4 GetModel(TransformComponent& transform, Space space = Space::LOCAL);
+// Sets position, rotation and scale from a model matrix
+void SetModel(TransformComponent& transform, const glm::mat4& model,
+              Space space = Space::LOCAL);
+
 void Translate(TransformComponent& transform, const glm::vec3& delta,
                Space space = Space::LOCAL);
 void Rotate(TransformComponent& transform, const glm::quat& delta,

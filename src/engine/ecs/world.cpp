@@ -7,6 +7,22 @@
 #include "engine/core/logger.h"
 #include "engine/renderer/model/model.h"
 
+/* ---------- helpers ---------- */
+// Sets an entire subtree dirty and fixes depth values bottom-up.
+static void _SetSubtreeDirtyAndFixDepth(ECS& ecs, Entity root, uint32_t depth) {
+  if (!ecs.Has<TransformComponent>(root)) return;
+
+  auto& t = ecs.Get<TransformComponent>(root);
+  t.depth_    = depth;
+  t.modified_ = true;
+
+  for (Entity c : t.children_) {
+    if (ecs.Has<TransformComponent>(c)) {
+      _SetSubtreeDirtyAndFixDepth(ecs, c, depth + 1);
+    }
+  }
+}
+
 /* ───────── singleton ───────── */
 ECS& ECS::Main() {
   if (!entt::locator<ECS>::has_value())
@@ -53,7 +69,80 @@ std::tuple<Entity, TransformComponent&> ECS::CreateEntity(
   return std::tuple<Entity, TransformComponent&>(entity, transform);
 }
 
+void ECS::DestroyEntity(Entity entity) {
+  if (!Has<TransformComponent>(entity))
+    return;
+
+  // Copy: destroying a child removes it from this list
+  const std::vector<Entity> children = Get<TransformComponent>(entity).children_;
+  for (Entity child : children)
+    DestroyEntity(child);
+
+  RemoveParent(entity);
+  registry_.destroy(entity);
+}
+
+Entity ECS::DuplicateEntity(Entity entity) {
+  if (!Has<TransformComponent>(entity))
+    return entt::null;
+
+  // Copy every component the entity has. Storages of types that can't be
+  // copied leave the component out
+  const Entity copy = registry_.create();
+  for (auto [id, storage] : registry_.storage()) {
+    if (storage.contains(entity) && !storage.contains(copy))
+      storage.push(copy, storage.value(entity));
+  }
+
+  // The copied transform still points at the original's family: give it its
+  // own id and no children, then attach it next to the original
+  TransformComponent& transform = Get<TransformComponent>(copy);
+  const Entity parent = transform.parent_;
+  const std::vector<Entity> children = transform.children_;
+  transform.id_ = GetId();
+  transform.children_.clear();
+  transform.parent_ = entt::null;
+  transform.depth_ = 0;
+  transform.modified_ = true;
+  if (parent != entt::null)
+    SetParent(copy, parent);
+
+  for (Entity child : children) {
+    const Entity child_copy = DuplicateEntity(child);
+    if (child_copy != entt::null)
+      SetParent(child_copy, copy);
+  }
+  return copy;
+}
+
 /* ---------- hierarchy ---------- */
+void ECS::MoveNextTo(Entity entity, Entity sibling, bool after) {
+  if (entity == sibling || !Has<TransformComponent>(entity) ||
+      !Has<TransformComponent>(sibling))
+    return;
+
+  const Entity parent = Get<TransformComponent>(sibling).parent_;
+  if (parent == entt::null || Get<TransformComponent>(entity).parent_ != parent)
+    return;
+
+  auto& children = Get<TransformComponent>(parent).children_;
+  children.erase(std::remove(children.begin(), children.end(), entity),
+                 children.end());
+  auto it = std::find(children.begin(), children.end(), sibling);
+  if (after && it != children.end())
+    ++it;
+  children.insert(it, entity);
+}
+
+bool ECS::IsAncestorOf(Entity ancestor, Entity entity) {
+  while (entity != entt::null && Has<TransformComponent>(entity)) {
+    if (entity == ancestor)
+      return true;
+    entity = Get<TransformComponent>(entity).parent_;
+  }
+  return false;
+}
+
 void ECS::SetParent(Entity entity, Entity parent) {
   if (!Has<TransformComponent>(entity)) {
     Logger::getInstance().Log(
@@ -74,8 +163,7 @@ void ECS::SetParent(Entity entity, Entity parent) {
 
   parent_transform.children_.push_back(entity);
   transform.parent_ = parent;
-  transform.depth_ = parent_transform.depth_ + 1;
-  transform.modified_ = true;
+  _SetSubtreeDirtyAndFixDepth(*this, entity, parent_transform.depth_ + 1);
 }
 
 void ECS::RemoveParent(Entity entity) {
@@ -89,12 +177,9 @@ void ECS::RemoveParent(Entity entity) {
   // Get parent's children_ vector
   TransformComponent& parent = Get<TransformComponent>(transform.parent_);
   auto& children = parent.children_;
-  auto it = std::find(children.begin(), children.end(), entity);
-
-  if (it != children.end()) {
-    std::swap(*it, children.back());
-    children.pop_back();
-  }
+  // Erase, not swap-and-pop: the hierarchy shows children in this order
+  children.erase(std::remove(children.begin(), children.end(), entity),
+                 children.end());
 
   // Example:
   /* if (!Transform::HasParent(transform))
@@ -109,8 +194,7 @@ void ECS::RemoveParent(Entity entity) {
   }*/
 
   transform.parent_ = entt::null;
-  transform.depth_ = 0;
-  transform.modified_ = true;
+  _SetSubtreeDirtyAndFixDepth(*this, entity, 0);
 }
 
 /* ---------- camera query ---------- */
@@ -138,19 +222,3 @@ std::optional<Camera> ECS::GetActiveCamera() {
     t.modified_ = false;
   });
 } */
-
-/* ---------- helpers ---------- */
-// Sets an entire subtree dirty and fixes depth values bottom-up.
-static void _SetSubtreeDirtyAndFixDepth(ECS& ecs, Entity root, uint32_t depth) {
-  if (!ecs.Has<TransformComponent>(root)) return;
-
-  auto& t = ecs.Get<TransformComponent>(root);
-  t.depth_    = depth;
-  t.modified_ = true;
-
-  for (Entity c : t.children_) {
-    if (ecs.Has<TransformComponent>(c)) {
-      _SetSubtreeDirtyAndFixDepth(ecs, c, depth + 1);
-    }
-  }
-}

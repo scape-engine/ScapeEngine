@@ -1,6 +1,7 @@
 #include "transform.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
 
 #include "engine/core/logger.h"
@@ -222,6 +223,32 @@ void Rotate(TransformComponent& transform, const glm::quat& rotation,
     // World space with parent
   }
   transform.modified_ = true;
+}
+
+glm::mat4 GetModel(TransformComponent& transform, Space space) {
+  const glm::mat4 local = Transformation::Model(
+      transform.position_, transform.rotation_, transform.scale_);
+  if (space == Space::LOCAL || !HasParent(transform))
+    return local;
+  return GetModel(GetParent(transform), Space::WORLD) * local;
+}
+
+void SetModel(TransformComponent& transform, const glm::mat4& model,
+              Space space) {
+  // World space with parent: express the matrix relative to the parent
+  glm::mat4 local = model;
+  if (space == Space::WORLD && HasParent(transform))
+    local = glm::inverse(GetModel(GetParent(transform), Space::WORLD)) * model;
+
+  glm::vec3 scale, position, skew;
+  glm::quat rotation;
+  glm::vec4 perspective;
+  if (!glm::decompose(local, scale, rotation, position, skew, perspective))
+    return;
+
+  SetPosition(transform, position);
+  SetRotation(transform, rotation);
+  SetScale(transform, scale);
 }
 
 void Scale(TransformComponent& transform, const glm::vec3& scale, Space space) {

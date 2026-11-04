@@ -506,8 +506,13 @@ void RunAllGeneratorTests() {
 
 }  // namespace Tests
 
+namespace Tests {
+void TestShapes();
+}
+
 // Entry point for running tests standalone
 int main() {
+  Tests::TestShapes();
   Tests::RunAllGeneratorTests();
   return 0;
 }

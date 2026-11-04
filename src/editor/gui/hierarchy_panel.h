@@ -2,8 +2,9 @@
 #define HIERARCHY_PANEL_H
 
 #include <cstdint>
+#include <functional>
 #include <string>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "window_base.h"
@@ -23,11 +24,10 @@
 struct HierarchyItem {
   explicit HierarchyItem(EntityContainer entity,
                          std::vector<HierarchyItem> children = {})
-      : entity(entity), children(children), expanded(false) {};
+      : entity(entity), children(children) {};
 
   EntityContainer entity;
   std::vector<HierarchyItem> children;
-  bool expanded;
 
   // Placeholders for the row toggles (wired later)
   bool visible = true;     // eye
@@ -62,6 +62,26 @@ private:
                        const ImVec2& rect_min, const ImVec2& rect_max);
   void RenderDraggedItem();
   void RenderPopupMenu();
+  void RenderRename(const ImVec2& text_pos, float width);
+
+  // Entity actions. They only queue work: the tree holds pointers into the
+  // registry, so the world changes after the frame's tree is drawn
+  void Defer(std::function<void()> action) {
+    pending_.push_back(std::move(action));
+  }
+  void HandleShortcuts();
+  void CreateEntity(const std::string& name,
+                    std::function<void(Entity)> setup = {});
+  void DeleteSelected();
+  void DuplicateSelected();
+  void StartRename(Entity entity);
+  void Select(Entity entity, bool additive);
+  // Dragged rows: the selection minus entities whose parent is also selected
+  std::vector<Entity> DraggedEntities() const;
+  // Moves the entities under parent (null = scene root), keeping their world
+  // transform. With a sibling, they're placed before/after it
+  void MoveEntities(const std::vector<Entity>& entities, Entity parent,
+                    Entity sibling = entt::null, bool after = false);
 
   // Row helpers
   // Draw glyph centered in a slot of width slot_width starting at slot_min
@@ -112,9 +132,25 @@ private:
   uint32_t row_index_ = 0;  // row counter for zebra striping
 
   std::vector<HierarchyItem> current_hierarchy;
-  std::unordered_map<uint32_t, HierarchyItem*> selected_items;
-  HierarchyItem* last_selected;
-  HierarchyItem* last_hovered;
+  // ponytail: root order lives in the panel only (the owning camera group
+  // reorders the transform storage); not saved with the scene yet
+  std::vector<Entity> root_order_;
+  std::unordered_set<Entity> selected_;
+  std::unordered_set<Entity> expanded_;
+  // Rows in drawing order: last frame's (shift-select, drag order) and this
+  // frame's, swapped after drawing
+  std::vector<Entity> visible_rows_;
+  std::vector<Entity> drawn_rows_;
+  Entity last_selected_ = entt::null;
+  Entity hovered_ = entt::null;
+  Entity popup_target_ = entt::null;  // row the context menu was opened on
+
+  std::vector<std::function<void()>> pending_;
+
+  // Inline rename
+  Entity renaming_ = entt::null;
+  bool rename_focus_ = false;
+  char rename_buffer_[256] = {};
 
   // Drag state
   bool dragging_hierarchy;
@@ -130,6 +166,10 @@ private:
   // EnTT handles
   entt::scoped_connection on_create_connection_;
   entt::scoped_connection on_destroy_connection_;
+  // The owning camera group swaps transforms in storage when a camera is
+  // added or removed, which moves the tree's cached transform pointers
+  entt::scoped_connection on_camera_create_connection_;
+  entt::scoped_connection on_camera_destroy_connection_;
 };
 
 #endif  // HIERARCHY_PANEL_H
