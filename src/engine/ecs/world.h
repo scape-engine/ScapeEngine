@@ -1,17 +1,19 @@
 #ifndef WORLD_H
 #define WORLD_H
 
+#include <algorithm>
+#include <cstdint>
 #include <entt/entt.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
-#include <algorithm> 
 
 #include "engine/ecs/components/camera_component.h"
+#include "engine/ecs/components/light_component.h"
 #include "engine/ecs/components/mesh_renderer_component.h"
 #include "engine/ecs/components/transform_component.h"
-#include "engine/ecs/components/light_component.h"
 
 using Entity = entt::entity;
 using Registry = entt::registry;
@@ -55,6 +57,9 @@ public:
 
   /* ---------- per-frame ---------- */
   void UpdateTransforms();
+
+  // Destroys every entity + resets ID generation
+  void Clear();
 
   /* ---------- registry access ---------- */
   Registry& Reg() { return registry_; }

@@ -56,6 +56,9 @@ public:
   void SetFullscreen();
 
 private:
+  // Quit, once unsaved scene changes are saved or discarded
+  void RequestQuit();
+
   void HandleInput(Key key);
   void RenderUI();
   void DockSpace();

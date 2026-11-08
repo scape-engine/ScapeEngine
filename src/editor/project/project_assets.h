@@ -33,6 +33,9 @@ public:
   // Update existing assets io location
   void UpdateLocation(AssetSID id, const FileSystem::Path& path);
 
+  // Unload and forget every asset
+  void Clear();
+
 private:
   // Couner for asset session ids
   uint32_t sid_counter_;

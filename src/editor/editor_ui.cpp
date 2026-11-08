@@ -17,6 +17,7 @@
 #include "gui/info_panel.h"
 #include "gui/inspector_panel.h"
 #include "gui/menu_bar.h"
+#include "gui/modals/scene_modals.h"
 #include "gui/model_preview.h"
 #include "gui/model_viewer.h"
 #include "gui/pcg_graph_editor.h"
@@ -71,6 +72,9 @@ EditorUI* EditorUI::Get() {
 void EditorUI::Initialize() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
+
+  // Restore per-user viewport settings
+  viewport_settings_ = Runtime::Settings().viewport;
 
   // Bump stale ini file
   static constexpr const char* layout_ini = "editor_v4.ini";
@@ -241,11 +245,8 @@ void EditorUI::Run() {
       if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11)
         WindowManager::ToggleFullscreen();
 
-      if (event.type == SDL_QUIT) {
-        quit_ = true;
-        WindowManager::Quit();
-        EditorEvents::editor_exit_pressed();
-      }
+      if (event.type == SDL_QUIT)
+        RequestQuit();
     }  // end PollEvent loop
 
     // Skip while window is minimised
@@ -303,8 +304,25 @@ void EditorUI::Run() {
 
 void EditorUI::RequestUpdate() {}
 
+void EditorUI::RequestQuit() {
+  SceneModals::RunAfterSaveCheck([this] {
+    if (is_game_started_) {
+      is_game_started_ = false;
+      EditorEvents::game_end_pressed();
+    }
+    quit_ = true;
+    WindowManager::Quit();
+    EditorEvents::editor_exit_pressed();
+  });
+}
+
 void EditorUI::Destroy() {
   Logger::getInstance().Log(LogLevel::Info, "Shutting down EditorUI");
+
+  // Persist per-user settings
+  Runtime::Settings().viewport = viewport_settings_;
+  Runtime::Settings().Save();
+
   // Window destructors release bgfx/ImGui resources: run them while both live
   g_windows_.clear();
   ImGui_Implbgfx_Shutdown();
@@ -318,9 +336,7 @@ void EditorUI::HandleInput(Key key) {
 
   switch (key) {
     case Key::DIGIT_0:
-      quit_ = true;
-      WindowManager::Quit();
-      EditorEvents::editor_exit_pressed();
+      RequestQuit();
       return;
     case Key::DIGIT_1:
       if (!is_game_started_) {
@@ -403,15 +419,7 @@ void EditorUI::DockSpace() {
 
   Panels::TitleBar(title);
   Panels::MenuBar(
-      [this]() {
-        if (is_game_started_) {
-          is_game_started_ = false;
-          EditorEvents::game_end_pressed();
-        }
-        this->quit_ = true;
-        WindowManager::Quit();
-        EditorEvents::editor_exit_pressed();
-      },
+      [this]() { RequestQuit(); },
       debug_highlight_ids_, debug_show_metrics_, debug_show_log_,
       debug_activate_picker_, debug_show_style_editor_);
 
@@ -421,8 +429,9 @@ void EditorUI::DockSpace() {
 }
 
 std::string EditorUI::WindowTitle() const {
-  const bool unsaved = false;  // TODO: project/scene dirty flag
-  return Runtime::Project().ProjectName() + (unsaved ? "*" : "") +
+  const bool unsaved = Runtime::Project().IsSceneDirty();
+  return Runtime::Project().ProjectName() + " - " +
+         Runtime::Project().SceneName() + (unsaved ? "*" : "") +
          " - Scape Engine " + engine_version;
 }
 
@@ -508,15 +517,7 @@ void EditorUI::RenderUI() {
     }
   };
 
-  cb.onQuit = [this]() {
-    if (is_game_started_) {
-      is_game_started_ = false;
-      EditorEvents::game_end_pressed();
-    }
-    this->quit_ = true;
-    WindowManager::Quit();
-    EditorEvents::editor_exit_pressed();
-  };
+  cb.onQuit = [this]() { RequestQuit(); };
 
   cb.fullscreen = fullscreen_;
   cb.onSetFullscreen = [this]() {

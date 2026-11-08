@@ -1,5 +1,7 @@
 #include "inspector_panel.h"
 
+#include <imgui_internal.h>
+
 #include "editor/gui/hierarchy_panel.h"
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/runtime/runtime.h"
@@ -73,6 +75,13 @@ void InspectorPanel::Render() {
     } else {
       RenderNoneInspected();
     }
+
+    // Any widget of this window edited this frame
+    // Catches asset inspectables
+    const ImGuiContext& g = *GImGui;
+    if (g.ActiveIdHasBeenEditedThisFrame && g.ActiveIdWindow &&
+        g.ActiveIdWindow->RootWindow == ImGui::GetCurrentWindow()->RootWindow)
+      Runtime::Project().MarkSceneDirty();
   }
   ImGui::End();
 }

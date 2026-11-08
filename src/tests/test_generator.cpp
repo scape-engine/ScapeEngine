@@ -508,11 +508,13 @@ void RunAllGeneratorTests() {
 
 namespace Tests {
 void TestShapes();
+void TestSceneSerializer();
 }
 
 // Entry point for running tests standalone
 int main() {
   Tests::TestShapes();
+  Tests::TestSceneSerializer();
   Tests::RunAllGeneratorTests();
   return 0;
 }

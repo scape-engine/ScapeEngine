@@ -5,6 +5,7 @@
 #include <entt/entt.hpp>
 
 #include "engine/memory/resource.h"
+#include "platform/input/input_event.h"
 
 using Entity = entt::entity;
 
@@ -24,6 +25,9 @@ inline boost::signals2::signal<void()> selection_cleared;
 inline boost::signals2::signal<void(int)> item_selected;
 
 inline boost::signals2::signal<void(Entity)> focus_entity;
+
+// A scene was opened or created, previous entities no longer exist
+inline boost::signals2::signal<void()> scene_opened;
 
 }  // namespace EditorEvents
 

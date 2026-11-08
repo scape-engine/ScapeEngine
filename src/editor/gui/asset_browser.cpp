@@ -7,6 +7,7 @@
 
 #include "editor/gui/icons/asset_icons.h"
 #include "editor/gui/inspectables/asset_inspectable.h"
+#include "editor/gui/modals/scene_modals.h"
 #include "editor/runtime/runtime.h"
 #include "engine/core/logger.h"
 #include "engine/renderer/icons/icon_loader.h"
@@ -606,6 +607,11 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
     if (node->IsFolder()) {
       // Enter folder
       SelectFolder(node->id_);
+    } else if (node->path_.extension() == ".scene") {
+      // Open scene in the editor
+      const FileSystem::Path path = node->path_;
+      SceneModals::RunAfterSaveCheck(
+          [path] { Runtime::Project().OpenScene(path); });
     } else {
       // Open file in application
       OpenNodeInApplication(node);

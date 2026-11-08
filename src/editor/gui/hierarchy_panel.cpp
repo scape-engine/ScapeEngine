@@ -8,7 +8,7 @@
 #include "imgui_internal.h"
 
 #include "engine/renderer/icons/icon_loader.h"
-#include "engine/renderer/primitives/shapes.h"
+#include "engine/scene/model_entity_factory.h"
 #include "engine/transform/transform.h"
 
 #include "editor/events.h"
@@ -18,6 +18,7 @@
 #include "editor/gui/inspector_panel.h"
 #include "editor/gui/utils/gui_utils.h"
 #include "editor/gui/viewport/action_overlay.h"
+#include "editor/runtime/runtime.h"
 
 #include "engine/ecs/components/camera_component.h"
 #include "engine/ecs/components/light_component.h"
@@ -199,6 +200,9 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
 
   const bool hovered =
       ImGui::IsMouseHoveringRect(rect_min, rect_max) && !popup_menu_used;
+
+  // The scene row stands apart from the entity rows below it
+  draw_list.AddRectFilled(rect_min, rect_max, EditorColor::surface_3, 2.0f);
   if (hovered)
     draw_list.AddRectFilled(rect_min, rect_max,
                             dragging_hierarchy ? EditorColor::accent_deep
@@ -217,12 +221,27 @@ void HierarchyPanel::RenderRootHeader(ImDrawList& draw_list) {
 
   DrawGlyph(draw_list, ImVec2(x0 + caret_slot_, rect_min.y),
             ImVec2(icon_slot_, row_height_), ICON_MDI_MOVIE_OPEN_OUTLINE,
-            EditorColor::text);
+            EditorColor::accent_hover);
 
-  const ImVec2 text_pos =
+  // Open scene's name in bold, with * while it has unsaved changes
+  const ProjectManager& project = Runtime::Project();
+  const std::string name = project.SceneName();
+  ImFont* font = EditorStyles::GetFonts().p_bold;
+  const float font_size = ImGui::GetFontSize();
+  ImVec2 text_pos =
       ImVec2(x0 + caret_slot_ + icon_slot_ + text_gap_,
-             rect_min.y + (row_height_ - ImGui::GetFontSize()) * 0.5f);
-  draw_list.AddText(text_pos, EditorColor::text, "Scene Hierarchy");
+             rect_min.y + (row_height_ - font_size) * 0.5f);
+  draw_list.AddText(font, font_size, text_pos, EditorColor::text_bright,
+                    name.c_str());
+  if (project.IsSceneDirty()) {
+    text_pos.x += font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, name.c_str()).x;
+    draw_list.AddText(font, font_size, text_pos, EditorColor::text_dim, "*");
+  }
+
+  if (hovered && !dragging_hierarchy)
+    ImGui::SetTooltip("%s", project.ScenePath().empty()
+                                ? "Unsaved scene"
+                                : project.ScenePath().generic_string().c_str());
 
   ImGui::Dummy(ImVec2(0.0f, row_height_));
 }
@@ -603,37 +622,30 @@ void HierarchyPanel::RenderPopupMenu() {
       CreateEntity("Camera",
                    [](Entity e) { ECS::Main().Add<CameraComponent>(e); });
 
-    // Each shape's mesh is created once and shared by its entities
     if (PopupMenu::Menu(ICON_FA_CUBE, "3D Primitives")) {
       if (PopupMenu::ItemLight("Cube"))
         CreateEntity("Cube", [](Entity e) {
-          static const Mesh* mesh = Shapes::CreateCube();
-          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+          ModelEntityFactory::AttachPrimitive(ECS::Main(), e, "cube");
         });
       if (PopupMenu::ItemLight("Sphere"))
         CreateEntity("Sphere", [](Entity e) {
-          static const Mesh* mesh = Shapes::CreateSphere();
-          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+          ModelEntityFactory::AttachPrimitive(ECS::Main(), e, "sphere");
         });
       if (PopupMenu::ItemLight("Capsule"))
         CreateEntity("Capsule", [](Entity e) {
-          static const Mesh* mesh = Shapes::CreateCapsule();
-          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+          ModelEntityFactory::AttachPrimitive(ECS::Main(), e, "capsule");
         });
       if (PopupMenu::ItemLight("Cylinder"))
         CreateEntity("Cylinder", [](Entity e) {
-          static const Mesh* mesh = Shapes::CreateCylinder();
-          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+          ModelEntityFactory::AttachPrimitive(ECS::Main(), e, "cylinder");
         });
       if (PopupMenu::ItemLight("Pyramid"))
         CreateEntity("Pyramid", [](Entity e) {
-          static const Mesh* mesh = Shapes::CreatePyramid();
-          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+          ModelEntityFactory::AttachPrimitive(ECS::Main(), e, "pyramid");
         });
       if (PopupMenu::ItemLight("Plane"))
         CreateEntity("Plane", [](Entity e) {
-          static const Mesh* mesh = Shapes::CreatePlane();
-          ECS::Main().Add<MeshRendererComponent>(e).mesh_ = mesh;
+          ModelEntityFactory::AttachPrimitive(ECS::Main(), e, "plane");
         });
 
       PopupMenu::EndMenu();
@@ -711,6 +723,7 @@ void HierarchyPanel::RenderRename(const ImVec2& position, float width) {
     Defer([entity, name] {
       if (ECS::Main().Has<TransformComponent>(entity))
         ECS::Main().Get<TransformComponent>(entity).name_ = name;
+      Runtime::Project().MarkSceneDirty();
     });
   }
   renaming_ = entt::null;
@@ -757,6 +770,7 @@ void HierarchyPanel::CreateEntity(const std::string& name,
       expanded_.insert(parent);
     Select(entity, false);
     StartRename(entity);
+    Runtime::Project().MarkSceneDirty();
   });
 }
 
@@ -773,6 +787,7 @@ void HierarchyPanel::DeleteSelected() {
     }
     selected_.clear();
     last_selected_ = entt::null;
+    Runtime::Project().MarkSceneDirty();
   });
 }
 
@@ -795,6 +810,7 @@ void HierarchyPanel::DuplicateSelected() {
       }
       Select(copy, true);
     }
+    Runtime::Project().MarkSceneDirty();
   });
 }
 
@@ -841,6 +857,7 @@ void HierarchyPanel::MoveEntities(const std::vector<Entity>& entities,
                                   Entity parent, Entity sibling, bool after) {
   Defer([this, entities, parent, sibling, after]() mutable {
     auto& world = ECS::Main();
+    Runtime::Project().MarkSceneDirty();
     for (Entity entity : entities) {
       // No dropping an entity into itself or its own subtree
       if (entity == sibling || world.IsAncestorOf(entity, parent))

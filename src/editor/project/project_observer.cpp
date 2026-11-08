@@ -27,6 +27,12 @@ bool ProjectObserver::Folder::HasSubfolders() {
   return !subfolders_.empty();
 }
 
+bool ProjectObserver::Folder::HasSubfolder(const std::string& folder_name) {
+  return std::any_of(
+      subfolders_.begin(), subfolders_.end(),
+      [&](const auto& folder) { return folder->name_ == folder_name; });
+}
+
 std::shared_ptr<ProjectObserver::File> ProjectObserver::Folder::AddFile(
     const std::string& file_name) {
   // Instantiate file
@@ -136,6 +142,13 @@ void ProjectObserver::PollEvents() {
       FileSystem::Path(event->directory_) / event->filename_;
   FileSystem::Path relative_path =
       FileSystem::GetRelativePath(absolute_path, target_);
+  const bool is_directory = FileSystem::IsDirectory(absolute_path);
+
+  // Hidden, sidecar and temporary files never show. A temporary file renamed
+  // into place (atomic save) still needs its move handled below
+  if (event->action_ != efsw::Action::Moved &&
+      ShouldIgnore(absolute_path, is_directory))
+    return;
 
   switch (event->action_) {
     case efsw::Action::Add: {
@@ -145,11 +158,13 @@ void ProjectObserver::PollEvents() {
       if (!parent_folder)
         break;
 
-      // Add folder or file
-      if (FileSystem::IsDirectory(absolute_path))
-        parent_folder->AddFolder(filename);
-      else
-        parent_folder->AddFile(filename)->MakeAsset();
+      // Add folder or file, unless already registered
+      if (is_directory) {
+        if (!parent_folder->HasSubfolder(filename))
+          parent_folder->AddFolder(filename);
+      } else {
+        AddFileOnce(parent_folder, filename);
+      }
 
       break;
     }
@@ -178,11 +193,14 @@ void ProjectObserver::PollEvents() {
           parent_folder->files_.begin(), parent_folder->files_.end(),
           [&filename](const auto& file) { return file->name_ == filename; });
 
-      // Reload asset if available
+      // Reload asset if available. Some platforms report a file replaced by
+      // a rename as modified, so add it if it isn't known yet
       if (file_it != parent_folder->files_.end()) {
         auto modified_file = *file_it;
         if (modified_file->asset_id_)
           Runtime::Project().Assets().Reload(modified_file->asset_id_);
+      } else if (!is_directory) {
+        AddFileOnce(parent_folder, filename);
       }
 
       break;
@@ -221,17 +239,56 @@ void ProjectObserver::PollEvents() {
       if (!new_parent_folder)
         break;
 
+      // Moved to a hidden or temporary name: only the removal matters
+      if (ShouldIgnore(absolute_path, is_directory))
+        break;
+
       // Recreate folder or file
-      if (FileSystem::IsDirectory(absolute_path))
-        new_parent_folder->AddFolder(new_base_name);
-      else {
-        new_parent_folder->AddFile(new_base_name)->LinkAsset(last_sid);
-        Runtime::Project().Assets().UpdateLocation(last_sid, absolute_path);
+      if (is_directory) {
+        if (!new_parent_folder->HasSubfolder(new_base_name))
+          new_parent_folder->AddFolder(new_base_name);
+      } else {
+        AddFileOnce(new_parent_folder, new_base_name, last_sid);
+        if (last_sid)
+          Runtime::Project().Assets().UpdateLocation(last_sid, absolute_path);
       }
 
       break;
     }
   }
+}
+
+void ProjectObserver::AddFileOnce(const std::shared_ptr<Folder>& folder,
+                                  const std::string& file_name,
+                                  AssetSID asset_id) {
+  const bool known = std::any_of(
+      folder->files_.begin(), folder->files_.end(),
+      [&](const auto& file) { return file->name_ == file_name; });
+  if (known)
+    return;
+
+  auto file = folder->AddFile(file_name);
+  if (asset_id)
+    file->LinkAsset(asset_id);
+  else
+    file->MakeAsset();
+}
+
+void ProjectObserver::Register(const FileSystem::Path& relative_path) {
+  if (!project_structure_)
+    return;
+
+  // Walk down to the file's folder, creating the folders it is missing
+  std::shared_ptr<Folder> folder = project_structure_;
+  for (const auto& part : relative_path.parent_path()) {
+    const std::string name = part.string();
+    auto it = std::find_if(
+        folder->subfolders_.begin(), folder->subfolders_.end(),
+        [&](const auto& subfolder) { return subfolder->name_ == name; });
+    folder = it != folder->subfolders_.end() ? *it : folder->AddFolder(name);
+  }
+
+  AddFileOnce(folder, relative_path.filename().string());
 }
 
 void ProjectObserver::SetTarget(const FileSystem::Path& path) {
@@ -357,7 +414,7 @@ bool ProjectObserver::ShouldIgnore(const FileSystem::Path& path,
     return true;  // redundant with the '.' rule but explicit for clarity
 
   // Engine sidecar files
-  if (path.extension() == ".meta")
+  if (path.extension() == ".meta" || path.extension() == ".tmp")
     return true;
 
   return false;

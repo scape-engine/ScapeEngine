@@ -75,6 +75,9 @@ public:
     // Return if folder has subfolders
     bool HasSubfolders();
 
+    // Return if folder has a subfolder with the given name
+    bool HasSubfolder(const std::string& folder_name);
+
     // Add a file
     std::shared_ptr<File> AddFile(const std::string& file_name);
 
@@ -119,6 +122,10 @@ public:
   // Return project structure root folderby id, nullptr if invalid
   std::shared_ptr<const Folder> FetchFolder(uint32_t id);
 
+  // Add a file the editor just wrote (and its missing folders) without
+  // waiting for the file watcher. Path is relative to the project root
+  void Register(const FileSystem::Path& relative_path);
+
 private:
   // Listen to file watcher events
   struct IOListener : public efsw::FileWatchListener {
@@ -136,6 +143,11 @@ private:
   std::shared_ptr<ProjectObserver::Folder> FindFolder(
       const FileSystem::Path& relative_path,
       const std::shared_ptr<Folder>& current_folder);
+
+  // Add a file node to the folder unless it already has one: the watcher
+  // may report files that were already registered
+  void AddFileOnce(const std::shared_ptr<Folder>& folder,
+                   const std::string& file_name, AssetSID asset_id = 0);
 
   // Set hidden files
   bool ShouldIgnore(const FileSystem::Path& path, bool is_directory);

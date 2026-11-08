@@ -34,7 +34,7 @@
 #include "engine/renderer/frame_graph.h"
 #include "engine/renderer/graphics_renderer.h"
 #include "engine/renderer/material/material_registry.h"
-#include "engine/renderer/model/model.h"
+#include "engine/scene/model_entity_factory.h"
 
 #include "engine/core/file_system_utils.h"
 
@@ -258,6 +258,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
 
             // Re-evaluate transform
             Transform::Evaluate(transform);
+            Runtime::Project().MarkSceneDirty();
           }
         }
       }
@@ -282,80 +283,10 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
             Logger::getInstance().Log(
                 LogLevel::Info, "Importing glTF model: " + abs_path.string());
 
-            // Load meshes
-            // ! Synchronous loading
-            // TODO: replace implementation with LoadData() from model.h
-            // instead
-            std::shared_ptr<Model> model = Model::Load(abs_path.string());
-
-            // debug
-            Logger::getInstance().Log(
-                LogLevel::Debug,
-                "[GameCanvas] Model loaded, mesh count: " +
-                    std::to_string(model ? model->NLoadedMeshes() : 0));
-
-            if (!model) {
-              Logger::getInstance().Log(
-                  LogLevel::Error,
-                  "Import failed: no meshes in " + abs_path.string());
-            } else {
-              // Create ECS entity
-              auto& world = ECS::Main();
-              auto [entity, tr] =
-                  world.CreateEntity(abs_path.filename().string());
-
-              // Get materials from loaded model
-              const auto& materials = model->GetMaterials();
-
-              // Attach a MeshRendererComponent for each mesh
-              for (uint32_t i = 0; i < model->NLoadedMeshes(); ++i) {
-                const Mesh* mesh = model->QueryMesh(i);
-                if (!mesh)
-                  continue;
-
-                // Single mesh: keep it on the root so selecting the model
-                // selects (and outlines) the mesh. Multiple meshes: one child
-                // entity each, since an entity can only hold one MeshRenderer
-                Entity mesh_entity = entity;
-                if (model->NLoadedMeshes() > 1)
-                  mesh_entity = std::get<0>(
-                      world.CreateEntity("Mesh " + std::to_string(i), entity));
-
-                MeshRendererComponent& mr =
-                    world.Add<MeshRendererComponent>(mesh_entity);
-                mr.mesh_ = mesh;
-                mr.enabled_ = true;
-
-                // Register material and assign handle
-                uint32_t mat_idx = mesh->MaterialIndex();
-                if (mat_idx < materials.size()) {
-                  mr.material_ =
-                      MaterialRegistry::Instance().Register(materials[mat_idx]);
-
-                  Logger::getInstance().Log(
-                      LogLevel::Debug, "[GameCanvas] Registered material '" +
-                                           materials[mat_idx].name +
-                                           "' with handle " +
-                                           std::to_string(mr.material_));
-                } else {
-                  mr.material_ = INVALID_MATERIAL;
-
-                  Logger::getInstance().Log(
-                      LogLevel::Warning,
-                      "[GameCanvas] Mesh material_index " +
-                          std::to_string(mat_idx) +
-                          " out of range (materials.size()=" +
-                          std::to_string(materials.size()) + ")");
-                }
-              }
-
-              // Keep model alive for the lifetime of the scene
-              // ! Potential memory leak
-              // ! loaded models should be stored in a scene-level asset
-              // manager
-              static std::vector<std::shared_ptr<Model>> asset_cache;
-              asset_cache.emplace_back(std::move(model));
-            }
+            const Entity entity = ModelEntityFactory::InstanceModel(
+                ECS::Main(), rel, Runtime::Project().GetProject().path_);
+            if (entity != entt::null)
+              Runtime::Project().MarkSceneDirty();
           }
         }
         ImGui::EndDragDropTarget();

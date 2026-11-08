@@ -8,6 +8,7 @@
 #include "editor/editor_ui.h"
 #include "editor/pipelines/preview_pipeline.h"
 #include "editor/pipelines/scene_view_pipeline.h"
+#include "editor/project/editor_settings.h"
 #include "editor/project/project_manager.h"
 #include "editor/state.h"
 
@@ -45,6 +46,9 @@ GlobalResources BuildGlobalResources();
 
 // Project
 ProjectManager& Project();
+
+// Per-user editor settings
+EditorSettings& Settings();
 
 // Pipeline getters
 SceneViewPipeline& GetSceneViewPipeline();

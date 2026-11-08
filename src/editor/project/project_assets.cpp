@@ -69,7 +69,8 @@ void ProjectAssets::Remove(AssetSID id) {
 
   // Unload asset and remove it
   asset->OnUnload();
-  // Remove from assets map
+  // Remove from assets maps
+  asset_sids_.erase(asset->asset_key_.guid_);
   assets_.erase(it);
 
   // Delete assets metafile if existing
@@ -131,12 +132,19 @@ void ProjectAssets::UpdateLocation(AssetSID id, const FileSystem::Path& path) {
   // Move the meta file
   std::error_code ec;
   std::filesystem::rename(old_absolute_path.string() + ".meta",
-                          absolute_path.string() + ".meta");
+                          absolute_path.string() + ".meta", ec);
 
   if (ec) {
     Logger::getInstance().Log(LogLevel::Warning,
                               "Failed to move metadata file: " + ec.message());
   }
+}
+
+void ProjectAssets::Clear() {
+  for (auto& [sid, asset] : assets_)
+    asset->OnUnload();
+  assets_.clear();
+  asset_sids_.clear();
 }
 
 AssetSID ProjectAssets::CreateSID() {

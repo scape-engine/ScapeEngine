@@ -1,6 +1,7 @@
 #include "mesh_loader.h"
 
 #include <assimp/DefaultIOSystem.h>
+#include <assimp/config.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
@@ -92,6 +93,10 @@ SceneNode ProcessNodeHierarchy(const aiNode* node, const aiScene* scene,
 std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
   Assimp::Importer importer;
 
+  // PreTransformVertices joins meshes that share a material by default;
+  // keeping the hierarchy bakes transforms but keeps every part separate
+  importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
+
   std::string base_dir = path.substr(0, path.find_last_of("/\\") + 1);
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loading from base_dir: " + base_dir);
@@ -120,9 +125,10 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
   std::vector<Geometry::MeshData> mesh_data;
   ProcessNode(scene->mRootNode, scene, mesh_data);
 
-  Logger::getInstance().Log(LogLevel::Debug, "[MeshLoader] Loaded " +
-                                                 std::to_string(mesh_data.size()) +
-                                                 " mesh_data from " + path);
+  Logger::getInstance().Log(LogLevel::Debug,
+                            "[MeshLoader] Loaded " +
+                                std::to_string(mesh_data.size()) +
+                                " mesh_data from " + path);
 
   return mesh_data;
 }

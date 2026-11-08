@@ -41,8 +41,9 @@ inline void StatusBar() {
     };
 
     // PROJECT (* when unsaved)
-    const bool unsaved = false;  // TODO: project/scene dirty flag
-    std::string project = Runtime::Project().ProjectName();
+    const bool unsaved = Runtime::Project().IsSceneDirty();
+    std::string project = Runtime::Project().ProjectName() + " / " +
+                          Runtime::Project().SceneName();
     if (unsaved)
       project += "*";
     ImGui::TextUnformatted(project.c_str());

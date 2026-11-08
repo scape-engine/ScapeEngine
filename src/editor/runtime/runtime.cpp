@@ -54,8 +54,6 @@
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/renderer/skybox/skybox.h"
 #include "engine/renderer/texture/texture_registry.h"
-#include "engine/scene/scene_manager.h"
-#include "engine/scene/scene_template.h"
 #include "engine/time/time.h"
 
 #include "platform/paths.h"
@@ -95,10 +93,10 @@ Skybox g_default_skybox;
 // shadow
 ShadowMap g_main_shadow_map;
 
-// scene manager
-SceneManager g_scene_manager;
-
 EditorState g_editor_state;
+
+// Per-user editor settings
+EditorSettings g_editor_settings;
 
 // TODO: default settings
 
@@ -186,6 +184,9 @@ static void _LaunchEditor() {
 
   // TODO: add welcome console message here
 
+  // Load per-user settings before the editor reads them
+  g_editor_settings = EditorSettings::Load();
+
   // Create Asset registry
   AssetRegistry::Create();
 
@@ -202,14 +203,18 @@ static void _LaunchEditor() {
   // WindowContext::MaximizeWindow();
   // WindowContext::SetVisible(true);
 
-  // Load example project
+  // Reopen the last project, or the example one
   std::filesystem::path project_path =
       std::filesystem::current_path() / "examples" / "example-project";
-  std::filesystem::create_directories(project_path);
-  g_project_manager.Load(project_path);
+  const auto& recent = g_editor_settings.recent_projects;
+  if (!recent.empty() && std::filesystem::is_directory(recent.front()))
+    project_path = recent.front();
+  else
+    std::filesystem::create_directories(project_path);
 
-  // Load default scene
-  g_scene_manager.LoadScene(std::make_unique<SceneTemplate>());
+  // Loading a project opens its startup scene
+  if (g_project_manager.Load(project_path))
+    g_editor_settings.AddRecentProject(project_path.string());
 
   // TODO: show welcome panel here
 }
@@ -256,6 +261,9 @@ static void _ConnectSignals() {
   });
 
   g_renderer->redrawn.connect([&] { g_editor->RequestUpdate(); });
+
+  // Entities of the previous scene are gone
+  EditorEvents::scene_opened.connect([] { g_editor_state.ClearSelection(); });
 }
 
 void UpdateGlobalResources() {
@@ -384,6 +392,10 @@ ProjectManager& Project() {
   return g_project_manager;
 }
 
+EditorSettings& Settings() {
+  return g_editor_settings;
+}
+
 IMGizmo& SceneGizmos() {
   return g_scene_gizmos;
 }
@@ -402,10 +414,6 @@ PreviewPipeline& GetPreviewPipeline() {
 
 FrameGraph& GetFrameGraph() {
   return *g_frame_graph;
-}
-
-SceneManager& Scene() {
-  return g_scene_manager;
 }
 
 EditorState& State() {

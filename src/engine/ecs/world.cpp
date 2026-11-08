@@ -10,10 +10,11 @@
 /* ---------- helpers ---------- */
 // Sets an entire subtree dirty and fixes depth values bottom-up.
 static void _SetSubtreeDirtyAndFixDepth(ECS& ecs, Entity root, uint32_t depth) {
-  if (!ecs.Has<TransformComponent>(root)) return;
+  if (!ecs.Has<TransformComponent>(root))
+    return;
 
   auto& t = ecs.Get<TransformComponent>(root);
-  t.depth_    = depth;
+  t.depth_ = depth;
   t.modified_ = true;
 
   for (Entity c : t.children_) {
@@ -74,7 +75,8 @@ void ECS::DestroyEntity(Entity entity) {
     return;
 
   // Copy: destroying a child removes it from this list
-  const std::vector<Entity> children = Get<TransformComponent>(entity).children_;
+  const std::vector<Entity> children =
+      Get<TransformComponent>(entity).children_;
   for (Entity child : children)
     DestroyEntity(child);
 
@@ -222,3 +224,8 @@ std::optional<Camera> ECS::GetActiveCamera() {
     t.modified_ = false;
   });
 } */
+
+void ECS::Clear() {
+  registry_.clear();
+  id_counter_ = 0;
+}
