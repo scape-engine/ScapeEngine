@@ -69,8 +69,10 @@ void Subsystem::Shutdown() {
 void Subsystem::Release(TerrainLook& look) {
   if (look.material != INVALID_MATERIAL)
     MaterialRegistry::Instance().Unregister(look.material);
-  if (bgfx::isValid(look.tile_colours))
-    bgfx::destroy(look.tile_colours);
+  if (bgfx::isValid(look.tile_constants))
+    bgfx::destroy(look.tile_constants);
+  if (bgfx::isValid(look.images.texture))
+    bgfx::destroy(look.images.texture);
   look = TerrainLook();
 }
 
@@ -81,11 +83,21 @@ MaterialHandle Subsystem::Look(Entity volume, const TerrainMaterialData& data) {
 
   TerrainLook previous = look;
   look.data = data;
-  look.tile_colours = TerrainMaterial::CreateTileColours(data);
-  look.material = MaterialRegistry::Instance().Register(
-      TerrainMaterial::Build(data, look.tile_colours));
+  const bool reload = previous.material == INVALID_MATERIAL ||
+                      previous.data.tile_images != data.tile_images;
+  if (reload) {
+    std::string error;
+    look.images = TerrainMaterial::LoadTileImages(data, root_, error);
+    if (!error.empty())
+      Logger::getInstance().Log(LogLevel::Error, "[ProcWorld] " + error);
+  }
+  look.tile_constants = TerrainMaterial::CreateTileConstants(data, look.images);
+  look.material = MaterialRegistry::Instance().Register(TerrainMaterial::Build(
+      data, look.tile_constants, look.images.texture));
   if (previous.material == INVALID_MATERIAL)
     return look.material;
+  if (!reload)
+    previous.images = TerrainTileImages();  // still in use
 
   // Switch the volume's terrain over, then drop the old material
   auto& ecs = ECS::Main();

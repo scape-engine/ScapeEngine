@@ -1,24 +1,35 @@
-$input v_worldPos, v_normal, v_tiles, v_centrePos, v_up
+$input v_worldPos, v_normal, v_tiles, v_centrePos, v_up, v_centreNormal
 
 #include "../common/common.sh"
 #include "../includes/lit.sh"
-#include "../includes/terrain_tiles.sh"
 
 //
 // Tiled terrain material (TerrainMaterial): each point mixes up to eight
-// tiles (terrain_tiles.sh), each a flat colour for now, lit as the standard
-// material is
+// tiles (terrain_tiles.sh), each its image recoloured by the tile colour (or
+// the flat colour), lit as the standard material is
 //
 
 uniform vec4 u_terrainParams;  // x = roughness
 uniform vec4 u_tileNoise;      // x, y = sample frequencies, z = second sample weight, w = offset
 
-SAMPLER2D(s_tileColours, 0);   // one texel per tile (sRGB)
+// Per tile (columns), point sampled: row 0 the tile colour as HSV and its
+// height offset, row 1 the image's mean HSV and its height scale, row 2 x = 1
+// where the tile has an image
+SAMPLER2D(s_tileConstants, 0);
+// The tile images, one layer per tile: colour (sRGB values, read as stored)
+// and height in alpha
+SAMPLER2DARRAY(s_tileImages, 1);
 
-vec3 TileColour(float tile)
+vec4 TileConstant(float tile, float row)
 {
-    return toLinear(texture2D(s_tileColours, vec2((tile + 0.5) / 23.0, 0.5)).rgb);
+    return texture2DLod(s_tileConstants, vec2((tile + 0.5) / 23.0, (row + 0.5) / 3.0), 0.0);
 }
+
+#define TERRAIN_SAMPLE(tile, u, v) texture2DArray(s_tileImages, vec3(u, v, tile))
+#define TERRAIN_TARGET(tile) TileConstant(tile, 0.0)
+#define TERRAIN_AVERAGE(tile) TileConstant(tile, 1.0)
+#define TERRAIN_HAS_IMAGE(tile) TileConstant(tile, 2.0).x
+#include "../includes/terrain_tiles.sh"
 
 // Value noise, 0..1
 // TODO: a noise texture, as tiling noise costs less than hashing per pixel
@@ -49,17 +60,9 @@ void main()
     float noise = TerrainNoiseWeight(TerrainValueNoise(v_centrePos * u_tileNoise.x),
                                      TerrainValueNoise(v_centrePos * u_tileNoise.y),
                                      u_tileNoise);
-    vec4 tiles0, tiles1, weights0, weights1;
-    TerrainTileWeights(v_tiles.x, v_tiles.y, v_tiles.z, dot(normalize(v_up), N),
-                       noise, tiles0, tiles1, weights0, weights1);
-
-    vec3 colour = TileColour(tiles0.x) * weights0.x + TileColour(tiles0.y) * weights0.y +
-                  TileColour(tiles0.z) * weights0.z + TileColour(tiles0.w) * weights0.w +
-                  TileColour(tiles1.x) * weights1.x + TileColour(tiles1.y) * weights1.y +
-                  TileColour(tiles1.z) * weights1.z + TileColour(tiles1.w) * weights1.w;
-    // Skipped reads leave the weights short of 1
-    float total = dot(weights0, vec4_splat(1.0)) + dot(weights1, vec4_splat(1.0));
-    colour /= max(total, 1e-4);
+    vec3 colour = toLinear(TerrainShade(v_tiles.x, v_tiles.y, v_tiles.z,
+                                        normalize(v_centreNormal),
+                                        dot(normalize(v_up), N), noise, v_centrePos));
 
     // TODO: water below sea level (v_tiles.w)
     vec3 result = LitSurface(N, V, v_worldPos, gl_FragCoord.xy, colour, 0.0,

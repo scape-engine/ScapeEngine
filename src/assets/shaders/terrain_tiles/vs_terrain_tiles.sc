@@ -1,5 +1,5 @@
 $input a_position, a_normal, a_texcoord0, a_texcoord2
-$output v_worldPos, v_normal, v_tiles, v_centrePos, v_up
+$output v_worldPos, v_normal, v_tiles, v_centrePos, v_up, v_centreNormal
 
 #include "../common/common.sh"
 
@@ -12,6 +12,7 @@ void main()
     v_normal = normalize(mul(u_model[0], vec4(a_normal, 0.0)).xyz);
     v_tiles = a_texcoord0;
     v_centrePos = a_texcoord2;
+    v_centreNormal = a_normal;
     // Away from the centre, in world space
     v_up = normalize(mul(u_model[0], vec4(a_texcoord2, 0.0)).xyz);
 

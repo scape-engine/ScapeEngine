@@ -66,7 +66,8 @@ private:
   struct TerrainLook {
     TerrainMaterialData data;
     MaterialHandle material = INVALID_MATERIAL;
-    bgfx::TextureHandle tile_colours = BGFX_INVALID_HANDLE;
+    bgfx::TextureHandle tile_constants = BGFX_INVALID_HANDLE;
+    TerrainTileImages images;  // reloaded only when the image paths change
   };
   MaterialHandle Look(Entity volume, const TerrainMaterialData& data);
   static void Release(TerrainLook& look);

@@ -108,6 +108,9 @@ static nlohmann::json _WriteLook(const TerrainMaterialData& look) {
   for (const glm::vec3& colour : look.tile_colours)
     colours.push_back(colour);
   return {{"tile_colours", colours},
+          {"tile_images", look.tile_images},
+          {"height_offset", look.height_offset},
+          {"height_scale", look.height_scale},
           {"roughness", look.roughness},
           {"tile_noise",
            {look.tile_noise.x, look.tile_noise.y, look.tile_noise.z,
@@ -124,6 +127,14 @@ static void _ReadLook(const nlohmann::json& in, TerrainMaterialData& look) {
          i < colours->size() && i < look.tile_colours.size(); ++i)
       look.tile_colours[i] = colours->at(i).get<glm::vec3>();
   }
+  auto read_tiles = [&](const char* key, auto& values) {
+    if (auto list = it->find(key); list != it->end())
+      for (size_t i = 0; i < list->size() && i < values.size(); ++i)
+        list->at(i).get_to(values[i]);
+  };
+  read_tiles("tile_images", look.tile_images);
+  read_tiles("height_offset", look.height_offset);
+  read_tiles("height_scale", look.height_scale);
   look.roughness = it->value("roughness", look.roughness);
   if (auto noise = it->find("tile_noise"); noise != it->end())
     look.tile_noise = {noise->at(0).get<float>(), noise->at(1).get<float>(),

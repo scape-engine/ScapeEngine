@@ -234,8 +234,21 @@ void PCGGraphEditorPanel::DrawTerrainLook(TerrainMaterialData& look) {
   ImGui::TextDisabled("Tiles 0-15: groups of steep (even) and flat (odd)");
   for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
     ImGui::PushID(i);
-    ImGui::ColorEdit3(("Tile " + std::to_string(i)).c_str(),
-                      &look.tile_colours[i].x);
+    ImGui::ColorEdit3("##Colour", &look.tile_colours[i].x,
+                      ImGuiColorEditFlags_NoInputs);
+    ImGui::SameLine();
+    if (ImGui::TreeNode("Tile", "Tile %d %s", i,
+                        look.tile_images[i].c_str())) {
+      char path[512];
+      std::snprintf(path, sizeof(path), "%s", look.tile_images[i].c_str());
+      if (ImGui::InputText("Image", path, sizeof(path),
+                           ImGuiInputTextFlags_EnterReturnsTrue))
+        look.tile_images[i] = path;
+      ImGui::TextDisabled("Relative to the project: RGB colour, alpha height");
+      ImGui::DragFloat("Height Offset", &look.height_offset[i], 0.01f);
+      ImGui::DragFloat("Height Scale", &look.height_scale[i], 0.01f);
+      ImGui::TreePop();
+    }
     ImGui::PopID();
   }
 }
