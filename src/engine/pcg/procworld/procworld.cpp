@@ -200,7 +200,6 @@ static Worldgen::PlanetCell _CellOf(uint64_t key) {
 // the viewer is near it, and the leaves are the regions wanted. They build on
 // worker threads, nearest first; a region stays until the regions replacing
 // it are loaded, so no holes show.
-// TODO: stitch the seams between levels
 // TODO: floating origin; positions are planet-relative floats
 void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                        PlanetState& state, bool reload) {
@@ -288,8 +287,11 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
       ecs.Add<ProceduralInstanceComponent>(entity, volume);
-      auto result = RegionInstancer::Instance(ecs, region, content, entity,
-                                              TerrainMaterial(), root_);
+      // Deep enough to cover the height differences between levels
+      const float skirt_depth = static_cast<float>(32 << cell.level) * 0.25f;
+      auto result =
+          RegionInstancer::Instance(ecs, region, content, entity,
+                                    TerrainMaterial(), root_, skirt_depth);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
     }
     it = state.building.erase(it);

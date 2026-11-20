@@ -17,7 +17,8 @@ namespace ProcWorld {
 // instance, as children of the source (the volume entity, which marks the
 // region origin), tagged with ProceduralInstanceComponent.
 // Object ids are sources: "primitive:<shape>", "procmodel:<descriptor>" or a
-// model path, relative to the project root
+// model path, relative to the project root. A skirt depth hangs a strip
+// from the terrain's border (see RegionMesher)
 class RegionInstancer {
 public:
   struct InstanceResult {
@@ -29,7 +30,8 @@ public:
   static InstanceResult Instance(ECS& ecs, const Worldgen::Region& region,
                                  const Worldgen::RegionContent& content,
                                  Entity source, MaterialHandle terrain_material,
-                                 const std::filesystem::path& root);
+                                 const std::filesystem::path& root,
+                                 float skirt_depth = 0.0f);
 };
 
 }  // namespace ProcWorld

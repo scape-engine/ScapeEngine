@@ -60,12 +60,15 @@ static void _SetTransform(TransformComponent& transform,
 RegionInstancer::InstanceResult RegionInstancer::Instance(
     ECS& ecs, const Worldgen::Region& region,
     const Worldgen::RegionContent& content, Entity source,
-    MaterialHandle terrain_material, const std::filesystem::path& root) {
+    MaterialHandle terrain_material, const std::filesystem::path& root,
+    float skirt_depth) {
   InstanceResult result;
 
   if (!region.mesh.empty()) {
-    result.terrain_mesh =
-        std::make_unique<Mesh>(RegionMesher(region.mesh).Generate());
+    const glm::vec3 origin(region.origin[0], region.origin[1],
+                           region.origin[2]);
+    result.terrain_mesh = std::make_unique<Mesh>(
+        RegionMesher(region.mesh, origin, skirt_depth).Generate());
     auto [terrain, transform] = ecs.CreateEntity("Terrain", source);
     auto& renderer = ecs.Add<MeshRendererComponent>(terrain);
     renderer.mesh_ = result.terrain_mesh.get();
