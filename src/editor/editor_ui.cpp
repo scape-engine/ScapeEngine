@@ -681,6 +681,10 @@ void EditorUI::UpdateMovement() {
 
   // Rebuild model matrix
   Transform::Evaluate(CameraTransform);
+
+  // Planets load their regions around the scene view camera
+  // TODO: the game camera while playing
+  EngineContext::PCG().GetProcWorld().SetViewer(CameraTransform.position_);
 }
 
 ImGuiID EditorUI::GenerateId() {

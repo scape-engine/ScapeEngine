@@ -17,6 +17,7 @@
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
 
 namespace fs = std::filesystem;
@@ -120,6 +121,18 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
         {"content", region.content_path},
         {"cell", {region.cell.x, region.cell.y, region.cell.z}}};
   }
+  if (generator &&
+      generator->GetGeneratorType() == PCG::GeneratorType::Planet) {
+    const auto& planet =
+        static_cast<const ProcWorld::PlanetGenerator&>(*generator->Get());
+    out["generator"] = {{"type", "Planet"},
+                        {"content", planet.content_path},
+                        {"finest_level", planet.finest_level},
+                        {"coarsest_level", planet.coarsest_level},
+                        {"split_distance", planet.split_distance},
+                        {"object_level", planet.object_level},
+                        {"builds_per_frame", planet.builds_per_frame}};
+  }
   return out;
 }
 
@@ -129,7 +142,30 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
   volume.resolution = in.value("resolution", volume.resolution);
   volume.lod_level = in.value("lod_level", volume.lod_level);
   auto it = in.find("generator");
-  if (it == in.end() || it->value("type", std::string()) != "Region")
+  if (it == in.end())
+    return;
+  const std::string type = it->value("type", std::string());
+
+  if (type == "Planet") {
+    auto planet = std::make_unique<ProcWorld::PlanetGenerator>();
+    planet->content_path = it->value("content", std::string());
+    planet->finest_level = it->value("finest_level", planet->finest_level);
+    planet->coarsest_level =
+        it->value("coarsest_level", planet->coarsest_level);
+    planet->split_distance =
+        it->value("split_distance", planet->split_distance);
+    planet->object_level = it->value("object_level", planet->object_level);
+    planet->builds_per_frame =
+        it->value("builds_per_frame", planet->builds_per_frame);
+    auto [id, resource] =
+        EngineContext::resourceManager().Create<PCG::GeneratorResource>(
+            "Planet");
+    resource->SetGenerator(std::move(planet));
+    volume.generator_id = id;
+    volume.dirty = true;
+    return;
+  }
+  if (type != "Region")
     return;
 
   auto region = std::make_unique<ProcWorld::RegionGenerator>();

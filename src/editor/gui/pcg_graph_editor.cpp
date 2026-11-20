@@ -10,6 +10,7 @@
 #include "engine/ecs/world.h"
 #include "engine/memory/resource.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
 
 namespace ed = ax::NodeEditor;
@@ -108,7 +109,14 @@ void PCGGraphEditorPanel::CloseGraph() {
 void PCGGraphEditorPanel::Render() {
   if (show_editor_ && show_properties_) {
     ImGui::Begin("PCG Graph Editor", &show_editor_);
-    DrawRegionProperties();
+    auto resource = EngineContext::resourceManager()
+                        .GetResourceAs<PCG::GeneratorResource>(
+                            active_generator_id_);
+    if (resource &&
+        resource->GetGeneratorType() == PCG::GeneratorType::Planet)
+      DrawPlanetProperties();
+    else
+      DrawRegionProperties();
     ImGui::End();
     if (!show_editor_)
       CloseGraph();
@@ -204,12 +212,66 @@ void PCGGraphEditorPanel::DrawRegionProperties() {
     ImGui::Text("%zu vertices, %zu objects, %.1f ms", region.vertex_count,
                 region.instance_count, region.build_ms);
 
-  if (!changed)
-    return;
+  if (changed)
+    RequestRebuild();
+}
+
+void PCGGraphEditorPanel::RequestRebuild() {
   for (auto [entity, volume] : ECS::Main().View<VolumeComponent>().each()) {
     if (volume.generator_id == active_generator_id_)
       volume.dirty = true;
   }
+}
+
+//
+//  PLANET PROPERTIES
+//
+void PCGGraphEditorPanel::DrawPlanetProperties() {
+  auto resource = EngineContext::resourceManager()
+                      .GetResourceAs<PCG::GeneratorResource>(
+                          active_generator_id_);
+  if (!resource || !resource->Get() ||
+      resource->GetGeneratorType() != PCG::GeneratorType::Planet) {
+    ImGui::TextDisabled("The generator no longer exists");
+    return;
+  }
+  auto& planet = static_cast<ProcWorld::PlanetGenerator&>(*resource->Get());
+
+  ImGui::Text("Planet generator (ID %u)", active_generator_id_);
+  ImGui::Separator();
+
+  bool changed = false;
+  char path[512];
+  std::snprintf(path, sizeof(path), "%s", planet.content_path.c_str());
+  if (ImGui::InputText("Content", path, sizeof(path),
+                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+    planet.content_path = path;
+    changed = true;
+  }
+  ImGui::TextDisabled("JSON region content, relative to the project");
+
+  // Loading settings apply from the next frame, no rebuild needed
+  ImGui::SliderInt("Finest Level", &planet.finest_level, 0, 5);
+  ImGui::SliderInt("Coarsest Level", &planet.coarsest_level,
+                   planet.finest_level, 9);
+  ImGui::SliderFloat("Split Distance", &planet.split_distance, 0.5f, 8.0f);
+  ImGui::TextDisabled("A region splits when nearer than this many widths");
+  changed |= ImGui::SliderInt("Object Level", &planet.object_level, -1, 5);
+  ImGui::SliderInt("Builds Per Frame", &planet.builds_per_frame, 1, 16);
+
+  changed |= ImGui::Button("Regenerate");
+
+  ImGui::Separator();
+  if (!planet.error.empty())
+    ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s",
+                       planet.error.c_str());
+  else
+    ImGui::Text("%zu regions loaded, %zu queued, %.1f ms last frame",
+                planet.loaded_regions, planet.queued_regions,
+                planet.build_ms);
+
+  if (changed)
+    RequestRebuild();
 }
 
 //

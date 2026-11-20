@@ -128,6 +128,9 @@ private:
   //
   void DrawToolbar();
   void DrawRegionProperties();
+  void DrawPlanetProperties();
+  // Marks the volumes using the open generator for a rebuild
+  void RequestRebuild();
   void DrawNodes();
   void DrawInlineParams(PCG::ProgramGraph::Node& node,
                         const PCG::NodeType& type);

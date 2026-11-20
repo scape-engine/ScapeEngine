@@ -19,6 +19,7 @@
 
 #include "engine/context/engine_context.h"  // ! should be removed?
 #include "engine/pcg/generator_resource.h"  // ! should be removed?
+#include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
 #include "engine/transform/transform.h"
 // TODO: #include "rendering/icons/icon_pool.h"
@@ -516,6 +517,17 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
             EngineContext::resourceManager().Create<PCG::GeneratorResource>(
                 "Region");
         resource->SetGenerator(std::make_unique<ProcWorld::RegionGenerator>());
+
+        volume.generator_id = id;
+        volume.dirty = true;
+
+        EditorEvents::open_graph_editor(id);
+      }
+      if (ImGui::Button("Create Planet Generator")) {
+        auto [id, resource] =
+            EngineContext::resourceManager().Create<PCG::GeneratorResource>(
+                "Planet");
+        resource->SetGenerator(std::make_unique<ProcWorld::PlanetGenerator>());
 
         volume.generator_id = id;
         volume.dirty = true;

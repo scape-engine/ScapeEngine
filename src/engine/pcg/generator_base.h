@@ -15,6 +15,7 @@ enum class GeneratorType {
   Preset,  // PCG::Generator with Config
   Graph,   // Node graph
   Region,  // Worldgen region: terrain and objects (ProcWorld)
+  Planet,  // Worldgen planet: regions around the viewer (ProcWorld)
 };
 
 inline const char* GetGeneratorTypeName(GeneratorType type) {
@@ -25,6 +26,8 @@ inline const char* GetGeneratorTypeName(GeneratorType type) {
       return "Graph";
     case GeneratorType::Region:
       return "Region";
+    case GeneratorType::Planet:
+      return "Planet";
     default:
       return "Unknown";
   }
