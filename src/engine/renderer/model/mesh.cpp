@@ -74,6 +74,17 @@ Mesh::Mesh(const Geometry::MeshData& src) {
   material_index_ = src.material_index;
 }
 
+Mesh::Mesh(const void* vertices, uint32_t vertex_count,
+           const bgfx::VertexLayout& layout,
+           const std::vector<uint32_t>& indices) {
+  vbo_ = bgfx::createVertexBuffer(
+      bgfx::copy(vertices, layout.getSize(vertex_count)), layout);
+  ibo_ = bgfx::createIndexBuffer(
+      bgfx::copy(indices.data(), sizeof(uint32_t) * indices.size()),
+      BGFX_BUFFER_INDEX32);
+  index_count_ = static_cast<uint32_t>(indices.size());
+}
+
 Mesh::~Mesh() {
   if (bgfx::isValid(vbo_))
     bgfx::destroy(vbo_);

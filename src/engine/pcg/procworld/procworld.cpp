@@ -61,18 +61,46 @@ void Subsystem::Shutdown() {
   meshes_.clear();
   planets_.clear();  // waits for the builds still running
   discarded_.clear();
+  for (auto& [volume, look] : looks_)
+    Release(look);
+  looks_.clear();
 }
 
-MaterialHandle Subsystem::TerrainMaterial() {
-  if (terrain_material_ == INVALID_MATERIAL) {
-    Content::MaterialData material;
-    material.name = "Region Terrain";
-    material.is_pbr = true;
-    material.base_color = glm::vec4(0.45f, 0.42f, 0.36f, 1.0f);
-    material.roughness = 0.9f;
-    terrain_material_ = MaterialRegistry::Instance().Register(material);
-  }
-  return terrain_material_;
+void Subsystem::Release(TerrainLook& look) {
+  if (look.material != INVALID_MATERIAL)
+    MaterialRegistry::Instance().Unregister(look.material);
+  if (bgfx::isValid(look.tile_colours))
+    bgfx::destroy(look.tile_colours);
+  look = TerrainLook();
+}
+
+MaterialHandle Subsystem::Look(Entity volume, const TerrainMaterialData& data) {
+  TerrainLook& look = looks_[volume];
+  if (look.material != INVALID_MATERIAL && look.data == data)
+    return look.material;
+
+  TerrainLook previous = look;
+  look.data = data;
+  look.tile_colours = TerrainMaterial::CreateTileColours(data);
+  look.material = MaterialRegistry::Instance().Register(
+      TerrainMaterial::Build(data, look.tile_colours));
+  if (previous.material == INVALID_MATERIAL)
+    return look.material;
+
+  // Switch the volume's terrain over, then drop the old material
+  auto& ecs = ECS::Main();
+  std::function<void(Entity)> visit = [&](Entity entity) {
+    if (ecs.Has<MeshRendererComponent>(entity)) {
+      auto& renderer = ecs.Get<MeshRendererComponent>(entity);
+      if (renderer.material_ == previous.material)
+        renderer.material_ = look.material;
+    }
+    for (Entity child : ecs.Get<TransformComponent>(entity).children_)
+      visit(child);
+  };
+  visit(volume);
+  Release(previous);
+  return look.material;
 }
 
 void Subsystem::Update() {
@@ -97,6 +125,18 @@ void Subsystem::Update() {
   std::erase_if(meshes_, [&](const auto& entry) {
     return !ecs.Reg().valid(entry.first);
   });
+  std::erase_if(looks_, [&](auto& entry) {
+    const Entity volume = entry.first;
+    if (ecs.Reg().valid(volume) && ecs.Has<VolumeComponent>(volume)) {
+      PCG::Generator* generator =
+          generator_of(ecs.Get<VolumeComponent>(volume));
+      if (is_type(generator, PCG::GeneratorType::Region) ||
+          is_type(generator, PCG::GeneratorType::Planet))
+        return false;
+    }
+    Release(entry.second);
+    return true;
+  });
   std::erase_if(planets_, [&](const auto& entry) {
     const Entity volume = entry.first;
     if (!ecs.Reg().valid(volume))
@@ -111,12 +151,16 @@ void Subsystem::Update() {
 
   for (auto [entity, volume] : ecs.View<VolumeComponent>().each()) {
     PCG::Generator* generator = generator_of(volume);
-    if (is_type(generator, PCG::GeneratorType::Region) && volume.dirty) {
-      Build(entity, static_cast<RegionGenerator&>(*generator));
+    if (is_type(generator, PCG::GeneratorType::Region)) {
+      auto& region = static_cast<RegionGenerator&>(*generator);
+      Look(entity, region.look);
+      if (volume.dirty)
+        Build(entity, region);
       volume.dirty = false;
     } else if (is_type(generator, PCG::GeneratorType::Planet)) {
-      Stream(entity, static_cast<PlanetGenerator&>(*generator),
-             planets_[entity], volume.dirty);
+      auto& planet = static_cast<PlanetGenerator&>(*generator);
+      Look(entity, planet.look);
+      Stream(entity, planet, planets_[entity], volume.dirty);
       volume.dirty = false;
     }
   }
@@ -162,7 +206,7 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
   const Worldgen::Region region =
       Worldgen::BuildRegion(content, cell.x, cell.y, cell.z, level);
   auto result = RegionInstancer::Instance(ecs, region, content, volume,
-                                          TerrainMaterial(), root_);
+                                          looks_[volume].material, root_);
   generator.build_ms = _Milliseconds(start);
 
   generator.vertex_count = region.mesh.size();
@@ -291,7 +335,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       const float skirt_depth = static_cast<float>(32 << cell.level) * 0.25f;
       auto result =
           RegionInstancer::Instance(ecs, region, content, entity,
-                                    TerrainMaterial(), root_, skirt_depth);
+                                    looks_[volume].material, root_,
+                                    skirt_depth);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
     }
     it = state.building.erase(it);

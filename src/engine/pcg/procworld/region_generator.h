@@ -5,6 +5,7 @@
 #include <string>
 
 #include "engine/pcg/generator_base.h"
+#include "engine/pcg/procworld/terrain_look.h"
 
 namespace ProcWorld {
 
@@ -23,6 +24,8 @@ public:
   std::string content_path;
   // Cell centre in planet space; zero: above the north pole (0, radius + 16, 0)
   glm::ivec3 cell{0};
+  // The terrain's tile colours and material settings
+  TerrainMaterialData look = DefaultTerrainLook();
 
   // Last build, written by ProcWorld::Subsystem
   std::string error;

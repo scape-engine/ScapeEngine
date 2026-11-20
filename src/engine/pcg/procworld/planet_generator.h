@@ -4,6 +4,7 @@
 #include <string>
 
 #include "engine/pcg/generator_base.h"
+#include "engine/pcg/procworld/terrain_look.h"
 
 namespace ProcWorld {
 
@@ -31,6 +32,8 @@ public:
   // Regions building at once on worker threads, nearest first; 0: one per
   // core but one
   int worker_jobs = 0;
+  // The terrain's tile colours and material settings
+  TerrainMaterialData look = DefaultTerrainLook();
 
   // State, written by ProcWorld::Subsystem
   std::string error;

@@ -9,6 +9,11 @@
 class Mesh {
 public:
   explicit Mesh(const Geometry::MeshData& src);
+  // Vertices in the caller's own layout (e.g. a terrain format). Passes that
+  // draw every mesh read position, normal and, for the selection outline, a
+  // smoothed normal in TexCoord1: the layout must have them
+  Mesh(const void* vertices, uint32_t vertex_count,
+       const bgfx::VertexLayout& layout, const std::vector<uint32_t>& indices);
   ~Mesh();
 
   Mesh(const Mesh&) = delete;

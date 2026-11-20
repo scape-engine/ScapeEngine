@@ -10,6 +10,7 @@
 
 #include "engine/ecs/world.h"
 #include "engine/renderer/material/material_registry.h"
+#include "engine/renderer/material/terrain_material.h"
 #include "engine/renderer/model/mesh.h"
 
 #include "api/region.h"
@@ -59,7 +60,16 @@ private:
               bool reload);
   // Destroys the entities made from the volume, and their meshes
   void Clear(Entity volume);
-  MaterialHandle TerrainMaterial();
+
+  // A volume's terrain material, rebuilt when its look changes (the
+  // volume's terrain then switches to the new one)
+  struct TerrainLook {
+    TerrainMaterialData data;
+    MaterialHandle material = INVALID_MATERIAL;
+    bgfx::TextureHandle tile_colours = BGFX_INVALID_HANDLE;
+  };
+  MaterialHandle Look(Entity volume, const TerrainMaterialData& data);
+  static void Release(TerrainLook& look);
 
   // The terrain mesh each region volume's terrain renders
   std::unordered_map<Entity, std::unique_ptr<Mesh>> meshes_;
@@ -67,7 +77,7 @@ private:
   // Builds no longer wanted, kept until they finish (a future from
   // std::async blocks when destroyed)
   std::vector<std::future<Worldgen::Region>> discarded_;
-  MaterialHandle terrain_material_ = INVALID_MATERIAL;
+  std::unordered_map<Entity, TerrainLook> looks_;
   std::filesystem::path root_;
   glm::vec3 viewer_{0.0f};
 };

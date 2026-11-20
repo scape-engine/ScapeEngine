@@ -1,6 +1,6 @@
 target("tests")
     set_kind("binary")
-    add_deps("engine", "FastNoise2")
+    add_deps("engine", "FastNoise2", "worldgen")
  
     add_includedirs("../", {public = false})
 

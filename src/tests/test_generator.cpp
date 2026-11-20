@@ -509,12 +509,14 @@ void RunAllGeneratorTests() {
 namespace Tests {
 void TestShapes();
 void TestSceneSerializer();
+void TestTerrainTiles();
 }
 
 // Entry point for running tests standalone
 int main() {
   Tests::TestShapes();
   Tests::TestSceneSerializer();
+  Tests::TestTerrainTiles();
   Tests::RunAllGeneratorTests();
   return 0;
 }

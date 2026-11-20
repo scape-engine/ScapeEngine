@@ -14,6 +14,7 @@
 #include <vector>
 
 // ! should not include PCG directly
+#include "engine/renderer/material/terrain_material.h"
 #include "engine/pcg/graph/node_types.h"
 #include "engine/pcg/graph/program_graph.h"
 
@@ -129,6 +130,8 @@ private:
   void DrawToolbar();
   void DrawRegionProperties();
   void DrawPlanetProperties();
+  // Tile colours and material settings; they apply without a rebuild
+  void DrawTerrainLook(TerrainMaterialData& look);
   // Marks the volumes using the open generator for a rebuild
   void RequestRebuild();
   void DrawNodes();

@@ -204,6 +204,8 @@ void PCGGraphEditorPanel::DrawRegionProperties() {
 
   changed |= ImGui::Button("Regenerate");
 
+  DrawTerrainLook(region.look);
+
   ImGui::Separator();
   if (!region.error.empty())
     ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s",
@@ -220,6 +222,21 @@ void PCGGraphEditorPanel::RequestRebuild() {
   for (auto [entity, volume] : ECS::Main().View<VolumeComponent>().each()) {
     if (volume.generator_id == active_generator_id_)
       volume.dirty = true;
+  }
+}
+
+void PCGGraphEditorPanel::DrawTerrainLook(TerrainMaterialData& look) {
+  if (!ImGui::CollapsingHeader("Terrain Look"))
+    return;
+  ImGui::SliderFloat("Roughness", &look.roughness, 0.04f, 1.0f);
+  ImGui::DragFloat4("Tile Noise", &look.tile_noise.x, 0.001f);
+  ImGui::TextDisabled("Sample frequencies, second sample weight, offset");
+  ImGui::TextDisabled("Tiles 0-15: groups of steep (even) and flat (odd)");
+  for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
+    ImGui::PushID(i);
+    ImGui::ColorEdit3(("Tile " + std::to_string(i)).c_str(),
+                      &look.tile_colours[i].x);
+    ImGui::PopID();
   }
 }
 
@@ -261,6 +278,8 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   ImGui::TextDisabled("Regions building at once; 0: one per core but one");
 
   changed |= ImGui::Button("Regenerate");
+
+  DrawTerrainLook(planet.look);
 
   ImGui::Separator();
   if (!planet.error.empty())

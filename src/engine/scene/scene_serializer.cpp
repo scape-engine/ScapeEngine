@@ -103,6 +103,33 @@ static std::string _Absolute(const std::string& path, const fs::path& root) {
   return (root / path).string();
 }
 
+static nlohmann::json _WriteLook(const TerrainMaterialData& look) {
+  nlohmann::json colours = nlohmann::json::array();
+  for (const glm::vec3& colour : look.tile_colours)
+    colours.push_back(colour);
+  return {{"tile_colours", colours},
+          {"roughness", look.roughness},
+          {"tile_noise",
+           {look.tile_noise.x, look.tile_noise.y, look.tile_noise.z,
+            look.tile_noise.w}}};
+}
+
+// Missing values keep the defaults
+static void _ReadLook(const nlohmann::json& in, TerrainMaterialData& look) {
+  auto it = in.find("look");
+  if (it == in.end())
+    return;
+  if (auto colours = it->find("tile_colours"); colours != it->end()) {
+    for (size_t i = 0;
+         i < colours->size() && i < look.tile_colours.size(); ++i)
+      look.tile_colours[i] = colours->at(i).get<glm::vec3>();
+  }
+  look.roughness = it->value("roughness", look.roughness);
+  if (auto noise = it->find("tile_noise"); noise != it->end())
+    look.tile_noise = {noise->at(0).get<float>(), noise->at(1).get<float>(),
+                       noise->at(2).get<float>(), noise->at(3).get<float>()};
+}
+
 // A volume and its generator settings (resources are runtime only)
 static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
   nlohmann::json out = {{"bounds_min", volume.bounds_min},
@@ -119,7 +146,8 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
     out["generator"] = {
         {"type", "Region"},
         {"content", region.content_path},
-        {"cell", {region.cell.x, region.cell.y, region.cell.z}}};
+        {"cell", {region.cell.x, region.cell.y, region.cell.z}},
+        {"look", _WriteLook(region.look)}};
   }
   if (generator &&
       generator->GetGeneratorType() == PCG::GeneratorType::Planet) {
@@ -131,7 +159,8 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"coarsest_level", planet.coarsest_level},
                         {"split_distance", planet.split_distance},
                         {"object_level", planet.object_level},
-                        {"worker_jobs", planet.worker_jobs}};
+                        {"worker_jobs", planet.worker_jobs},
+                        {"look", _WriteLook(planet.look)}};
   }
   return out;
 }
@@ -156,6 +185,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
         it->value("split_distance", planet->split_distance);
     planet->object_level = it->value("object_level", planet->object_level);
     planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
+    _ReadLook(*it, planet->look);
     auto [id, resource] =
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(
             "Planet");
@@ -169,6 +199,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
 
   auto region = std::make_unique<ProcWorld::RegionGenerator>();
   region->content_path = it->value("content", std::string());
+  _ReadLook(*it, region->look);
   if (auto cell = it->find("cell"); cell != it->end())
     region->cell = {cell->at(0).get<int>(), cell->at(1).get<int>(),
                     cell->at(2).get<int>()};

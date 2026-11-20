@@ -67,8 +67,11 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
   if (!region.mesh.empty()) {
     const glm::vec3 origin(region.origin[0], region.origin[1],
                            region.origin[2]);
+    const RegionMeshData data =
+        RegionMesher(region.mesh, origin, skirt_depth).Generate();
     result.terrain_mesh = std::make_unique<Mesh>(
-        RegionMesher(region.mesh, origin, skirt_depth).Generate());
+        data.vertices.data(), static_cast<uint32_t>(data.vertices.size()),
+        RegionMeshData::Layout(), data.indices);
     auto [terrain, transform] = ecs.CreateEntity("Terrain", source);
     auto& renderer = ecs.Add<MeshRendererComponent>(terrain);
     renderer.mesh_ = result.terrain_mesh.get();

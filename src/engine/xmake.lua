@@ -226,6 +226,7 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		imgui = "varying_imgui.def.sc",
 		skybox = "varying_skybox.def.sc",
 		terrain = "varying_terrain_pbr.def.sc",
+		terrain_tiles = "varying_terrain_tiles.def.sc",
 		shadow = "varying_shadow.def.sc",
 		water = "varying_water.def.sc",
 		gltf = "varying_gltf.def.sc",
@@ -239,12 +240,14 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		pre_pass = "varying_pre_pass.def.sc",
 	}
 
-	-- pick first key matching anywhere in relative path
+	-- pick the longest key found anywhere in the relative path (pairs has no
+	-- order, and "terrain_tiles" must win over "terrain")
 	local rel = path.relative(shaderfile, shader_root)
+	local matched = ""
 	for key, file in pairs(map) do
-		if rel:find(key, 1, true) then
+		if #key > #matched and rel:find(key, 1, true) then
+			matched = key
 			varying = path.join(shader_root, file)
-			break
 		end
 	end
 
