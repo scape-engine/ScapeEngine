@@ -280,6 +280,20 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   }
   ImGui::TextDisabled("JSON region content, relative to the project");
 
+  std::snprintf(path, sizeof(path), "%s", planet.planet_path.c_str());
+  if (ImGui::InputText("Planet", path, sizeof(path),
+                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+    planet.planet_path = path;
+    changed = true;
+  }
+  ImGui::TextDisabled("JSON planet content, optional: its tile colours");
+  ImGui::InputScalar("Seed", ImGuiDataType_U64, &planet.seed);
+  changed |= ImGui::IsItemDeactivatedAfterEdit();
+  ImGui::InputInt("Biome", &planet.biome);
+  changed |= ImGui::IsItemDeactivatedAfterEdit();
+  ImGui::InputInt("Subtype", &planet.subtype);
+  changed |= ImGui::IsItemDeactivatedAfterEdit();
+
   // Loading settings apply from the next frame, no rebuild needed
   ImGui::SliderInt("Finest Level", &planet.finest_level, 0, 5);
   ImGui::SliderInt("Coarsest Level", &planet.coarsest_level,
@@ -302,6 +316,9 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     ImGui::Text("%zu regions loaded, %zu building, %zu queued",
                 planet.loaded_regions, planet.building_regions,
                 planet.queued_regions);
+  if (planet.planet_tile_colours > 0)
+    ImGui::Text("%d tile colours from the planet (they replace the look's)",
+                planet.planet_tile_colours);
 
   if (changed)
     RequestRebuild();

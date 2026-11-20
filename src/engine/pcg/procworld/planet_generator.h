@@ -1,6 +1,7 @@
 #ifndef PLANET_GENERATOR_H
 #define PLANET_GENERATOR_H
 
+#include <cstdint>
 #include <string>
 
 #include "engine/pcg/generator_base.h"
@@ -34,12 +35,20 @@ public:
   int worker_jobs = 0;
   // The terrain's tile colours and material settings
   TerrainMaterialData look = DefaultTerrainLook();
+  // The planet itself, optional: worldgen planet content (JSON,
+  // project-relative) built from the seed, as the given biome and subtype.
+  // The tile colours it gives replace the look's
+  std::string planet_path;
+  uint64_t seed = 1;
+  int biome = 0;
+  int subtype = 0;
 
   // State, written by ProcWorld::Subsystem
   std::string error;
   size_t loaded_regions = 0;
   size_t queued_regions = 0;
   size_t building_regions = 0;
+  int planet_tile_colours = 0;  // tiles coloured by the planet
 };
 
 }  // namespace ProcWorld

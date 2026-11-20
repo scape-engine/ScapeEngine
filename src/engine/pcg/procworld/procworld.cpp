@@ -28,10 +28,22 @@ static float _Milliseconds(Clock::time_point start) {
       .count();
 }
 
-// Reads region content from a JSON file; false with `error` set on failure
+static bool _Parse(const std::string& text, Worldgen::RegionContent& content,
+                   std::string* error) {
+  return Worldgen::Json::LoadRegionContent(text, content, error);
+}
+
+static bool _Parse(const std::string& text, Worldgen::PlanetContent& content,
+                   std::string* error) {
+  return Worldgen::Json::LoadPlanetContent(text, content, error);
+}
+
+// Reads region or planet content from a JSON file; false with `error` set on
+// failure
+template <class Content>
 static bool _LoadContent(const std::filesystem::path& root,
-                         const std::string& relative,
-                         Worldgen::RegionContent& content, std::string& error) {
+                         const std::string& relative, Content& content,
+                         std::string& error) {
   const std::filesystem::path path = root / relative;
   std::ifstream file(path);
   if (relative.empty() || !file) {
@@ -41,7 +53,7 @@ static bool _LoadContent(const std::filesystem::path& root,
   }
   std::stringstream text;
   text << file.rdbuf();
-  if (!Worldgen::Json::LoadRegionContent(text.str(), content, &error)) {
+  if (!_Parse(text.str(), content, &error)) {
     Logger::getInstance().Log(LogLevel::Error,
                               "[ProcWorld] " + path.string() + ": " + error);
     return false;
@@ -171,8 +183,15 @@ void Subsystem::Update() {
       volume.dirty = false;
     } else if (is_type(generator, PCG::GeneratorType::Planet)) {
       auto& planet = static_cast<PlanetGenerator&>(*generator);
-      Look(entity, planet.look);
-      Stream(entity, planet, planets_[entity], volume.dirty);
+      PlanetState& state = planets_[entity];
+      // A reload's colours apply from the next frame on, the look then
+      // switching the terrain over
+      TerrainMaterialData look = planet.look;
+      for (int i = 0; i < TerrainMaterialData::tile_count; ++i)
+        if (state.tile_colours[i].a > 0.0f)
+          look.tile_colours[i] = glm::vec3(state.tile_colours[i]);
+      Look(entity, look);
+      Stream(entity, planet, state, volume.dirty);
       volume.dirty = false;
     }
   }
@@ -272,6 +291,26 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       state.bare_content = std::move(bare);
     } else {
       state.content = state.bare_content = nullptr;
+    }
+
+    // The planet's tile colours, from its own content
+    state.tile_colours = {};
+    generator.planet_tile_colours = 0;
+    Worldgen::PlanetContent planet;
+    if (!generator.planet_path.empty() &&
+        _LoadContent(root_, generator.planet_path, planet, generator.error)) {
+      Worldgen::PlanetInput input;
+      input.seed = generator.seed;
+      input.biome = generator.biome;
+      input.subtype = generator.subtype;
+      const Worldgen::Planet built = Worldgen::BuildPlanet(planet, input);
+      for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
+        const Worldgen::Colour& c = built.tile_colours[i];
+        if (c.a > 0.0f) {
+          state.tile_colours[i] = glm::vec4(c.r, c.g, c.b, 1.0f);
+          ++generator.planet_tile_colours;
+        }
+      }
     }
   }
   if (!state.content) {
