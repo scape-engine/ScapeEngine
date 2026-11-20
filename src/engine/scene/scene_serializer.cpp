@@ -131,7 +131,7 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"coarsest_level", planet.coarsest_level},
                         {"split_distance", planet.split_distance},
                         {"object_level", planet.object_level},
-                        {"builds_per_frame", planet.builds_per_frame}};
+                        {"worker_jobs", planet.worker_jobs}};
   }
   return out;
 }
@@ -155,8 +155,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     planet->split_distance =
         it->value("split_distance", planet->split_distance);
     planet->object_level = it->value("object_level", planet->object_level);
-    planet->builds_per_frame =
-        it->value("builds_per_frame", planet->builds_per_frame);
+    planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
     auto [id, resource] =
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(
             "Planet");

@@ -257,7 +257,8 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   ImGui::SliderFloat("Split Distance", &planet.split_distance, 0.5f, 8.0f);
   ImGui::TextDisabled("A region splits when nearer than this many widths");
   changed |= ImGui::SliderInt("Object Level", &planet.object_level, -1, 5);
-  ImGui::SliderInt("Builds Per Frame", &planet.builds_per_frame, 1, 16);
+  ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);
+  ImGui::TextDisabled("Regions building at once; 0: one per core but one");
 
   changed |= ImGui::Button("Regenerate");
 
@@ -266,9 +267,9 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s",
                        planet.error.c_str());
   else
-    ImGui::Text("%zu regions loaded, %zu queued, %.1f ms last frame",
-                planet.loaded_regions, planet.queued_regions,
-                planet.build_ms);
+    ImGui::Text("%zu regions loaded, %zu building, %zu queued",
+                planet.loaded_regions, planet.building_regions,
+                planet.queued_regions);
 
   if (changed)
     RequestRebuild();

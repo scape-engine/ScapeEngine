@@ -28,14 +28,15 @@ public:
   float split_distance = 2.0f;
   // Objects are placed on regions up to this level
   int object_level = 0;
-  // Regions built per frame, nearest first
-  int builds_per_frame = 2;
+  // Regions building at once on worker threads, nearest first; 0: one per
+  // core but one
+  int worker_jobs = 0;
 
   // State, written by ProcWorld::Subsystem
   std::string error;
   size_t loaded_regions = 0;
   size_t queued_regions = 0;
-  float build_ms = 0.0f;  // last frame's builds
+  size_t building_regions = 0;
 };
 
 }  // namespace ProcWorld

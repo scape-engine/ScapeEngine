@@ -5,6 +5,7 @@
 #include <fstream>
 #include <functional>
 #include <sstream>
+#include <thread>
 
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
@@ -58,7 +59,8 @@ void Subsystem::Init() {}
 
 void Subsystem::Shutdown() {
   meshes_.clear();
-  planets_.clear();
+  planets_.clear();  // waits for the builds still running
+  discarded_.clear();
 }
 
 MaterialHandle Subsystem::TerrainMaterial() {
@@ -85,6 +87,11 @@ void Subsystem::Update() {
   auto is_type = [](PCG::Generator* generator, PCG::GeneratorType type) {
     return generator && generator->GetType() == type;
   };
+
+  std::erase_if(discarded_, [](const auto& build) {
+    return build.wait_for(std::chrono::seconds(0)) ==
+           std::future_status::ready;
+  });
 
   // Volumes destroyed or given another generator since
   std::erase_if(meshes_, [&](const auto& entry) {
@@ -126,8 +133,12 @@ void Subsystem::Clear(Entity volume) {
       ecs.DestroyEntity(child);
   }
   meshes_.erase(volume);
-  if (auto it = planets_.find(volume); it != planets_.end())
+  if (auto it = planets_.find(volume); it != planets_.end()) {
     it->second.regions.clear();
+    for (auto& [key, build] : it->second.building)
+      discarded_.push_back(std::move(build));
+    it->second.building.clear();
+  }
 }
 
 // TODO: build on a worker thread; the editor stalls while a region builds
@@ -168,10 +179,28 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
                           std::to_string(generator.build_ms) + " ms");
 }
 
+// Whether two cells of one face overlap (either holds the other)
+static bool _Overlap(const Worldgen::PlanetCell& a,
+                     const Worldgen::PlanetCell& b) {
+  if (a.face != b.face)
+    return false;
+  const int level = std::max(a.level, b.level);
+  return a.i >> (level - a.level) == b.i >> (level - b.level) &&
+         a.j >> (level - a.level) == b.j >> (level - b.level);
+}
+
+static Worldgen::PlanetCell _CellOf(uint64_t key) {
+  return {static_cast<int>(key >> 60),
+          static_cast<int>(key >> 26 & 0x3ffffff),
+          static_cast<int>(key & 0x3ffffff),
+          static_cast<int>(key >> 52 & 0xff)};
+}
+
 // The planet's regions form a quadtree per cube face: a region splits while
-// the viewer is near it, and the leaves are the regions loaded.
-// TODO: keep a region until the regions replacing it are built (holes show
-// for a few frames), and stitch the seams between levels
+// the viewer is near it, and the leaves are the regions wanted. They build on
+// worker threads, nearest first; a region stays until the regions replacing
+// it are loaded, so no holes show.
+// TODO: stitch the seams between levels
 // TODO: floating origin; positions are planet-relative floats
 void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                        PlanetState& state, bool reload) {
@@ -179,21 +208,29 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   if (reload) {
     Clear(volume);
     generator.error.clear();
-    state.loaded = _LoadContent(root_, generator.content_path, state.content,
-                                generator.error);
-    state.bare_content = state.content;
-    state.bare_content.objects.clear();
+    auto content = std::make_shared<Worldgen::RegionContent>();
+    if (_LoadContent(root_, generator.content_path, *content,
+                     generator.error)) {
+      auto bare = std::make_shared<Worldgen::RegionContent>(*content);
+      bare->objects.clear();
+      state.content = std::move(content);
+      state.bare_content = std::move(bare);
+    } else {
+      state.content = state.bare_content = nullptr;
+    }
   }
-  if (!state.loaded) {
-    generator.loaded_regions = generator.queued_regions = 0;
+  if (!state.content) {
+    generator.loaded_regions = generator.queued_regions =
+        generator.building_regions = 0;
     return;
   }
 
-  const float radius = state.content.radius;
+  const float radius = state.content->radius;
   const int finest = std::max(generator.finest_level, 0);
   const int coarsest = std::clamp(generator.coarsest_level, finest, 9);
-  const glm::vec3 viewer = glm::inverse(ecs.Get<TransformComponent>(volume).model_) *
-                           glm::vec4(viewer_, 1.0f);
+  const glm::vec3 viewer =
+      glm::inverse(ecs.Get<TransformComponent>(volume).model_) *
+      glm::vec4(viewer_, 1.0f);
 
   // The leaves around the viewer, with their distance
   struct Wanted {
@@ -226,56 +263,90 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     for (int i = 0; i < roots; i++)
       for (int j = 0; j < roots; j++)
         visit({face, i, j, coarsest});
-
-  // Unload the regions no longer wanted
-  std::unordered_map<uint64_t, bool> keep;
+  std::unordered_map<uint64_t, bool> is_wanted;
   for (const Wanted& w : wanted)
-    keep[_CellKey(w.cell)] = true;
+    is_wanted[_CellKey(w.cell)] = true;
+
+  // Finished builds: instance the ones still wanted
+  for (auto it = state.building.begin(); it != state.building.end();) {
+    if (it->second.wait_for(std::chrono::seconds(0)) !=
+        std::future_status::ready) {
+      ++it;
+      continue;
+    }
+    const Worldgen::Region region = it->second.get();
+    const Worldgen::PlanetCell cell = _CellOf(it->first);
+    if (is_wanted.count(it->first)) {
+      const Worldgen::RegionContent& content =
+          cell.level <= generator.object_level ? *state.content
+                                               : *state.bare_content;
+      const std::string name =
+          "Region " + std::to_string(cell.face) + "/" +
+          std::to_string(cell.level) + "/" + std::to_string(cell.i) + "/" +
+          std::to_string(cell.j);
+      auto [entity, transform] = ecs.CreateEntity(name, volume);
+      transform.position_ =
+          glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
+      ecs.Add<ProceduralInstanceComponent>(entity, volume);
+      auto result = RegionInstancer::Instance(ecs, region, content, entity,
+                                              TerrainMaterial(), root_);
+      state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
+    }
+    it = state.building.erase(it);
+  }
+
+  // Unload the regions no longer wanted once every wanted region over their
+  // ground is loaded
   std::erase_if(state.regions, [&](auto& entry) {
-    if (keep.count(entry.first))
+    if (is_wanted.count(entry.first))
       return false;
+    const Worldgen::PlanetCell cell = _CellOf(entry.first);
+    for (const Wanted& w : wanted) {
+      if (_Overlap(cell, w.cell) && !state.regions.count(_CellKey(w.cell)))
+        return false;
+    }
     ecs.DestroyEntity(entry.second.entity);
     return true;
   });
 
-  // Build the nearest missing ones
+  // Start the nearest missing ones
   std::erase_if(wanted, [&](const Wanted& w) {
-    return state.regions.count(_CellKey(w.cell)) > 0;
+    const uint64_t key = _CellKey(w.cell);
+    return state.regions.count(key) > 0 || state.building.count(key) > 0;
   });
   std::sort(wanted.begin(), wanted.end(),
             [](const Wanted& a, const Wanted& b) {
               return a.distance < b.distance;
             });
-  const size_t builds = std::min(
-      wanted.size(), static_cast<size_t>(std::max(generator.builds_per_frame, 1)));
-  const auto start = Clock::now();
-  for (size_t k = 0; k < builds; k++) {
-    const Worldgen::PlanetCell& cell = wanted[k].cell;
-    const Worldgen::RegionContent& content =
-        cell.level <= generator.object_level ? state.content
-                                             : state.bare_content;
+  const int cores = static_cast<int>(std::thread::hardware_concurrency());
+  const size_t jobs = static_cast<size_t>(
+      generator.worker_jobs > 0 ? generator.worker_jobs
+                                : std::max(1, cores - 1));
+  size_t started = 0;
+  for (const Wanted& w : wanted) {
+    if (state.building.size() >= jobs)
+      break;
+    std::shared_ptr<const Worldgen::RegionContent> content =
+        w.cell.level <= generator.object_level ? state.content
+                                               : state.bare_content;
     int centre[3];
-    Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
-    const Worldgen::Region region = Worldgen::BuildRegion(
-        content, centre[0], centre[1], centre[2], cell.level);
-
-    const std::string name = "Region " + std::to_string(cell.face) + "/" +
-                             std::to_string(cell.level) + "/" +
-                             std::to_string(cell.i) + "/" +
-                             std::to_string(cell.j);
-    auto [entity, transform] = ecs.CreateEntity(name, volume);
-    transform.position_ =
-        glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
-    ecs.Add<ProceduralInstanceComponent>(entity, volume);
-    auto result = RegionInstancer::Instance(ecs, region, content, entity,
-                                            TerrainMaterial(), root_);
-    state.regions[_CellKey(cell)] = {entity, std::move(result.terrain_mesh)};
+    Worldgen::PlanetGrid::CellCentre(w.cell, radius, centre);
+    const int level = w.cell.level;
+    state.building[_CellKey(w.cell)] = std::async(
+        std::launch::async, [content, x = centre[0], y = centre[1],
+                             z = centre[2], level] {
+          return Worldgen::BuildRegion(*content, x, y, z, level);
+        });
+    started++;
   }
-  generator.build_ms = builds ? _Milliseconds(start) : generator.build_ms;
-  generator.loaded_regions = state.regions.size();
-  generator.queued_regions = wanted.size() - builds;
 
-  if (builds && generator.queued_regions == 0)
+  const bool was_loading =
+      generator.queued_regions + generator.building_regions > 0;
+  generator.loaded_regions = state.regions.size();
+  generator.building_regions = state.building.size();
+  generator.queued_regions = wanted.size() - started;
+  if (was_loading &&
+      generator.queued_regions + generator.building_regions == 0)
     Logger::getInstance().Log(
         LogLevel::Info, "[ProcWorld] " + generator.content_path + ": " +
                             std::to_string(generator.loaded_regions) +

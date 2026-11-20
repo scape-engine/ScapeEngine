@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <future>
 #include <glm/glm.hpp>
 #include <memory>
 #include <unordered_map>
@@ -46,10 +47,11 @@ private:
     std::unique_ptr<Mesh> terrain_mesh;
   };
   struct PlanetState {
-    Worldgen::RegionContent content;
-    Worldgen::RegionContent bare_content;  // without objects, coarse levels
-    bool loaded = false;
+    // Shared with the jobs building from it, so a reload leaves them intact
+    std::shared_ptr<const Worldgen::RegionContent> content;
+    std::shared_ptr<const Worldgen::RegionContent> bare_content;  // no objects
     std::unordered_map<uint64_t, LoadedRegion> regions;  // by cell key
+    std::unordered_map<uint64_t, std::future<Worldgen::Region>> building;
   };
 
   void Build(Entity volume, RegionGenerator& generator);
@@ -62,6 +64,9 @@ private:
   // The terrain mesh each region volume's terrain renders
   std::unordered_map<Entity, std::unique_ptr<Mesh>> meshes_;
   std::unordered_map<Entity, PlanetState> planets_;
+  // Builds no longer wanted, kept until they finish (a future from
+  // std::async blocks when destroyed)
+  std::vector<std::future<Worldgen::Region>> discarded_;
   MaterialHandle terrain_material_ = INVALID_MATERIAL;
   std::filesystem::path root_;
   glm::vec3 viewer_{0.0f};
