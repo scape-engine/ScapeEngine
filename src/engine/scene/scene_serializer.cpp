@@ -169,12 +169,14 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"finest_level", planet.finest_level},
                         {"coarsest_level", planet.coarsest_level},
                         {"split_distance", planet.split_distance},
+                        {"view_distance", planet.view_distance},
                         {"object_level", planet.object_level},
                         {"worker_jobs", planet.worker_jobs},
                         {"planet", planet.planet_path},
                         {"seed", planet.seed},
                         {"biome", planet.biome},
                         {"subtype", planet.subtype},
+                        {"size", planet.size},
                         {"look", _WriteLook(planet.look)}};
   }
   return out;
@@ -198,12 +200,15 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
         it->value("coarsest_level", planet->coarsest_level);
     planet->split_distance =
         it->value("split_distance", planet->split_distance);
+    planet->view_distance =
+        it->value("view_distance", planet->view_distance);
     planet->object_level = it->value("object_level", planet->object_level);
     planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
     planet->planet_path = it->value("planet", planet->planet_path);
     planet->seed = it->value("seed", planet->seed);
     planet->biome = it->value("biome", planet->biome);
     planet->subtype = it->value("subtype", planet->subtype);
+    planet->size = it->value("size", planet->size);
     _ReadLook(*it, planet->look);
     auto [id, resource] =
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(

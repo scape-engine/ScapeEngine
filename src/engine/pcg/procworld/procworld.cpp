@@ -288,6 +288,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     state.tile_colours = {};
     generator.planet_tile_colours = 0;
     generator.planet_terrain = false;
+    generator.planet_radius = 0.0f;
     Worldgen::PlanetContent planet;
     Worldgen::Planet built;
     if (!generator.planet_path.empty() &&
@@ -296,8 +297,10 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       input.seed = generator.seed;
       input.biome = generator.biome;
       input.subtype = generator.subtype;
+      input.size = generator.size;
       built = Worldgen::BuildPlanet(planet, input);
       generator.planet_terrain = !planet.terrain_types.empty();
+      generator.planet_radius = built.radius;
       for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
         const Worldgen::Colour& c = built.tile_colours[i];
         if (c.a > 0.0f) {
@@ -312,6 +315,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                      generator.error)) {
       if (generator.planet_terrain)
         content->terrain = built.terrain;
+      if (generator.planet_radius > 0.0f)
+        content->radius = generator.planet_radius;
       auto bare = std::make_shared<Worldgen::RegionContent>(*content);
       bare->objects.clear();
       state.content = std::move(content);
@@ -348,6 +353,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
             radius;
         const float distance = glm::length(viewer - surface);
         const float width = static_cast<float>(32 << cell.level);
+        if (generator.view_distance > 0.0f &&
+            distance - width > generator.view_distance)
+          return;
         if (cell.level <= finest ||
             distance >= generator.split_distance * width) {
           wanted.push_back({cell, distance});
@@ -359,6 +367,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           for (int j = cell.j * 2; j < std::min(cell.j * 2 + 2, cells); j++)
             visit({cell.face, i, j, cell.level - 1});
       };
+  // TODO: visits every root each update (about 220k on a real-size planet);
+  // walk only the roots near the viewer
   const int roots = Worldgen::PlanetGrid::CellsPerSide(radius, coarsest);
   for (int face = 0; face < 6; face++)
     for (int i = 0; i < roots; i++)

@@ -286,12 +286,14 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     planet.planet_path = path;
     changed = true;
   }
-  ImGui::TextDisabled("JSON planet content, optional: terrain and colours");
+  ImGui::TextDisabled("JSON planet content, optional: terrain, radius, colours");
   ImGui::InputScalar("Seed", ImGuiDataType_U64, &planet.seed);
   changed |= ImGui::IsItemDeactivatedAfterEdit();
   ImGui::InputInt("Biome", &planet.biome);
   changed |= ImGui::IsItemDeactivatedAfterEdit();
   ImGui::InputInt("Subtype", &planet.subtype);
+  changed |= ImGui::IsItemDeactivatedAfterEdit();
+  ImGui::InputInt("Size Class", &planet.size);
   changed |= ImGui::IsItemDeactivatedAfterEdit();
 
   // Loading settings apply from the next frame, no rebuild needed
@@ -300,6 +302,9 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
                    planet.finest_level, 9);
   ImGui::SliderFloat("Split Distance", &planet.split_distance, 0.5f, 8.0f);
   ImGui::TextDisabled("A region splits when nearer than this many widths");
+  ImGui::DragFloat("View Distance", &planet.view_distance, 64.0f, 0.0f,
+                   1.0e6f, "%.0f m");
+  ImGui::TextDisabled("Regions farther are not loaded; 0: no limit");
   changed |= ImGui::SliderInt("Object Level", &planet.object_level, -1, 5);
   ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);
   ImGui::TextDisabled("Regions building at once; 0: one per core but one");
@@ -318,6 +323,8 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
                 planet.queued_regions);
   if (planet.planet_terrain)
     ImGui::Text("Terrain from the planet (replaces the content's)");
+  if (planet.planet_radius > 0.0f)
+    ImGui::Text("Radius %.0f m from the size class", planet.planet_radius);
   if (planet.planet_tile_colours > 0)
     ImGui::Text("%d tile colours from the planet (they replace the look's)",
                 planet.planet_tile_colours);

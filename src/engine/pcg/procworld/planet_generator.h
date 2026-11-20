@@ -28,6 +28,8 @@ public:
   // A region splits into four finer ones when the viewer is closer than this
   // many times its width
   float split_distance = 2.0f;
+  // Regions farther than this from the viewer are not loaded; 0: no limit
+  float view_distance = 8192.0f;
   // Objects are placed on regions up to this level
   int object_level = 0;
   // Regions building at once on worker threads, nearest first; 0: one per
@@ -38,11 +40,13 @@ public:
   // The planet itself, optional: worldgen planet content (JSON,
   // project-relative) built from the seed, as the given biome and subtype.
   // Its terrain settings (when it has terrain types) replace the region
-  // content's, and the tile colours it gives replace the look's
+  // content's, its radius (when it has a size table) the content's radius,
+  // and the tile colours it gives replace the look's
   std::string planet_path;
   uint64_t seed = 1;
   int biome = 0;
   int subtype = 0;
+  int size = 0;  // the size class
 
   // State, written by ProcWorld::Subsystem
   std::string error;
@@ -51,6 +55,7 @@ public:
   size_t building_regions = 0;
   int planet_tile_colours = 0;  // tiles coloured by the planet
   bool planet_terrain = false;  // the terrain is the planet's
+  float planet_radius = 0.0f;   // from the size class; 0: the content's
 };
 
 }  // namespace ProcWorld
