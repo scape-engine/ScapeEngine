@@ -12,6 +12,7 @@ void PCGEngine::Create() {
 
   // Initialize ProcGen systems
   procmodel_.Init();
+  procworld_.Init();
 
   // TODO:
   // procterrain_.Init();
@@ -21,6 +22,9 @@ void PCGEngine::Create() {
 void PCGEngine::ProcessQueued() {
   auto& ecs = ECS::Main();  // should not be called directly (tight coupling)
   auto& resource_mgr = EngineContext::resourceManager();
+
+  // Region volumes
+  procworld_.Update();
 
   // Process all dirty volumes
   ecs.View<VolumeComponent, MeshRendererComponent>().each(
@@ -56,5 +60,6 @@ void PCGEngine::ProcessQueued() {
 }
 
 PCGEngine::~PCGEngine() {
+  procworld_.Shutdown();
   procmodel_.Shutdown();
 }

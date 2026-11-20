@@ -73,6 +73,21 @@ if is_host("macosx") then
 end
 
 ----------------------------------------------------------------
+--  worldgen: procedural generation library (its own repository)
+----------------------------------------------------------------
+option("worldgen")
+	set_default("")
+	set_showmenu(true)
+	set_description("worldgen repository folder (default: ../worldgen)")
+option_end()
+
+local worldgen_dir = get_config("worldgen")
+if not worldgen_dir or worldgen_dir == "" then
+	worldgen_dir = path.join(os.scriptdir(), "..", "worldgen")
+end
+includes(path.join(worldgen_dir, "xmake.lua"))
+
+----------------------------------------------------------------
 --  per-module build scripts
 ----------------------------------------------------------------
 includes("src/platform/xmake.lua")

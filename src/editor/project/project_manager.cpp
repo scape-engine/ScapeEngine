@@ -5,6 +5,7 @@
 
 #include "editor/events.h"
 #include "engine/content/io/json.h"
+#include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/ecs/world.h"
 #include "engine/scene/model_entity_factory.h"
@@ -60,6 +61,7 @@ bool ProjectManager::Load(const std::filesystem::path& directory) {
 
   // Set project path
   project_.path_ = directory;
+  EngineContext::PCG().GetProcWorld().SetRoot(directory);
 
   // Ensure project configuration is valid
   if (!EnsureConfig()) {

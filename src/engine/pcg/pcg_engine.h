@@ -8,6 +8,7 @@
 
 #include "engine/pcg/graph/program_graph.h"
 #include "engine/pcg/procmodel/procmodel.h"
+#include "engine/pcg/procworld/procworld.h"
 
 struct GenerationRequest {
   uint32_t volume_id;  // Entity ID (VolumeComponent lookup)
@@ -38,6 +39,9 @@ public:
   ProcModel::Subsystem& GetProcModel() { return procmodel_; }
   const ProcModel::Subsystem& GetProcModel() const { return procmodel_; }
 
+  ProcWorld::Subsystem& GetProcWorld() { return procworld_; }
+  const ProcWorld::Subsystem& GetProcWorld() const { return procworld_; }
+
   // TODO:
   // ProcTerrain::Subsystem& GetTerrain() { return terrain_; }
   // ProcTextures::Subsystem& GetTextures() { return textures_; }
@@ -47,6 +51,7 @@ private:
   std::unordered_set<uint32_t> cancelled_;
 
   ProcModel::Subsystem procmodel_;
+  ProcWorld::Subsystem procworld_;
 
   // TODO:
   // ProcTerrain::Subsystem terrain_;

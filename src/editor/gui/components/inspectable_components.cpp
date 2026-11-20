@@ -19,6 +19,7 @@
 
 #include "engine/context/engine_context.h"  // ! should be removed?
 #include "engine/pcg/generator_resource.h"  // ! should be removed?
+#include "engine/pcg/procworld/region_generator.h"
 #include "engine/transform/transform.h"
 // TODO: #include "rendering/icons/icon_pool.h"
 
@@ -474,15 +475,25 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
       volume.dirty = true;
     }
 
+    int32_t lod = static_cast<int32_t>(volume.lod_level);
+    IMComponents::Input("LOD Level", lod, 0.05f);
+    if (lod != static_cast<int32_t>(volume.lod_level)) {
+      volume.lod_level = static_cast<uint8_t>(glm::clamp(lod, 0, 8));
+      volume.dirty = true;
+    }
+
     _SpacingS();
     _Headline("Generator");
 
-    if (volume.generator_id != 0) {
-      // Show ID and button to open the graph editor
-      IMComponents::Label("Generator ID: " +
-                          std::to_string(volume.generator_id));
+    auto generator =
+        EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+            volume.generator_id);
+    if (generator) {
+      IMComponents::Label(
+          std::string(PCG::GetGeneratorTypeName(generator->GetGeneratorType())) +
+          " (ID " + std::to_string(volume.generator_id) + ")");
 
-      if (ImGui::Button("Open Graph Editor")) {
+      if (ImGui::Button("Open in PCG Editor")) {
         EditorEvents::open_graph_editor(volume.generator_id);
       }
     } else {
@@ -493,6 +504,18 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
         auto [id, resource] =
             res_mgr.Create<PCG::GeneratorResource>("PCG Graph");
         resource->SetGenerator(PCG::CreateGenerator(PCG::GeneratorType::Graph));
+
+        volume.generator_id = id;
+        volume.dirty = true;
+
+        EditorEvents::open_graph_editor(id);
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Create Region Generator")) {
+        auto [id, resource] =
+            EngineContext::resourceManager().Create<PCG::GeneratorResource>(
+                "Region");
+        resource->SetGenerator(std::make_unique<ProcWorld::RegionGenerator>());
 
         volume.generator_id = id;
         volume.dirty = true;

@@ -14,6 +14,7 @@ class ProgramGraph;
 enum class GeneratorType {
   Preset,  // PCG::Generator with Config
   Graph,   // Node graph
+  Region,  // Worldgen region: terrain and objects (ProcWorld)
 };
 
 inline const char* GetGeneratorTypeName(GeneratorType type) {
@@ -22,6 +23,8 @@ inline const char* GetGeneratorTypeName(GeneratorType type) {
       return "Preset";
     case GeneratorType::Graph:
       return "Graph";
+    case GeneratorType::Region:
+      return "Region";
     default:
       return "Unknown";
   }

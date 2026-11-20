@@ -1,0 +1,112 @@
+{
+  "radius": 1000,
+  "terrain": {
+    "base_seed": 99,
+    "sea_level": 0,
+    "no_sea_base_level": 50,
+    "noise_layers": [
+      {
+        "active": true,
+        "height": 40,
+        "width": 200,
+        "maximum_lod": 8,
+        "noise_data": {
+          "octaves": 4,
+          "gain": 0.5,
+          "lacunarity": 2,
+          "remap_from_min": -1,
+          "remap_from_max": 1,
+          "remap_to_min": 0,
+          "remap_to_max": 1,
+          "slope_gain": 0.5,
+          "slope_bias": 0.5
+        }
+      }
+    ],
+    "tile_class": [
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base",
+      "Base"
+    ]
+  },
+  "herds": [
+    {
+      "min_scale": 0.8,
+      "max_scale": 1.2,
+      "groups_per_square_km": 20000,
+      "min_group_size": 2,
+      "max_group_size": 5
+    }
+  ],
+  "herd_sizes": [
+    {
+      "size": 1,
+      "scale": 1,
+      "height": 0
+    }
+  ],
+  "young_share": 0.3,
+  "young_scale": 0.5,
+  "objects": [
+    {
+      "id": "primitive:sphere",
+      "spawn": {
+        "placement": "MEADOW",
+        "flat_density": 0.2,
+        "coverage": 1,
+        "min_scale": 0.2,
+        "max_scale": 0.4,
+        "min_scale_y": 1,
+        "max_scale_y": 1,
+        "max_angle": 90,
+        "min_height": -1000,
+        "max_height": 1000,
+        "max_y_rotation": 0
+      }
+    },
+    {
+      "id": "primitive:cube",
+      "spawn": {
+        "placement": "MEADOW",
+        "flat_density": 0.02,
+        "coverage": 1,
+        "min_scale": 0.5,
+        "max_scale": 1.5,
+        "min_scale_y": 1,
+        "max_scale_y": 1,
+        "max_angle": 90,
+        "min_height": -1000,
+        "max_height": 1000,
+        "max_y_rotation": 360
+      }
+    }
+  ],
+  "densities": [
+    {
+      "name": "MEADOW",
+      "active": true,
+      "region_scale": 1,
+      "patch_size": 1
+    }
+  ]
+}

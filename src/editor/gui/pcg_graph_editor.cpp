@@ -3,8 +3,14 @@
 #include <algorithm>
 #include <string>
 
+#include "editor/events.h"
+#include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/ecs/components/volume_component.h"
+#include "engine/ecs/world.h"
 #include "engine/memory/resource.h"
+#include "engine/pcg/generator_resource.h"
+#include "engine/pcg/procworld/region_generator.h"
 
 namespace ed = ax::NodeEditor;
 
@@ -52,6 +58,24 @@ PCGGraphEditorPanel::PCGGraphEditorPanel()
   ed::Config config;
   config.SettingsFile = nullptr;
   context_ = ed::CreateEditor(&config);
+
+  open_connection_ = EditorEvents::open_graph_editor.connect(
+      [this](ResourceID id) {
+        auto generator =
+            EngineContext::resourceManager()
+                .GetResourceAs<PCG::GeneratorResource>(id);
+        if (!generator || !generator->Get())
+          return;
+        if (generator->GetGeneratorType() == PCG::GeneratorType::Graph) {
+          OpenGraph(id, generator->Get()->GetGraph());
+          return;
+        }
+        // No node view yet: show its properties
+        CloseGraph();
+        active_generator_id_ = id;
+        show_properties_ = true;
+        show_editor_ = true;
+      });
   Logger::getInstance().Log(LogLevel::Info, "PCGGraphEditorPanel: initialized");
 }
 
@@ -73,6 +97,7 @@ void PCGGraphEditorPanel::OpenGraph(ResourceID generator_id,
 
 void PCGGraphEditorPanel::CloseGraph() {
   show_editor_ = false;
+  show_properties_ = false;
   active_generator_id_ = 0;
   graph_ = nullptr;
 }
@@ -81,6 +106,15 @@ void PCGGraphEditorPanel::CloseGraph() {
 //  MAIN DRAW FUNCTION
 //
 void PCGGraphEditorPanel::Render() {
+  if (show_editor_ && show_properties_) {
+    ImGui::Begin("PCG Graph Editor", &show_editor_);
+    DrawRegionProperties();
+    ImGui::End();
+    if (!show_editor_)
+      CloseGraph();
+    return;
+  }
+
   // Only show when explicitly opened with a graph
   if (!show_editor_ || !graph_) {
     return;
@@ -126,6 +160,55 @@ void PCGGraphEditorPanel::Render() {
 
   if (!show_editor_) {
     CloseGraph();
+  }
+}
+
+//
+//  REGION PROPERTIES
+//
+void PCGGraphEditorPanel::DrawRegionProperties() {
+  auto resource = EngineContext::resourceManager()
+                      .GetResourceAs<PCG::GeneratorResource>(
+                          active_generator_id_);
+  if (!resource || !resource->Get() ||
+      resource->GetGeneratorType() != PCG::GeneratorType::Region) {
+    ImGui::TextDisabled("The generator no longer exists");
+    return;
+  }
+  auto& region = static_cast<ProcWorld::RegionGenerator&>(*resource->Get());
+
+  ImGui::Text("Region generator (ID %u)", active_generator_id_);
+  ImGui::Separator();
+
+  bool changed = false;
+  char path[512];
+  std::snprintf(path, sizeof(path), "%s", region.content_path.c_str());
+  if (ImGui::InputText("Content", path, sizeof(path),
+                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+    region.content_path = path;
+    changed = true;
+  }
+  ImGui::TextDisabled("JSON region content, relative to the project");
+
+  changed |= ImGui::InputInt3("Cell", &region.cell.x,
+                              ImGuiInputTextFlags_EnterReturnsTrue);
+  ImGui::TextDisabled("Planet-space cell centre; zero: above the north pole");
+
+  changed |= ImGui::Button("Regenerate");
+
+  ImGui::Separator();
+  if (!region.error.empty())
+    ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s",
+                       region.error.c_str());
+  else
+    ImGui::Text("%zu vertices, %zu objects, %.1f ms", region.vertex_count,
+                region.instance_count, region.build_ms);
+
+  if (!changed)
+    return;
+  for (auto [entity, volume] : ECS::Main().View<VolumeComponent>().each()) {
+    if (volume.generator_id == active_generator_id_)
+      volume.dirty = true;
   }
 }
 

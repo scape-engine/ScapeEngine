@@ -11,8 +11,13 @@
 #include <functional>
 #include <vector>
 
+#include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/ecs/components/procedural_instance_component.h"
+#include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
+#include "engine/pcg/generator_resource.h"
+#include "engine/pcg/procworld/region_generator.h"
 
 namespace fs = std::filesystem;
 
@@ -59,7 +64,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     source_type_, cubemap_path_, source_cubemap_angle_, real_time_capture_,
     lower_hemisphere_is_solid_color_, lower_hemisphere_color_)
 
-// TODO: VolumeComponent serialization (no scene uses it yet)
+// TODO: graph generators (volumes keep only region generators)
 // TODO: material overrides (materials currently come only from the glTF
 // source)
 // TODO: move world settings (sky, post-process) into ECS components so
@@ -97,6 +102,49 @@ static std::string _Absolute(const std::string& path, const fs::path& root) {
   return (root / path).string();
 }
 
+// A volume and its generator settings (resources are runtime only)
+static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
+  nlohmann::json out = {{"bounds_min", volume.bounds_min},
+                        {"bounds_max", volume.bounds_max},
+                        {"resolution", volume.resolution},
+                        {"lod_level", volume.lod_level}};
+  auto generator =
+      EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+          volume.generator_id);
+  if (generator &&
+      generator->GetGeneratorType() == PCG::GeneratorType::Region) {
+    const auto& region =
+        static_cast<const ProcWorld::RegionGenerator&>(*generator->Get());
+    out["generator"] = {
+        {"type", "Region"},
+        {"content", region.content_path},
+        {"cell", {region.cell.x, region.cell.y, region.cell.z}}};
+  }
+  return out;
+}
+
+static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
+  volume.bounds_min = in.value("bounds_min", volume.bounds_min);
+  volume.bounds_max = in.value("bounds_max", volume.bounds_max);
+  volume.resolution = in.value("resolution", volume.resolution);
+  volume.lod_level = in.value("lod_level", volume.lod_level);
+  auto it = in.find("generator");
+  if (it == in.end() || it->value("type", std::string()) != "Region")
+    return;
+
+  auto region = std::make_unique<ProcWorld::RegionGenerator>();
+  region->content_path = it->value("content", std::string());
+  if (auto cell = it->find("cell"); cell != it->end())
+    region->cell = {cell->at(0).get<int>(), cell->at(1).get<int>(),
+                    cell->at(2).get<int>()};
+  auto [id, resource] =
+      EngineContext::resourceManager().Create<PCG::GeneratorResource>(
+          "Region");
+  resource->SetGenerator(std::move(region));
+  volume.generator_id = id;
+  volume.dirty = true;
+}
+
 /* ---------- serialize ---------- */
 nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
   nlohmann::json entities = nlohmann::json::array();
@@ -104,6 +152,9 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
   // Depth-first, so a parent is always written before its children and
   // children keep their order
   std::function<void(Entity, int)> write = [&](Entity entity, int parent) {
+    // Made by a PCG system: remade from its source on load
+    if (world.Has<ProceduralInstanceComponent>(entity))
+      return;
     const TransformComponent& transform = world.Get<TransformComponent>(entity);
     const int index = static_cast<int>(entities.size());
 
@@ -122,6 +173,9 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
       sky.cubemap_path_ = _Relative(sky.cubemap_path_, root);
       out["sky_light"] = sky;
     }
+
+    if (world.Has<VolumeComponent>(entity))
+      out["volume"] = _WriteVolume(world.Get<VolumeComponent>(entity));
 
     if (world.Has<MeshRendererComponent>(entity)) {
       const auto& renderer = world.Get<MeshRendererComponent>(entity);
@@ -186,6 +240,9 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
             world.Add<SkyLightComponent>(entity, it->get<SkyLightComponent>());
         sky.cubemap_path_ = _Absolute(sky.cubemap_path_, root);
       }
+
+      if (auto it = in.find("volume"); it != in.end())
+        _ReadVolume(world.Add<VolumeComponent>(entity), *it);
 
       if (auto it = in.find("mesh_renderer"); it != in.end()) {
         auto& renderer = world.Add<MeshRendererComponent>(entity);

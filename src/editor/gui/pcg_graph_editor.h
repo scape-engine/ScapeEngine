@@ -6,6 +6,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 
+#include <boost/signals2/connection.hpp>
 #include <functional>
 #include <glm/glm.hpp>
 #include <string>
@@ -84,6 +85,11 @@ private:
   // Editor context
   ed::EditorContext* context_;
 
+  // Opens generators from EditorEvents::open_graph_editor
+  boost::signals2::scoped_connection open_connection_;
+  // Set when the open generator has properties but no graph (Region)
+  bool show_properties_ = false;
+
   // Reference to graph being edited
   PCG::ProgramGraph* graph_;
 
@@ -121,6 +127,7 @@ private:
   // DRAW FUNCTIONS
   //
   void DrawToolbar();
+  void DrawRegionProperties();
   void DrawNodes();
   void DrawInlineParams(PCG::ProgramGraph::Node& node,
                         const PCG::NodeType& type);

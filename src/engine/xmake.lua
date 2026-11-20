@@ -4,7 +4,7 @@
 target("engine")
 set_kind("static")
 
-add_deps("platform", "FastNoise2")
+add_deps("platform", "FastNoise2", "worldgen_json")
 
 -- PUBLIC INCLUDE DIRS -------
 add_includedirs("..", { public = true })
@@ -67,6 +67,8 @@ add_files(
 	"pcg/procmodel/generator/operations/*.cpp",
 	"pcg/procmodel/instantiator/*.cpp",
 	"pcg/procmodel/validation/*.cpp",
+	"pcg/procworld/*.cpp",
+	"pcg/procworld/instancing/*.cpp",
 	"pcg/pipeline/*.cpp"
 )
 
@@ -123,6 +125,8 @@ add_headerfiles(
 	"pcg/procmodel/instantiator/*.h",
 	"pcg/procmodel/model_graph/*.h",
 	"pcg/procmodel/validation/*.h",
+	"pcg/procworld/*.h",
+	"pcg/procworld/instancing/*.h",
 	"pcg/pipeline/*.h"
 )
 
@@ -177,12 +181,18 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 			print("Shaderc not found in PATH. Now searching inside the bgfx package...")
 			local bgfx = target:pkg("bgfx")
 			if bgfx then
-				local bin = bgfx:installdir("bin")
+				-- a target's package takes no subdirectory, and shaderc fails
+				-- find_program's run check: look for the file itself
+				local bin = path.join(bgfx:installdir(), "bin")
 				print("Checking in BGFX bin directory:", bin)
 
-				exe = find_program("shaderc", { paths = bin })
-					or find_program("shadercRelease", { paths = bin })
-					or find_program("shadercDebug", { paths = bin })
+				for _, name in ipairs({ "shaderc", "shadercRelease", "shadercDebug" }) do
+					local candidate = path.join(bin, name .. (is_host("windows") and ".exe" or ""))
+					if os.isfile(candidate) then
+						exe = candidate
+						break
+					end
+				end
 			else
 				print("BGFX package not available on target.")
 			end
