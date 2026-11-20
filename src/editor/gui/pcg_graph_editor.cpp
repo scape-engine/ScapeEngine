@@ -286,7 +286,7 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     planet.planet_path = path;
     changed = true;
   }
-  ImGui::TextDisabled("JSON planet content, optional: its tile colours");
+  ImGui::TextDisabled("JSON planet content, optional: terrain and colours");
   ImGui::InputScalar("Seed", ImGuiDataType_U64, &planet.seed);
   changed |= ImGui::IsItemDeactivatedAfterEdit();
   ImGui::InputInt("Biome", &planet.biome);
@@ -316,6 +316,8 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     ImGui::Text("%zu regions loaded, %zu building, %zu queued",
                 planet.loaded_regions, planet.building_regions,
                 planet.queued_regions);
+  if (planet.planet_terrain)
+    ImGui::Text("Terrain from the planet (replaces the content's)");
   if (planet.planet_tile_colours > 0)
     ImGui::Text("%d tile colours from the planet (they replace the look's)",
                 planet.planet_tile_colours);

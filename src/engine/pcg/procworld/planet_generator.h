@@ -37,7 +37,8 @@ public:
   TerrainMaterialData look = DefaultTerrainLook();
   // The planet itself, optional: worldgen planet content (JSON,
   // project-relative) built from the seed, as the given biome and subtype.
-  // The tile colours it gives replace the look's
+  // Its terrain settings (when it has terrain types) replace the region
+  // content's, and the tile colours it gives replace the look's
   std::string planet_path;
   uint64_t seed = 1;
   int biome = 0;
@@ -49,6 +50,7 @@ public:
   size_t queued_regions = 0;
   size_t building_regions = 0;
   int planet_tile_colours = 0;  // tiles coloured by the planet
+  bool planet_terrain = false;  // the terrain is the planet's
 };
 
 }  // namespace ProcWorld

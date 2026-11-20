@@ -282,28 +282,22 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   if (reload) {
     Clear(volume);
     generator.error.clear();
-    auto content = std::make_shared<Worldgen::RegionContent>();
-    if (_LoadContent(root_, generator.content_path, *content,
-                     generator.error)) {
-      auto bare = std::make_shared<Worldgen::RegionContent>(*content);
-      bare->objects.clear();
-      state.content = std::move(content);
-      state.bare_content = std::move(bare);
-    } else {
-      state.content = state.bare_content = nullptr;
-    }
 
-    // The planet's tile colours, from its own content
+    // The planet itself, from its own content: its terrain settings and tile
+    // colours replace the region content's and the look's
     state.tile_colours = {};
     generator.planet_tile_colours = 0;
+    generator.planet_terrain = false;
     Worldgen::PlanetContent planet;
+    Worldgen::Planet built;
     if (!generator.planet_path.empty() &&
         _LoadContent(root_, generator.planet_path, planet, generator.error)) {
       Worldgen::PlanetInput input;
       input.seed = generator.seed;
       input.biome = generator.biome;
       input.subtype = generator.subtype;
-      const Worldgen::Planet built = Worldgen::BuildPlanet(planet, input);
+      built = Worldgen::BuildPlanet(planet, input);
+      generator.planet_terrain = !planet.terrain_types.empty();
       for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
         const Worldgen::Colour& c = built.tile_colours[i];
         if (c.a > 0.0f) {
@@ -311,6 +305,19 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           ++generator.planet_tile_colours;
         }
       }
+    }
+
+    auto content = std::make_shared<Worldgen::RegionContent>();
+    if (_LoadContent(root_, generator.content_path, *content,
+                     generator.error)) {
+      if (generator.planet_terrain)
+        content->terrain = built.terrain;
+      auto bare = std::make_shared<Worldgen::RegionContent>(*content);
+      bare->objects.clear();
+      state.content = std::move(content);
+      state.bare_content = std::move(bare);
+    } else {
+      state.content = state.bare_content = nullptr;
     }
   }
   if (!state.content) {
