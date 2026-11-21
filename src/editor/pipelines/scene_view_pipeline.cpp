@@ -806,9 +806,6 @@ void SceneViewPipeline::Render() {
   // Evaluate and update transforms, before any node renders meshes
   //
   transform_system_.Perform(view_projection);
-  for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
-    Transform::UpdateMVP(transform, view_projection);
-  }
   // The unlit program has no instanced version
   draws_.Build(selected_entities_, view_projection, !unlit_);
 

@@ -31,7 +31,6 @@ struct TransformComponent
     // ───────── Matrix cache (world-space) ─────────
     glm::mat4 model_  = glm::mat4(1.0f);  // T * R * S
     glm::mat4 normal_ = glm::mat4(1.0f);  // inverse-transpose of 3×3(model)
-    glm::mat4 mvp_    = glm::mat4(1.0f);  // filled each frame by the renderer
 };
 
 #endif  // TRANSFORM_COMPONENT_H

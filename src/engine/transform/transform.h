@@ -21,9 +21,6 @@ TransformComponent& GetParent(TransformComponent& transform);
 void Evaluate(TransformComponent& transform);
 void Evaluate(TransformComponent& transform, TransformComponent& parent);
 
-// Update MVP matrix
-void UpdateMVP(TransformComponent& transform, const glm::mat4& viewProjection);
-
 // ──────────────── TRANSFORMATION ────────────────
 void SetPosition(TransformComponent& transform, const glm::vec3& position,
                  Space space = Space::LOCAL);

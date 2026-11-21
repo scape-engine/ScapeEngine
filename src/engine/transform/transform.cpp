@@ -50,10 +50,6 @@ void Evaluate(TransformComponent& transform, TransformComponent& parent) {
                                 std::to_string(transform.model_[2][2]) + ")");*/
 }
 
-void UpdateMVP(TransformComponent& transform, const glm::mat4& viewProjection) {
-  transform.mvp_ = viewProjection * transform.model_;
-}
-
 // Helper for updating parent chain (TODO: optimize with caching?)
 void _TmpUpdateModel(TransformComponent& transform) {
   if (HasParent(transform)) {

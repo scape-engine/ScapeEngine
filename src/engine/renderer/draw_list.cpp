@@ -64,6 +64,7 @@ void DrawList::Build(const std::vector<Entity>& apart,
   auto& registry = MaterialRegistry::Instance();
   struct Group {
     BatchKey key;
+    bool instanced;  // its material has an instanced program
     std::vector<Single> members;
   };
   std::vector<Group> groups;
@@ -75,18 +76,24 @@ void DrawList::Build(const std::vector<Entity>& apart,
       continue;
     const Single single{entity, &transform.model_, renderer.mesh_,
                         renderer.material_};
-    const Material* material = registry.Get(renderer.material_);
-    if (!instanced || !material ||
-        !bgfx::isValid(material->instanced_program) ||
+    if (!instanced ||
         std::find(apart.begin(), apart.end(), entity) != apart.end()) {
       singles.push_back(single);
       continue;
     }
+    // The material is looked up once per group, not per mesh
     const BatchKey key{renderer.mesh_, renderer.material_};
     auto [it, added] = group_of.try_emplace(key, groups.size());
-    if (added)
-      groups.push_back({key, {}});
-    groups[it->second].members.push_back(single);
+    if (added) {
+      const Material* material = registry.Get(renderer.material_);
+      groups.push_back(
+          {key, material && bgfx::isValid(material->instanced_program), {}});
+    }
+    Group& group = groups[it->second];
+    if (group.instanced)
+      group.members.push_back(single);
+    else
+      singles.push_back(single);
   }
 
   // Each shared group's matrices into an instance buffer; lone meshes and what
