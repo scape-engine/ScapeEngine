@@ -109,6 +109,8 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
   std::vector<Entity> creatures;
   // Every creature of a kind on a planet is the same model (one seed per kind
   // and planet, as the game's spawns); the matrices hold their scale
+  // TODO: skinning, so creatures take worldgen's poses (PoseValues) and
+  // animate instead of standing in their bind pose
   for (size_t spawn = 0;
        spawn < region.herds.size() && spawn < content.herd_ids.size();
        ++spawn) {
