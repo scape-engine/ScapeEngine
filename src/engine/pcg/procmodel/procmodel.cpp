@@ -1,5 +1,7 @@
 #include "procmodel.h"
 
+#include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -236,6 +238,22 @@ static uint64_t _Hash(uint64_t hash, const void* data, size_t size) {
   return hash;
 }
 
+// A blended normal map's z from its x and y, which also takes two-channel
+// maps (z 0)
+static Worldgen::TextureImage _RebuildNormal(Worldgen::TextureImage image) {
+  for (size_t i = 0; i + 3 < image.rgba.size(); i += 4) {
+    float x = image.rgba[i] / 127.5f - 1.0f, y = image.rgba[i + 1] / 127.5f - 1.0f;
+    const float length = std::sqrt(x * x + y * y);
+    if (length > 1.0f)
+      x /= length, y /= length;
+    const float z = std::sqrt(std::max(0.0f, 1.0f - x * x - y * y));
+    image.rgba[i] = static_cast<uint8_t>(std::lround((x + 1.0f) * 127.5f));
+    image.rgba[i + 1] = static_cast<uint8_t>(std::lround((y + 1.0f) * 127.5f));
+    image.rgba[i + 2] = static_cast<uint8_t>(std::lround((z + 1.0f) * 127.5f));
+  }
+  return image;
+}
+
 const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
     const std::string& descriptor_path, const ModelDescriptor& descriptor,
     const ModelGraph& graph, const Worldgen::TextureInput& planet) {
@@ -271,21 +289,28 @@ const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
     const Worldgen::ProceduralTexture texture =
         Worldgen::BuildProceduralTexture(*content, input);
     const std::string key = "proctexture:" + path->second + "#" + texture.name;
-    if (!images.Contains(key)) {
-      const std::filesystem::path folder =
-          std::filesystem::path(path->second).parent_path();
-      Worldgen::TextureImage image = Worldgen::CompositeTexture(
-          texture, [&](const std::string& file) {
-            return LoadLayerImage((folder / file).string());
-          });
-      if (image.width <= 0 || image.width > 0xffff || image.height > 0xffff)
-        continue;  // nothing loaded: keep the authored material
+    const std::filesystem::path folder =
+        std::filesystem::path(path->second).parent_path();
+    const auto load = [&](const std::string& file) {
+      return LoadLayerImage((folder / file).string());
+    };
+    // The image under `key`, made once; false when it has nothing to show
+    const auto put = [&](const std::string& image_key, auto make) {
+      if (images.Contains(image_key))
+        return images.Get(image_key).Valid();
+      Worldgen::TextureImage image = make();
       Content::ImageData data;
-      data.width = static_cast<uint16_t>(image.width);
-      data.height = static_cast<uint16_t>(image.height);
-      data.pixels = std::move(image.rgba);
-      images.Put(key, std::move(data));
-    }
+      if (image.width > 0 && image.width <= 0xffff && image.height <= 0xffff) {
+        data.width = static_cast<uint16_t>(image.width);
+        data.height = static_cast<uint16_t>(image.height);
+        data.pixels = std::move(image.rgba);
+      }
+      const bool valid = data.Valid();
+      images.Put(image_key, std::move(data));
+      return valid;
+    };
+    if (!put(key, [&] { return Worldgen::CompositeTexture(texture, load); }))
+      continue;  // nothing loaded: keep the authored material
 
     auto [material, made] = textured_materials_.try_emplace(
         descriptor_path + "|" + authored.name + "|" + key);
@@ -293,7 +318,31 @@ const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
       Content::MaterialData textured = authored;
       textured.albedo_map = key;
       textured.base_color = glm::vec4(1.0f);  // the texture holds the colour
+      // The maps the layers have; masks in the shader's metallic-roughness
+      // layout (g roughness, b metallic)
+      if (put(key + "#normal", [&] {
+            return _RebuildNormal(Worldgen::CompositeMap(
+                texture, Worldgen::TextureMap::Normal, load));
+          }))
+        textured.normal_map = key + "#normal";
+      if (put(key + "#masks", [&] {
+            return Worldgen::CompositeMap(texture, Worldgen::TextureMap::Masks,
+                                          load);
+          }))
+        textured.metallic_roughness_map = key + "#masks";
+      if (put(key + "#occlusion", [&] {
+            return Worldgen::CompositeMap(
+                texture, Worldgen::TextureMap::Occlusion, load);
+          }))
+        textured.ao_map = key + "#occlusion";
       material->second = MaterialRegistry::Instance().Register(textured);
+      Logger::getInstance().Log(
+          LogLevel::Info,
+          "[ProcModel::Subsystem] " + descriptor.model_id + " " +
+              authored.name + ": texture " + texture.name +
+              (textured.normal_map.empty() ? "" : ", normal") +
+              (textured.metallic_roughness_map.empty() ? "" : ", masks") +
+              (textured.ao_map.empty() ? "" : ", occlusion"));
     }
     materials[i] = material->second;
   }

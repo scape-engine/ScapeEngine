@@ -10,7 +10,9 @@
             "file": "textures/stone_vein.png",
             "palette": 2,
             "colour_alt": 0,
-            "probability": 1
+            "probability": 1,
+            "normal": "textures/stone_vein.normal.png",
+            "masks": "textures/stone_vein.masks.png"
           }
         ]
       },
@@ -22,14 +24,18 @@
             "file": "textures/stone_a.png",
             "palette": 2,
             "colour_alt": 1,
-            "probability": 1
+            "probability": 1,
+            "normal": "textures/stone_a.normal.png",
+            "masks": "textures/stone_a.masks.png"
           },
           {
             "name": "LAYERED",
             "file": "textures/stone_b.png",
             "palette": 2,
             "colour_alt": 3,
-            "probability": 1
+            "probability": 1,
+            "normal": "textures/stone_b.normal.png",
+            "masks": "textures/stone_b.masks.png"
           }
         ]
       }

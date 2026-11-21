@@ -215,9 +215,23 @@ def textures(folder, size=128):
     def stone_vein(x, y):
         a = max(0, 1 - abs(vein(x / s, y / s) - 0.5) * 40)
         return (0.75, 0.66, 0.5, a)
-    for name, texel in (("bark_a", bark_a), ("bark_b", bark_b), ("bark_moss", bark_moss), ("stone_a", stone_a),
-                        ("stone_b", stone_b), ("stone_vein", stone_vein)):
+    # with each: a normal map from its height (brightness, or alpha where it has holes) and masks
+    # (g roughness, b metallic): veins are a shiny mineral
+    for name, texel, roughness, metallic in (("bark_a", bark_a, 0.9, 0), ("bark_b", bark_b, 0.85, 0),
+                                             ("bark_moss", bark_moss, 0.7, 0), ("stone_a", stone_a, 0.8, 0),
+                                             ("stone_b", stone_b, 0.75, 0), ("stone_vein", stone_vein, 0.35, 0.8)):
         save_png(os.path.join(folder, name + ".png"), size, texel)
+        rgba = [[texel(x, y) for x in range(size)] for y in range(size)]
+        height = [[t[3] if t[3] < 1 or name.endswith(("moss", "vein")) else (t[0] + t[1] + t[2]) / 1.5 for t in row]
+                  for row in rgba]
+        def normal(x, y):
+            h = lambda i, j: height[j % size][i % size]
+            nx, ny = (h(x - 1, y) - h(x + 1, y)) * 4, (h(x, y + 1) - h(x, y - 1)) * 4  # +y up the image
+            l = math.sqrt(nx * nx + ny * ny + 1)
+            return (nx / l * 0.5 + 0.5, ny / l * 0.5 + 0.5, 1 / l * 0.5 + 0.5, 1)
+        save_png(os.path.join(folder, name + ".normal.png"), size, normal)
+        save_png(os.path.join(folder, name + ".masks.png"), size,
+                 lambda x, y: (0, roughness + (0.5 - height[y][x]) * 0.15, metallic, 1))
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 tree(out + "/tree.glb")

@@ -10,7 +10,9 @@
             "file": "textures/bark_moss.png",
             "palette": 1,
             "colour_alt": 1,
-            "probability": 1
+            "probability": 1,
+            "normal": "textures/bark_moss.normal.png",
+            "masks": "textures/bark_moss.masks.png"
           }
         ]
       },
@@ -22,14 +24,18 @@
             "file": "textures/bark_a.png",
             "palette": 0,
             "colour_alt": 0,
-            "probability": 1
+            "probability": 1,
+            "normal": "textures/bark_a.normal.png",
+            "masks": "textures/bark_a.masks.png"
           },
           {
             "name": "PLATED",
             "file": "textures/bark_b.png",
             "palette": 0,
             "colour_alt": 2,
-            "probability": 1
+            "probability": 1,
+            "normal": "textures/bark_b.normal.png",
+            "masks": "textures/bark_b.masks.png"
           }
         ]
       }
