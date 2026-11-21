@@ -6,6 +6,7 @@
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 
+#include "engine/content/loaders/material_loader.h"
 #include "engine/core/logger.h"
 
 namespace Content {
@@ -159,6 +160,8 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
   SceneData data;
 
   data.root = ProcessNodeHierarchy(scene->mRootNode, scene, data.mesh_data);
+  // The meshes' material indices index these
+  data.materials = MaterialLoader::LoadFromScene(path);
 
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loaded scene with " +

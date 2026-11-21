@@ -9,6 +9,7 @@
 #include "engine/core/types/geometry_data.h"
 #include "engine/core/types/material_data.h"
 
+#include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
 
 #include "model_graph_node.h"
@@ -26,9 +27,13 @@ struct ModelGraph {
 
   // GPU-uploaded meshes
   std::vector<std::unique_ptr<Mesh>> gpu_meshes;
+  // The materials, registered once with the upload
+  std::vector<MaterialHandle> material_handles;
 
   bool UploadMeshes();
   const Mesh* GetMesh(int index) const;
+  // The mesh's registered material, or INVALID_MATERIAL
+  MaterialHandle GetMaterialHandle(const Mesh& mesh) const;
 
   // ? Check if it can be declared like GetMesh()
   const std::vector<Content::MaterialData>& GetMaterials() const;

@@ -31,6 +31,10 @@ bool ModelDescriptorParser::ParseSelectionGroup(const nlohmann::json& j,
   }
 
   out.scale_factor = j.value("scale_factor", 1.0f);
+  if (j.contains("keep")) {
+    const auto& k = j["keep"];
+    out.keep = glm::ivec2(k[0].get<int>(), k[1].get<int>());
+  }
   if (j.contains("scale_jitter")) {
     out.scale_jitter = j["scale_jitter"].get<float>();
   }
@@ -161,6 +165,9 @@ bool ModelDescriptorParser::FromJson(const nlohmann::json& j,
   out.model_name = j.value("model_name", out.model_id);
   out.domain = j.value("domain", std::string(""));
   out.path = j.value("path", std::string(""));
+  out.max_depth = j.value("max_depth", out.max_depth);
+  if (j.contains("distortion"))
+    out.distortion = j["distortion"].get<float>();
 
   // Whole-model scale range
   if (j.contains("scale_min")) {

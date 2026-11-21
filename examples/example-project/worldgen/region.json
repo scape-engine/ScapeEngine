@@ -69,7 +69,7 @@
   "young_scale": 0.5,
   "objects": [
     {
-      "id": "primitive:sphere",
+      "id": "procmodel:models/rock.json",
       "spawn": {
         "placement": "MEADOW",
         "flat_density": 0.2,
@@ -85,7 +85,7 @@
       }
     },
     {
-      "id": "primitive:cube",
+      "id": "procmodel:models/tree.json",
       "spawn": {
         "placement": "MEADOW",
         "flat_density": 0.02,

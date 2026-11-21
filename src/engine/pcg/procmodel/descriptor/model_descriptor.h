@@ -2,6 +2,7 @@
 #define MODEL_DESCRIPTOR_H
 
 #include <cstdint>
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <optional>
 #include <string>
@@ -52,6 +53,10 @@ struct SelectionGroup {
   // (scale 0.6) of a BASE (scale 1.0) end up at 0.6 × 0.6 = 0.36 of root.
   float scale_factor = 1.0f;
   std::optional<float> scale_jitter;  // ± random perturbation
+
+  // How many of the group's locator placements stay, drawn between the two
+  // (worldgen's node distribution); unset keeps every one
+  std::optional<glm::ivec2> keep;
 };
 
 //
@@ -118,6 +123,14 @@ struct ModelDescriptor {
   std::optional<glm::vec3> scale_min;  // model scale range
   std::optional<glm::vec3> scale_max;
   std::vector<std::string> tags;  // ex: "vegetation", "tropical"
+
+  // Groups activated by parts of their own chain (branches on branches) nest
+  // at most this many levels below the root groups
+  int max_depth = 6;
+  // How parts are picked (worldgen's walk): unset, one stream for the whole
+  // model; set, two streams, the second taking over a pick with a chance
+  // growing by this much per level
+  std::optional<float> distortion;
 
   // Locator modifiers: declarative transformations applied per-group
   // to each locator's world frame before a part is placed.

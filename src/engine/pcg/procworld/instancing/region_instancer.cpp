@@ -80,7 +80,13 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
     result.terrain = terrain;
   }
 
+  // Seeds from the region's origin, so each region's objects differ
   uint64_t seed = 0;
+  for (const float o : region.origin) {
+    uint32_t bits;
+    std::memcpy(&bits, &o, sizeof(bits));
+    seed = (seed ^ bits) * 0x100000001b3ull;
+  }
   for (const Worldgen::ObjectInstances& instances : region.objects) {
     const std::string& id = content.objects[instances.object].id;
     for (const std::array<float, 16>& matrix : instances.matrices) {

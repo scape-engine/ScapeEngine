@@ -59,6 +59,16 @@ ResourceID Subsystem::LoadArchetype(const std::string& descriptor_path) {
     return 0;
   }
 
+  // A relative model path is beside the descriptor (else as given)
+  {
+    std::string& model_path = resource->GetDescriptor().path;
+    const std::filesystem::path beside =
+        std::filesystem::path(descriptor_path).parent_path() / model_path;
+    if (std::filesystem::path(model_path).is_relative() &&
+        std::filesystem::exists(beside))
+      model_path = beside.string();
+  }
+
   PCG::ParsePipelineDescriptor(*json_opt, resource->GetPipelineDescriptor());
 
   const auto& descriptor = resource->GetDescriptor();

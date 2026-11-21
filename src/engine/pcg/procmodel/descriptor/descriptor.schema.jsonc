@@ -9,6 +9,15 @@
   // Optional whole-instance scale range. Sampled once per generated instance.
   // If unset, model_scale = (1,1,1).
 
+  "max_depth": 6,
+  // Optional. Groups activated by parts of their own chain (branches on
+  // branches) nest at most this many levels below the root groups.
+
+  "distortion": 0.1,
+  // Optional. Parts are picked by worldgen's walk: unset, one stream for the
+  // whole model; set, two streams, the second taking over a pick with a
+  // chance growing by this much per level.
+
   // TODO: "tags": ["vegetation", "tropical"],
   // Optional. Free-form tags for filtering/grouping.
 
@@ -35,6 +44,10 @@
       "scale_jitter": 0.05,
       // Optional ± random perturbation on scale_factor per locator.
 
+      "keep": [2, 4],
+      // Optional. How many of the group's locator placements stay, drawn
+      // between the two (worldgen's node distribution). Unset keeps all.
+
       "locators": ["_ATTACH_A_01", "_ATTACH_A_02"],
           // Optional. Explicit list of locator node names the activator's
           // resolved part exposes for this group's attachments. When unset,
@@ -48,7 +61,7 @@
           "id": "string (required) — matches a node name in the GLTF",
           "name": "string (optional) — display name, defaults to id",
           "weight": 1.0
-          // Relative selection weight in WeightedSelect.
+          // Relative pick weight (worldgen counts it in thousandths; 0 never picks).
         }
       ]
     }

@@ -1,0 +1,59 @@
+{
+  "model_id": "tree",
+  "domain": "vegetation",
+  "path": "tree.glb",
+  "max_depth": 4,
+  "scale_min": [0.8, 0.8, 0.8],
+  "scale_max": [1.2, 1.3, 1.2],
+  "selection_groups": [
+    {
+      "group_id": "trunk",
+      "parts": [{ "id": "TRUNK_A", "weight": 1.0 }, { "id": "TRUNK_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "branches_a",
+      "parent": ["TRUNK_A"],
+      "locators": ["TA_L1", "TA_L2", "TA_L3", "TA_L4", "TA_L5"],
+      "unique_per_locator": true,
+      "keep": [3, 5],
+      "scale_jitter": 0.15,
+      "parts": [{ "id": "BRANCH_A", "weight": 2.0 }, { "id": "BRANCH_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "branches_b",
+      "parent": ["TRUNK_B"],
+      "locators": ["TB_L1", "TB_L2", "TB_L3", "TB_L4", "TB_L5"],
+      "unique_per_locator": true,
+      "keep": [3, 5],
+      "scale_factor": 1.1,
+      "scale_jitter": 0.15,
+      "parts": [{ "id": "BRANCH_A", "weight": 1.0 }, { "id": "BRANCH_B", "weight": 2.0 }]
+    },
+    {
+      "group_id": "twigs_a",
+      "parent": ["BRANCH_A"],
+      "locators": ["BA_L1", "BA_L2", "BA_L3"],
+      "unique_per_locator": true,
+      "required": false,
+      "keep": [1, 2],
+      "scale_factor": 0.65,
+      "scale_jitter": 0.1,
+      "parts": [{ "id": "BRANCH_A", "weight": 1.0 }, { "id": "BRANCH_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "twigs_b",
+      "parent": ["BRANCH_B"],
+      "locators": ["BB_L1", "BB_L2", "BB_L3"],
+      "unique_per_locator": true,
+      "required": false,
+      "keep": [1, 2],
+      "scale_factor": 0.65,
+      "scale_jitter": 0.1,
+      "parts": [{ "id": "BRANCH_A", "weight": 1.0 }, { "id": "BRANCH_B", "weight": 1.0 }]
+    }
+  ],
+  "transform_ranges": [
+    { "part_id": "BRANCH_A", "rotation_min": [-12, -40, -12], "rotation_max": [12, 40, 12] },
+    { "part_id": "BRANCH_B", "rotation_min": [-12, -40, -12], "rotation_max": [12, 40, 12] }
+  ]
+}

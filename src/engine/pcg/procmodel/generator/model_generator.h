@@ -31,11 +31,6 @@ public:
       std::vector<ProcModelSample>* out_samples = nullptr);
 
 private:
-  static bool IsValidSelection(
-      const std::string& part_id,
-      const std::unordered_set<std::string>& selected_ids,
-      const std::vector<ConstraintRule>& constraints);
-
   static void ApplyParameterBindings(
       std::vector<ResolvedDescriptor>& descriptors,
       const std::vector<ParameterBinding>& bindings);

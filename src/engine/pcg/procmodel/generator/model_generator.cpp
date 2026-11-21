@@ -1,8 +1,16 @@
 #include "model_generator.h"
 
-// #include <pcg_random.hpp>
+#include <algorithm>
+#include <cmath>
 #include <queue>
 #include <random>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+
+#include "content/creature_pose.h"
+#include "content/model_parts.h"
 
 #include "engine/pcg/pipeline/linear_pipeline.h"
 #include "engine/pcg/procmodel/generator/model_context.h"
@@ -18,7 +26,121 @@ struct PendingActivation {
   std::string activator_instance_id;
   std::string activator_part_id;
   glm::mat4 activator_world_transform;
+  std::string activator_key;  // the activator's place in the pick tree
+  int depth;
 };
+
+// Parts in the pick tree are keyed by where they sit: the activating
+// instance's key, the group, the locator when each locator picks its own
+// part, then the part id
+std::string SlotKey(const std::string& activator_key,
+                    const SelectionGroup& group, const std::string& locator) {
+  std::string key = activator_key + "/" + group.group_id;
+  if (!locator.empty())
+    key += "@" + locator;
+  return key;
+}
+
+std::string InstanceKey(const std::string& part_key,
+                        const std::string& locator) {
+  return locator.empty() ? part_key : part_key + "@" + locator;
+}
+
+bool Activates(const SelectionGroup& group, const std::string& part_id) {
+  if (part_id.empty())
+    return group.parent.empty();
+  return std::find(group.parent.begin(), group.parent.end(), part_id) !=
+         group.parent.end();
+}
+
+const std::vector<std::string>& Locators(const SelectionGroup& group) {
+  static const std::vector<std::string> none{""};
+  return group.locators && !group.locators->empty() ? *group.locators : none;
+}
+
+// The groups a part instance activates, as a worldgen part list: one type
+// per pick (per locator when the group picks per locator), and under each
+// part the lists its own instances activate, down to max_depth
+struct PickTree {
+  const ModelDescriptor& descriptor;
+  size_t parts = 0;
+  static constexpr size_t part_limit = 200000;
+
+  Worldgen::PartList Build(const std::string& activator_key,
+                           const std::string& activator_part_id, int depth) {
+    Worldgen::PartList list;
+    for (const auto& group : descriptor.selection_groups) {
+      if (!Activates(group, activator_part_id))
+        continue;
+      const auto& locators = Locators(group);
+      if (group.unique_per_locator) {
+        for (const auto& locator : locators)
+          list.types.push_back(Type(
+              group, SlotKey(activator_key, group, locator), {""}, depth));
+      } else {
+        list.types.push_back(
+            Type(group, SlotKey(activator_key, group, ""), locators, depth));
+      }
+    }
+    return list;
+  }
+
+  Worldgen::PartType Type(const SelectionGroup& group, const std::string& slot,
+                          const std::vector<std::string>& instances,
+                          int depth) {
+    Worldgen::PartType type;
+    for (const auto& part : group.parts) {
+      Worldgen::Part p;
+      p.id = slot + ":" + part.id;
+      // worldgen weighs in integers
+      p.weight = part.weight > 0.0f
+                     ? std::max(1, static_cast<int>(
+                                       std::lround(part.weight * 1000.0f)))
+                     : 0;
+      if (depth + 1 < descriptor.max_depth && ++parts < part_limit) {
+        for (const auto& locator : instances) {
+          Worldgen::PartList child =
+              Build(InstanceKey(p.id, locator), part.id, depth + 1);
+          if (!child.types.empty())
+            p.children.push_back(std::move(child));
+        }
+      }
+      type.parts.push_back(std::move(p));
+    }
+    return type;
+  }
+};
+
+std::unordered_set<std::string> PickKeys(const ModelDescriptor& descriptor,
+                                         uint64_t seed) {
+  PickTree tree{descriptor};
+  const Worldgen::PartList root = tree.Build("", "", 0);
+  if (tree.parts >= PickTree::part_limit)
+    Logger::getInstance().Log(
+        LogLevel::Warning,
+        "[Generator] " + descriptor.model_id +
+            ": over 200000 parts to pick from, deeper levels are cut; "
+            "lower max_depth");
+  const Worldgen::PartLoader load = [&root](const char*) { return &root; };
+  const std::vector<std::string> picks =
+      descriptor.distortion
+          ? Worldgen::PickParts(load, "", seed, true, *descriptor.distortion)
+          : Worldgen::PickPartsSingle(load, "", seed, true);
+  return {picks.begin(), picks.end()};
+}
+
+// The part's transform in model space, with its sampled rotation and scale,
+// composed as ModelInstantiator composes it
+glm::mat4 PartWorld(const ResolvedDescriptor& d) {
+  glm::vec3 scale, position, skew;
+  glm::quat rotation;
+  glm::vec4 perspective;
+  glm::decompose(d.local_transform, scale, rotation, position, skew,
+                 perspective);
+  return glm::translate(glm::mat4(1.0f), position) *
+         glm::mat4_cast(rotation * glm::quat(d.applied_rotation)) *
+         glm::scale(glm::mat4(1.0f), scale * d.applied_scale);
+}
 
 }  // namespace
 
@@ -51,25 +173,15 @@ static void ApplyParameterRanges(ResolvedDescriptor& resolved,
   }
 }
 
-static const PartDescriptor* WeightedSelect(
-    const std::vector<const PartDescriptor*>& candidates, pcg32& rng) {
-  float total_weight = 0.0f;
-  for (const auto* c : candidates) {
-    total_weight += c->weight;
+// The group's part picked at this slot, or nullptr
+static const PartDescriptor* Picked(
+    const SelectionGroup& group, const std::string& slot,
+    const std::unordered_set<std::string>& picked) {
+  for (const auto& part : group.parts) {
+    if (picked.count(slot + ":" + part.id))
+      return &part;
   }
-
-  std::uniform_real_distribution<float> dist(0.0f, total_weight);
-  float roll = dist(rng);
-
-  float cumulative = 0.0f;
-  for (const auto* c : candidates) {
-    cumulative += c->weight;
-    if (roll <= cumulative) {
-      return c;
-    }
-  }
-
-  return candidates.back();
+  return nullptr;
 }
 
 std::optional<InstanceData> ModelGenerator::Generate(
@@ -82,6 +194,11 @@ std::optional<InstanceData> ModelGenerator::Generate(
     pcg32 rng(seed + attempt);
     ParameterSampler sampler;
 
+    // Which part each slot takes, by worldgen's walk over the whole tree;
+    // rng samples the transforms and operations
+    const std::unordered_set<std::string> picked =
+        PickKeys(descriptor, seed + attempt);
+
     std::unordered_set<std::string> selected_ids;
     std::vector<ResolvedDescriptor> resolved_descriptors;
     bool failed = false;
@@ -90,79 +207,20 @@ std::optional<InstanceData> ModelGenerator::Generate(
     std::queue<PendingActivation> pending;
     for (const auto& group : descriptor.selection_groups) {
       if (group.parent.empty()) {
-        pending.push({&group, "", "", glm::mat4(1.0f)});
+        pending.push({&group, "", "", glm::mat4(1.0f), "", 0});
       }
     }
 
-    // --- diagnostic counters ---
-    size_t groups_processed = 0;               // DEBUG
-    size_t groups_enqueued = pending.size();   // DEBUG
-    size_t max_pending_size = pending.size();  // DEBUG
-    const size_t hard_guard =
-        descriptor.selection_groups.size() * 32 + 128;  // DEBUG
-
     while (!pending.empty() && !failed) {
-
-      // DEBUG
-      if (groups_processed > hard_guard) {
-        Logger::getInstance().Log(
-            LogLevel::Error,
-            "[Generator][Diag] Hard guard hit. Potential activation cycle. "
-            "attempt=" +
-                std::to_string(attempt) +
-                " seed=" + std::to_string(seed + attempt) +
-                " processed=" + std::to_string(groups_processed) +
-                " enqueued=" + std::to_string(groups_enqueued) +
-                " pending=" + std::to_string(pending.size()) +
-                " maxPending=" + std::to_string(max_pending_size));
-        failed = true;
-        break;
-      }  // DEBUG
-
       const PendingActivation pa = pending.front();
       pending.pop();
-      ++groups_processed;  // DEBUG
 
       const SelectionGroup* group = pa.group;
 
-      // Filter parts by constraints
-      std::vector<const PartDescriptor*> valid;
-      for (const auto& part : group->parts) {
-        if (IsValidSelection(part.id, selected_ids, descriptor.constraints)) {
-          valid.push_back(&part);
-        }
-      }
-
-      if (valid.empty()) {
-        if (group->required) {
-          failed = true;
-          break;
-        }
-        continue;
-      }
-
-      const PartDescriptor* chosen = WeightedSelect(valid, rng);
-      selected_ids.insert(chosen->id);
-
-      // Look up the graph node for mesh references
-      auto it = graph.node_lookup.find(chosen->id);
-      if (it == graph.node_lookup.end()) {
-        failed = true;
-        break;
-      }
-
-      ModelGraphNode* node = it->second;
-
-      // locators live on the group, not the activator node
-      const std::vector<std::string>* locators_to_fill =
-          group->locators.has_value() ? &*group->locators : nullptr;
-
-      // Authored activator world — shared by both branches below.
-      // We use this to extract each locator's *local* offset from the activator
-      // as it sits in the GLTF (authored_inverse * locator->world_transform),
-      // then re-apply that offset from the actual placed instance's world
-      // transform (activator_world_transform * locator_local). This correctly
-      // repositions locators per-instance without baking any authored position.
+      // Authored activator world. We use this to extract each placement's
+      // *local* offset from the activator as it sits in the GLTF
+      // (authored_inverse * node world), then re-apply that offset from the
+      // placed activator's world transform.
       glm::mat4 authored_activator_world(1.0f);
       if (!pa.activator_part_id.empty()) {
         auto act_it = graph.node_lookup.find(pa.activator_part_id);
@@ -172,133 +230,90 @@ std::optional<InstanceData> ModelGenerator::Generate(
       }
       glm::mat4 authored_inverse = glm::inverse(authored_activator_world);
 
-      std::vector<ResolvedDescriptor> newly_added;
+      // Compile locator modifiers for this group from descriptor-level
+      // entries. Entries with empty target_group_id apply to all groups.
+      std::vector<std::pair<PCG::OperationRegistry::Handler,
+                            std::shared_ptr<PCG::OperationData>>>
+          compiled_modifiers;
+      for (const auto& mod : descriptor.locator_operations) {
+        if (!mod.target_group_id.empty() &&
+            mod.target_group_id != group->group_id)
+          continue;
 
-      // Variant-only groups fire once per activating instance: each gets a
-      // unique descriptor_id via '_under_<activator>' suffix.
-      // local_transform is rebased from the activator instance's world
-      // transform, so children on instanced parents are correctly positioned
-      // per-parent rather than at the GLTF-authored position.
-      if (!locators_to_fill || locators_to_fill->empty()) {
-        // Variant-only: re-base onto activator instance world transform
-        glm::mat4 local_offset = authored_inverse * node->world_transform;
-        glm::mat4 instance_world = pa.activator_world_transform * local_offset;
+        auto data = operation_registry.Parse(mod.entry.kind, mod.entry.params);
+        auto handler = operation_registry.GetHandler(mod.entry.kind);
+        if (!data || !handler) {
+          Logger::getInstance().Log(
+              LogLevel::Warning,
+              "[Generator] Unknown or unparseable locator modifier '" +
+                  mod.entry.kind + "' in group '" + group->group_id +
+                  "'; skipping");
+          continue;
+        }
+        compiled_modifiers.emplace_back(std::move(handler), std::move(data));
+      }
+
+      struct Placement {
+        ResolvedDescriptor resolved;
+        std::string part_id;
+        std::string key;  // the instance's key in the pick tree
+      };
+      std::vector<Placement> newly_added;
+
+      // Variant-only groups (no locators) place the part where it is
+      // authored, once per activating instance; locator groups place one
+      // instance per locator
+      for (const auto& locator_id : Locators(*group)) {
+        const std::string slot =
+            SlotKey(pa.activator_key, *group,
+                    group->unique_per_locator ? locator_id : std::string());
+        const PartDescriptor* chosen = Picked(*group, slot, picked);
+        if (!chosen) {
+          failed = group->required;
+          if (failed || !group->unique_per_locator)
+            break;
+          continue;
+        }
+        auto it = graph.node_lookup.find(chosen->id);
+        if (it == graph.node_lookup.end()) {
+          failed = true;
+          break;
+        }
+        const ModelGraphNode* node = it->second;
+        selected_ids.insert(chosen->id);
 
         ResolvedDescriptor resolved;
-        resolved.descriptor_id = chosen->id;
         resolved.group_id = group->group_id;
         resolved.mesh_indices = node->mesh_indices;
-        resolved.local_transform = instance_world;
         resolved.activator_id = pa.activator_instance_id;
 
-        // Sample parameter ranges from annotations
-        sampler.Set(resolved.descriptor_id);
-        ApplyParameterRanges(resolved, *node, rng, sampler);
-        newly_added.push_back(std::move(resolved));
-
-      } else {
-        // locator-based: one instance per locator, world-positioned per
-        // instance
-        const PartDescriptor* uniform_pick =
-            !group->unique_per_locator ? chosen : nullptr;
-
-        // Parent scale — match by activator instance id
-        /* glm::vec3 parent_scale(1.0f);
-        if (!pa.activator_instance_id.empty()) {
-          for (const auto& prev : resolved_descriptors) {
-            if (prev.descriptor_id == pa.activator_instance_id) {
-              parent_scale = prev.applied_scale;
-              break;
-            }
-          }
-        }*/
-
-        // Compile locator modifiers for this group from descriptor-level
-        // entries. Entries with empty target_group_id apply to all groups.
-        std::vector<std::pair<PCG::OperationRegistry::Handler,
-                              std::shared_ptr<PCG::OperationData>>>
-            compiled_modifiers;
-
-        for (const auto& mod : descriptor.locator_operations) {
-          if (!mod.target_group_id.empty() &&
-              mod.target_group_id != group->group_id)
-            continue;
-
-          auto data =
-              operation_registry.Parse(mod.entry.kind, mod.entry.params);
-          auto handler = operation_registry.GetHandler(mod.entry.kind);
-          if (!data || !handler) {
-            Logger::getInstance().Log(
-                LogLevel::Warning,
-                "[Generator] Unknown or unparseable locator modifier '" +
-                    mod.entry.kind + "' in group '" + group->group_id +
-                    "'; skipping");
-            continue;
-          }
-          compiled_modifiers.emplace_back(std::move(handler), std::move(data));
-        }
-
-        for (const auto& locator_id : *locators_to_fill) {
+        if (locator_id.empty()) {
+          resolved.descriptor_id = chosen->id;
+          resolved.local_transform = pa.activator_world_transform *
+                                     authored_inverse * node->world_transform;
+        } else {
           auto sock_it = graph.node_lookup.find(locator_id);
           if (sock_it == graph.node_lookup.end())
             continue;
 
-          const PartDescriptor* per_attach = group->unique_per_locator
-                                                 ? WeightedSelect(valid, rng)
-                                                 : uniform_pick;
-
-          auto graph_it = graph.node_lookup.find(per_attach->id);
-          if (graph_it == graph.node_lookup.end())
-            continue;
-
-          ModelGraphNode* per_locator_node = graph_it->second;
-
-          // locator_local: offset of this locator from its authored activator
-          // locator_world: same offset re-applied from the instance position
-          glm::mat4 locator_local =
-              authored_inverse * sock_it->second->world_transform;
-          glm::mat4 locator_world =
-              pa.activator_world_transform * locator_local;
-
-          ResolvedDescriptor attached;
-          attached.descriptor_id =
-              std::string(per_attach->id) + "_at_" + locator_id;
-          if (!pa.activator_instance_id.empty()) {
-            attached.descriptor_id += "_under_" + pa.activator_instance_id;
-          }
-          attached.group_id = group->group_id;
-          attached.mesh_indices = per_locator_node->mesh_indices;
-          attached.local_transform = locator_world;
-          attached.activator_id = pa.activator_instance_id;
-
-          sampler.Set(attached.descriptor_id);
+          // The locator's offset from its authored activator, re-applied
+          // from the placed activator
+          glm::mat4 locator_world = pa.activator_world_transform *
+                                    authored_inverse *
+                                    sock_it->second->world_transform;
+          resolved.descriptor_id = chosen->id + "_at_" + locator_id;
 
           // Run authored locator modifiers (radial_align, jitter, etc)
+          sampler.Set(resolved.descriptor_id);
           if (!compiled_modifiers.empty()) {
             LocatorContext locator_ctx(locator_world,
-                                       pa.activator_world_transform, locator_id,
-                                       rng, sampler);
+                                       pa.activator_world_transform,
+                                       locator_id, rng, sampler);
             for (const auto& [handler, data] : compiled_modifiers) {
               handler(*data, locator_ctx);
             }
           }
-
-          // DEBUG
-          glm::vec3 sw(locator_world[3]);
-          Logger::getInstance().Log(
-              LogLevel::Debug, "[Generator] locator=" + locator_id +
-                                   " world_xz=(" + std::to_string(sw.x) + ", " +
-                                   std::to_string(sw.z) + ")");
-
-          // DEBUG
-          glm::vec3 fwd_world =
-              glm::vec3(locator_world * glm::vec4(0, 0, 1, 0));
-          Logger::getInstance().Log(
-              LogLevel::Debug, "[Generator] locator=" + locator_id + " pos=(" +
-                                   std::to_string(sw.x) + "," +
-                                   std::to_string(sw.z) + ")" + " fwd=(" +
-                                   std::to_string(fwd_world.x) + "," +
-                                   std::to_string(fwd_world.z) + ")");
+          resolved.local_transform = locator_world;
 
           // Sample scale factor with optional jitter
           float factor = group->scale_factor;
@@ -306,51 +321,62 @@ std::optional<InstanceData> ModelGenerator::Generate(
             factor += sampler.Uniform("scale_jitter", "", -*group->scale_jitter,
                                       *group->scale_jitter, rng);
           }
-          attached.applied_scale = glm::vec3(factor);
-
-          // Sample parameter ranges for this attachment, so each attached
-          // copy gets independent rotation/scale jitter
-          ApplyParameterRanges(attached, *per_locator_node, rng, sampler);
-
-          // Per-attachment rotation jitter: each attached instance picks an
-          // independent rotation perturbation, so identical-mesh
-          // attachments stick out in different directions
-          const glm::vec3& j = group->rotation_jitter;
-          if (j.x > 0.0f || j.y > 0.0f || j.z > 0.0f) {
-            float rx =
-                sampler.Uniform("rotation_jitter_legacy", "x", -j.x, j.x, rng);
-            float ry =
-                sampler.Uniform("rotation_jitter_legacy", "y", -j.y, j.y, rng);
-            float rz =
-                sampler.Uniform("rotation_jitter_legacy", "z", -j.z, j.z, rng);
-            attached.applied_rotation += glm::vec3(rx, ry, rz);
-          }
-
-          // Track the picked part for constraint validation (only when
-          // varying)
-          if (group->unique_per_locator)
-            selected_ids.insert(per_attach->id);
-
-          newly_added.push_back(std::move(attached));
+          resolved.applied_scale = glm::vec3(factor);
         }
+        if (!pa.activator_instance_id.empty())
+          resolved.descriptor_id += "_under_" + pa.activator_instance_id;
+
+        // Sample parameter ranges, so each placed copy gets independent
+        // rotation/scale jitter
+        sampler.Set(resolved.descriptor_id);
+        ApplyParameterRanges(resolved, *node, rng, sampler);
+
+        // Per-attachment rotation jitter
+        const glm::vec3& j = group->rotation_jitter;
+        if (!locator_id.empty() && (j.x > 0.0f || j.y > 0.0f || j.z > 0.0f)) {
+          float rx =
+              sampler.Uniform("rotation_jitter_legacy", "x", -j.x, j.x, rng);
+          float ry =
+              sampler.Uniform("rotation_jitter_legacy", "y", -j.y, j.y, rng);
+          float rz =
+              sampler.Uniform("rotation_jitter_legacy", "z", -j.z, j.z, rng);
+          resolved.applied_rotation += glm::vec3(rx, ry, rz);
+        }
+
+        newly_added.push_back(
+            {std::move(resolved), chosen->id,
+             InstanceKey(slot + ":" + chosen->id,
+                         group->unique_per_locator ? "" : locator_id)});
+      }
+      if (failed)
+        break;
+
+      // Keep a drawn number of the placements, in a drawn order
+      if (group->keep && !newly_added.empty()) {
+        Worldgen::NodeGroup kept{true, group->keep->x, group->keep->y,
+                                 static_cast<int>(newly_added.size())};
+        const uint64_t keep_seed =
+            static_cast<uint64_t>(rng()) << 32 | static_cast<uint64_t>(rng());
+        Worldgen::NodeDistribution(keep_seed, true, &kept, 1);
+        std::vector<Placement> chosen;
+        for (int k = 0; k < std::min(kept.kept, kept.nodes); ++k)
+          chosen.push_back(std::move(newly_added[kept.order[k]]));
+        newly_added = std::move(chosen);
       }
 
-      // Activate child groups PER PLACED INSTANCE
-      for (const auto& new_desc : newly_added) {
-        for (const auto& g : descriptor.selection_groups) {
-          for (const auto& parent_id : g.parent) {
-            if (parent_id == chosen->id) {
-              pending.push({&g, new_desc.descriptor_id, chosen->id,
-                            new_desc.local_transform});
-              ++groups_enqueued;
-              max_pending_size = std::max(max_pending_size, pending.size());
-              break;
-            }
+      // Activate child groups per placed instance, from its full transform
+      if (pa.depth + 1 < descriptor.max_depth) {
+        for (const auto& placement : newly_added) {
+          for (const auto& g : descriptor.selection_groups) {
+            if (Activates(g, placement.part_id))
+              pending.push({&g, placement.resolved.descriptor_id,
+                            placement.part_id, PartWorld(placement.resolved),
+                            placement.key, pa.depth + 1});
           }
         }
       }
-      for (auto& nd : newly_added) {
-        resolved_descriptors.push_back(std::move(nd));
+      for (auto& placement : newly_added) {
+        resolved_descriptors.push_back(std::move(placement.resolved));
       }
     }
 
@@ -359,9 +385,6 @@ std::optional<InstanceData> ModelGenerator::Generate(
         "[Generator][Diag] attempt=" + std::to_string(attempt) +
             " seed=" + std::to_string(seed + attempt) +
             " failed=" + std::to_string(failed ? 1 : 0) +
-            " processed=" + std::to_string(groups_processed) +
-            " enqueued=" + std::to_string(groups_enqueued) +
-            " maxPending=" + std::to_string(max_pending_size) +
             " selected=" + std::to_string(selected_ids.size()) +
             " resolved=" + std::to_string(resolved_descriptors.size()));
 
@@ -442,29 +465,6 @@ std::optional<InstanceData> ModelGenerator::Generate(
   }
 
   return std::nullopt;
-}
-
-bool ModelGenerator::IsValidSelection(
-    const std::string& part_id,
-    const std::unordered_set<std::string>& selected_ids,
-    const std::vector<ConstraintRule>& constraints) {
-  for (const auto& rule : constraints) {
-    if (rule.type == ConstraintRule::Type::EXCLUDES) {
-      // If part_a is already selected, part_b is invalid (and vice versa)
-      if (rule.part_a == part_id && selected_ids.count(rule.part_b) > 0)
-        return false;
-      if (rule.part_b == part_id && selected_ids.count(rule.part_a) > 0)
-        return false;
-    }
-    if (rule.type == ConstraintRule::Type::REQUIRES) {
-      // If this part requires another that hasn't been selected yet,
-      // skip — it may be selected later. Only reject if the required
-      // part was already excluded by group processing.
-      // For now, REQUIRES is checked in ValidateConstraints
-      // post-generation.
-    }
-  }
-  return true;
 }
 
 void ModelGenerator::ApplyParameterBindings(
