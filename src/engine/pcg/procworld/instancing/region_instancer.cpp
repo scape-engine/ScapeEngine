@@ -138,4 +138,31 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
   return creatures;
 }
 
+std::vector<Entity> RegionInstancer::InstanceBuildings(
+    ECS& ecs, const Worldgen::Region& region, BuildingLibrary& library,
+    Entity source, const std::filesystem::path& root,
+    const Worldgen::TextureInput* planet) {
+  std::vector<Entity> buildings;
+  for (const Worldgen::RegionBuilding& building : region.buildings) {
+    const auto pieces = library.Structure(building.cls, building.seed);
+    if (pieces->empty())
+      continue;
+    auto [entity, transform] =
+        ecs.CreateEntity("Building " + std::to_string(building.cls), source);
+    _SetTransform(transform, building.matrix);
+    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    uint64_t seed = building.seed;
+    for (const Worldgen::BuildingPiece& piece : *pieces) {
+      const Entity part =
+          _CreateObject(ecs, piece.model, entity, ++seed, root, planet);
+      if (part == entt::null)
+        continue;
+      _SetTransform(ecs.Get<TransformComponent>(part), piece.matrix);
+      ecs.Add<ProceduralInstanceComponent>(part, source);
+    }
+    buildings.push_back(entity);
+  }
+  return buildings;
+}
+
 }  // namespace ProcWorld

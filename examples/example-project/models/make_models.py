@@ -1,8 +1,9 @@
-# Writes the example project's test models (tree.glb, rock.glb, creature.glb) beside this script: parts as named
+# Writes the example project's test models (tree.glb, rock.glb, creature.glb, buildings/*.glb) beside this script: parts as named
 # nodes, with locator children or (the creature's) skinned to a shared skeleton, for the procmodel descriptors
 # tree.json, rock.json and creature.json. Also the layer
 # images of their procedural textures (textures/*.png), which bark, stone and hide .texture.json
-# describe.
+# describe. The buildings are an outpost's parts and WFC module scenes, and a watchtower's L-system levels
+# (worldgen/planet.json's building styles).
 import json, math, os, random, struct, sys, zlib
 
 def quat_mul(a, b):
@@ -403,9 +404,89 @@ def textures(folder, size=128):
         save_png(os.path.join(folder, name + ".masks.png"), size,
                  lambda x, y: (0, roughness + (0.5 - height[y][x]) * 0.15, metallic, 1))
 
+
+def box(lo, hi):
+    # an axis-aligned box with flat faces, uv in metres
+    pos, nrm, uv, idx = [], [], [], []
+    for axis in range(3):
+        for side in (0, 1):
+            n = [0, 0, 0]
+            n[axis] = 1 if side else -1
+            u, v = (axis + 1) % 3, (axis + 2) % 3
+            base = len(pos)
+            for a, b in ((0, 0), (1, 0), (1, 1), (0, 1)):
+                p = [0, 0, 0]
+                p[axis] = hi[axis] if side else lo[axis]
+                p[u] = hi[u] if a else lo[u]
+                p[v] = hi[v] if b else lo[v]
+                pos.append(tuple(p))
+                nrm.append(tuple(n))
+                uv.append((p[u], p[v]))
+            idx += [base, base + 1, base + 2, base, base + 2, base + 3] if side else [base, base + 2, base + 1, base, base + 3, base + 2]
+    return pos, nrm, uv, idx
+
+def building_parts(folder):
+    # the outpost's parts, one model each, on a 4 m grid: a wall stands on the cell's back edge, its outer face on
+    # the edge (z = 2), so walls of neighbouring cells meet without overlapping
+    plaster, trim, glass = (0.78, 0.74, 0.66), (0.36, 0.3, 0.26), (0.35, 0.5, 0.58)
+    def save(name, boxes):
+        g = Glb()
+        mats = {}
+        prims = []
+        for lo, hi, colour in boxes:
+            if colour not in mats: mats[colour] = g.material("m%d" % len(mats), colour)
+            prims.append((box(lo, hi), mats[colour]))
+        g.node(name.upper(), g.mesh(name.upper(), prims))
+        g.save(os.path.join(folder, name + ".glb"))
+    save("floor", [((-2, 0, -2), (2, 0.2, 2), trim)])
+    save("roof", [((-2.2, 3.8, -2.2), (2.2, 4.0, 2.2), trim)])
+    save("wall", [((-2, 0.2, 1.8), (2, 3.8, 2), plaster)])
+    save("door", [((-2, 0.2, 1.8), (-0.6, 3.8, 2), plaster), ((0.6, 0.2, 1.8), (2, 3.8, 2), plaster),
+                  ((-0.6, 2.6, 1.8), (0.6, 3.8, 2), plaster), ((-0.7, 0.2, 1.75), (-0.6, 2.6, 2.05), trim),
+                  ((0.6, 0.2, 1.75), (0.7, 2.6, 2.05), trim)])
+    save("window", [((-2, 0.2, 1.8), (2, 1.4, 2), plaster), ((-2, 2.6, 1.8), (2, 3.8, 2), plaster),
+                    ((-2, 1.4, 1.8), (-0.8, 2.6, 2), plaster), ((0.8, 1.4, 1.8), (2, 2.6, 2), plaster),
+                    ((-0.8, 1.4, 1.88), (0.8, 2.6, 1.92), glass)])
+
+def building_modules(folder):
+    # module scenes: locators only, named <PART>_<n>, turned to each side of the cell
+    sides = [(0, 0), (90, 0), (180, 0), (270, 0)]
+    def save(name, parts):
+        g = Glb()
+        for i, (part, yaw) in enumerate(parts):
+            g.node("%s_%d" % (part, i + 1), None, (0, 0, 0), axis_quat((0, 1, 0), yaw) if yaw else None)
+        g.save(os.path.join(folder, name + ".glb"))
+    save("room_door", [("FLOOR", 0), ("ROOF", 0), ("DOOR", 0), ("WALL", 90), ("WINDOW", 180), ("WALL", 270)])
+    save("room_hall", [("FLOOR", 0), ("ROOF", 0), ("DOOR", 0), ("WINDOW", 90), ("DOOR", 180), ("WINDOW", 270)])
+    save("loft", [("ROOF", 0), ("WINDOW", 0), ("WALL", 90), ("WINDOW", 180), ("WALL", 270)])
+
+def watchtower(folder):
+    # the tower's levels: each a scene with its mesh and the locators the L-system snaps levels on
+    stone, wood = (0.5, 0.48, 0.45), (0.42, 0.3, 0.2)
+    def save(name, boxes, into, out):
+        g = Glb()
+        mats = {}
+        prims = []
+        for lo, hi, colour in boxes:
+            if colour not in mats: mats[colour] = g.material("m%d" % len(mats), colour)
+            prims.append((box(lo, hi), mats[colour]))
+        g.node(name.upper(), g.mesh(name.upper(), prims))
+        if into: g.node("LEVEL_IN_1", None, (0, 0, 0))
+        if out: g.node("LEVEL_OUT_1", None, (0, out, 0))
+        g.save(os.path.join(folder, name + ".glb"))
+    save("tower_base", [((-1.8, 0, -1.8), (1.8, 3, 1.8), stone)], False, 3)
+    save("tower_mid", [((-1.3, 0, -1.3), (1.3, 3, 1.3), stone), ((-1.4, 2.7, -1.4), (1.4, 3, 1.4), wood)], True, 3)
+    posts = [((x - 0.1, 0.3, z - 0.1), (x + 0.1, 2.6, z + 0.1), wood) for x in (-1.7, 1.7) for z in (-1.7, 1.7)]
+    save("tower_top", [((-1.9, 0, -1.9), (1.9, 0.3, 1.9), wood), ((-2.1, 2.6, -2.1), (2.1, 2.8, 2.1), wood)] + posts
+         + [((-1.9, 0.3, z - 0.05), (1.9, 1.2, z + 0.05), wood) for z in (-1.85, 1.85)], True, 0)
+
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 tree(out + "/tree.glb")
 rock(out + "/rock.glb")
 creature(out + "/creature.glb")
 textures(out + "/textures")
-print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/creature.glb", out + "/textures")
+os.makedirs(out + "/buildings", exist_ok=True)
+building_parts(out + "/buildings")
+building_modules(out + "/buildings")
+watchtower(out + "/buildings")
+print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/creature.glb", out + "/textures", out + "/buildings")

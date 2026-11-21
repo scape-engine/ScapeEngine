@@ -294,6 +294,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     // colours replace the region content's and the look's
     state.tile_colours = {};
     state.textures = {};
+    state.buildings = nullptr;
     generator.planet_tile_colours = 0;
     generator.planet_terrain = false;
     generator.planet_radius = 0.0f;
@@ -327,6 +328,13 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->terrain = built.terrain;
       if (generator.planet_radius > 0.0f)
         content->radius = generator.planet_radius;
+      // TODO: buildings in a single region (RegionGenerator)
+      if (planet.buildings.active) {
+        content->buildings = built.buildings;
+        content->buildings.radius = content->radius;  // the terrain's
+        state.buildings = std::make_shared<BuildingLibrary>(
+            planet.building_styles, root_);
+      }
       auto bare = std::make_shared<Worldgen::RegionContent>(*content);
       bare->objects.clear();
       auto herds = std::make_shared<Worldgen::RegionContent>(*bare);
@@ -482,6 +490,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           RegionInstancer::Instance(ecs, region, content, entity,
                                     looks_[volume].material, root_,
                                     skirt_depth, &state.textures);
+      if (state.buildings)
+        RegionInstancer::InstanceBuildings(ecs, region, *state.buildings,
+                                           entity, root_, &state.textures);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
     }
     it = state.building.erase(it);
@@ -524,10 +535,17 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     int centre[3];
     Worldgen::PlanetGrid::CellCentre(w.cell, radius, centre);
     const int level = w.cell.level;
+    // The region's buildings are made here too, off the main thread
     state.building[_CellKey(w.cell)] = std::async(
-        std::launch::async, [content, x = centre[0], y = centre[1],
-                             z = centre[2], level] {
-          return Worldgen::BuildRegion(*content, x, y, z, level);
+        std::launch::async, [content, buildings = state.buildings,
+                             x = centre[0], y = centre[1], z = centre[2],
+                             level] {
+          Worldgen::Region region =
+              Worldgen::BuildRegion(*content, x, y, z, level);
+          if (buildings)
+            for (const Worldgen::RegionBuilding& b : region.buildings)
+              buildings->Structure(b.cls, b.seed);
+          return region;
         });
     started++;
   }

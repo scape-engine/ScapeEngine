@@ -8,6 +8,7 @@
 #include "engine/ecs/world.h"
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
+#include "engine/pcg/procworld/instancing/building_library.h"
 
 #include "api/procedural_texture.h"
 #include "api/region.h"
@@ -42,6 +43,13 @@ public:
       ECS& ecs, const Worldgen::Region& region,
       const Worldgen::RegionContent& content, Entity source,
       const std::filesystem::path& root,
+      const Worldgen::TextureInput* planet = nullptr);
+
+  // One entity per building of the region, as children of the source, with
+  // its structure's pieces (sources as above) as its children
+  static std::vector<Entity> InstanceBuildings(
+      ECS& ecs, const Worldgen::Region& region, BuildingLibrary& library,
+      Entity source, const std::filesystem::path& root,
       const Worldgen::TextureInput* planet = nullptr);
 };
 

@@ -15,6 +15,7 @@
 
 #include "api/procedural_texture.h"
 #include "api/region.h"
+#include "engine/pcg/procworld/instancing/building_library.h"
 
 namespace ProcWorld {
 
@@ -64,6 +65,8 @@ private:
     std::array<glm::vec4, TerrainMaterialData::tile_count> tile_colours{};
     // The planet's seed and palettes, for the models' procedural textures
     Worldgen::TextureInput textures;
+    // Its building styles and structures; null: no buildings
+    std::shared_ptr<BuildingLibrary> buildings;
   };
 
   void Build(Entity volume, RegionGenerator& generator);

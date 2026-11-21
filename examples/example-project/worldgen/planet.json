@@ -453,5 +453,5507 @@
         }
       }
     ]
-  }
+  },
+  "buildings": {
+    "spacing": 7,
+    "active": true,
+    "classes": [
+      {
+        "box_min": [
+          -7,
+          0,
+          -7,
+          1
+        ],
+        "box_max": [
+          7,
+          9,
+          7,
+          1
+        ],
+        "radius": 30,
+        "kind": 0,
+        "layouts": [
+          0
+        ],
+        "flatten": 1,
+        "min_height": -1000,
+        "max_height": 1000
+      },
+      {
+        "box_min": [
+          -2.2,
+          0,
+          -2.2,
+          1
+        ],
+        "box_max": [
+          2.2,
+          14,
+          2.2,
+          1
+        ],
+        "radius": 6,
+        "kind": 1,
+        "layouts": [],
+        "flatten": 1,
+        "min_height": -1000,
+        "max_height": 1000
+      },
+      {
+        "box_min": [
+          -4.5,
+          0,
+          -4.5,
+          1
+        ],
+        "box_max": [
+          4.5,
+          9,
+          4.5,
+          1
+        ],
+        "radius": 10,
+        "kind": 2,
+        "layouts": [],
+        "flatten": 1,
+        "min_height": -1000,
+        "max_height": 1000
+      }
+    ],
+    "choice": [
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      },
+      {
+        "class_id": 0,
+        "chance": 0.7,
+        "enabled": true
+      }
+    ],
+    "layouts": [
+      {
+        "members": [
+          {
+            "kind": 1,
+            "min": 1,
+            "max": 2,
+            "probability": 1.0
+          },
+          {
+            "kind": 2,
+            "min": 1,
+            "max": 3,
+            "probability": 0.8
+          }
+        ],
+        "jitter": 0.3
+      }
+    ]
+  },
+  "building_styles": [
+    {
+      "id": "outpost",
+      "modules": {
+        "block_size": {
+          "x": 4,
+          "y": 4,
+          "z": 4
+        },
+        "module_prototypes": [
+          {
+            "id": "ROOM",
+            "layout_group": "G",
+            "back": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "forward": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "left": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "right": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "down": {
+              "connector": "ground",
+              "walkable": false
+            },
+            "up": {
+              "connector": "deck",
+              "walkable": false
+            },
+            "scenes": [
+              {
+                "file": "models/buildings/room_door.glb",
+                "relative_probability": 2
+              },
+              {
+                "file": "models/buildings/room_hall.glb",
+                "relative_probability": 1
+              }
+            ],
+            "relative_probability": 3.0
+          },
+          {
+            "id": "LOFT",
+            "layout_group": "G",
+            "back": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "forward": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "left": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "right": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "down": {
+              "connector": "deck",
+              "walkable": false
+            },
+            "up": {
+              "connector": "roof",
+              "walkable": false
+            },
+            "scenes": [
+              {
+                "file": "models/buildings/loft.glb",
+                "relative_probability": 1
+              }
+            ],
+            "relative_probability": 1.0,
+            "exclude_on_ground": true
+          },
+          {
+            "id": "EMPTY",
+            "layout_group": "G",
+            "back": {
+              "connector": "air",
+              "walkable": false
+            },
+            "forward": {
+              "connector": "air",
+              "walkable": false
+            },
+            "left": {
+              "connector": "air",
+              "walkable": false
+            },
+            "right": {
+              "connector": "air",
+              "walkable": false
+            },
+            "down": {
+              "connector": "air",
+              "walkable": false
+            },
+            "up": {
+              "connector": "air",
+              "walkable": false
+            },
+            "scenes": [],
+            "relative_probability": 1.0
+          }
+        ],
+        "compatible_connectors": [
+          {
+            "item1": "wall",
+            "item2": "air"
+          },
+          {
+            "item1": "deck",
+            "item2": "air"
+          },
+          {
+            "item1": "roof",
+            "item2": "air"
+          },
+          {
+            "item1": "ground",
+            "item2": "air"
+          }
+        ],
+        "connectors_on_horizontal_boundary": [
+          "wall",
+          "air"
+        ],
+        "connectors_on_lower_boundary": [
+          "ground",
+          "air"
+        ],
+        "connectors_on_upper_boundary": [
+          "roof",
+          "deck",
+          "air"
+        ]
+      },
+      "parts": {
+        "FLOOR": "models/buildings/floor.glb",
+        "ROOF": "models/buildings/roof.glb",
+        "WALL": "models/buildings/wall.glb",
+        "DOOR": "models/buildings/door.glb",
+        "WINDOW": "models/buildings/window.glb"
+      },
+      "wfc": {
+        "sizes": [
+          {
+            "relative_probability": 1.0,
+            "size_x": 3,
+            "size_y": 2,
+            "size_z": 3
+          },
+          {
+            "relative_probability": 1.0,
+            "size_x": 3,
+            "size_y": 2,
+            "size_z": 2
+          },
+          {
+            "relative_probability": 1.0,
+            "size_x": 2,
+            "size_y": 2,
+            "size_z": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "watchtower",
+      "lsystem": {
+        "rules": [
+          {
+            "model": "models/buildings/tower_base.glb",
+            "name": "base",
+            "base": true,
+            "rules": [
+              {
+                "locator_type": "LEVEL",
+                "merge_mode": "Balance",
+                "entries": [
+                  {
+                    "model": "models/buildings/tower_mid.glb",
+                    "probability": 70
+                  },
+                  {
+                    "model": "models/buildings/tower_top.glb",
+                    "probability": 30
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "model": "models/buildings/tower_mid.glb",
+            "name": "mid",
+            "rules": [
+              {
+                "locator_type": "LEVEL",
+                "merge_mode": "Balance",
+                "entries": [
+                  {
+                    "model": "models/buildings/tower_mid.glb",
+                    "probability": 55
+                  },
+                  {
+                    "model": "models/buildings/tower_top.glb",
+                    "probability": 45
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "model": "models/buildings/tower_top.glb",
+            "name": "top"
+          }
+        ],
+        "restrictions": [
+          {
+            "model": "models/buildings/tower_mid.glb",
+            "restrictions": [
+              {
+                "type": 0,
+                "amount": 3
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "cottage",
+      "modules": {
+        "block_size": {
+          "x": 4,
+          "y": 4,
+          "z": 4
+        },
+        "module_prototypes": [
+          {
+            "id": "ROOM",
+            "layout_group": "G",
+            "back": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "forward": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "left": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "right": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "down": {
+              "connector": "ground",
+              "walkable": false
+            },
+            "up": {
+              "connector": "deck",
+              "walkable": false
+            },
+            "scenes": [
+              {
+                "file": "models/buildings/room_door.glb",
+                "relative_probability": 2
+              },
+              {
+                "file": "models/buildings/room_hall.glb",
+                "relative_probability": 1
+              }
+            ],
+            "relative_probability": 3.0
+          },
+          {
+            "id": "LOFT",
+            "layout_group": "G",
+            "back": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "forward": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "left": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "right": {
+              "connector": "wall",
+              "walkable": true
+            },
+            "down": {
+              "connector": "deck",
+              "walkable": false
+            },
+            "up": {
+              "connector": "roof",
+              "walkable": false
+            },
+            "scenes": [
+              {
+                "file": "models/buildings/loft.glb",
+                "relative_probability": 1
+              }
+            ],
+            "relative_probability": 1.0,
+            "exclude_on_ground": true
+          },
+          {
+            "id": "EMPTY",
+            "layout_group": "G",
+            "back": {
+              "connector": "air",
+              "walkable": false
+            },
+            "forward": {
+              "connector": "air",
+              "walkable": false
+            },
+            "left": {
+              "connector": "air",
+              "walkable": false
+            },
+            "right": {
+              "connector": "air",
+              "walkable": false
+            },
+            "down": {
+              "connector": "air",
+              "walkable": false
+            },
+            "up": {
+              "connector": "air",
+              "walkable": false
+            },
+            "scenes": [],
+            "relative_probability": 1.0
+          }
+        ],
+        "compatible_connectors": [
+          {
+            "item1": "wall",
+            "item2": "air"
+          },
+          {
+            "item1": "deck",
+            "item2": "air"
+          },
+          {
+            "item1": "roof",
+            "item2": "air"
+          },
+          {
+            "item1": "ground",
+            "item2": "air"
+          }
+        ],
+        "connectors_on_horizontal_boundary": [
+          "wall",
+          "air"
+        ],
+        "connectors_on_lower_boundary": [
+          "ground",
+          "air"
+        ],
+        "connectors_on_upper_boundary": [
+          "roof",
+          "deck",
+          "air"
+        ]
+      },
+      "parts": {
+        "FLOOR": "models/buildings/floor.glb",
+        "ROOF": "models/buildings/roof.glb",
+        "WALL": "models/buildings/wall.glb",
+        "DOOR": "models/buildings/door.glb",
+        "WINDOW": "models/buildings/window.glb"
+      },
+      "wfc": {
+        "sizes": [
+          {
+            "relative_probability": 1.0,
+            "size_x": 2,
+            "size_y": 2,
+            "size_z": 2
+          },
+          {
+            "relative_probability": 1.0,
+            "size_x": 2,
+            "size_y": 2,
+            "size_z": 1
+          }
+        ]
+      }
+    }
+  ]
 }

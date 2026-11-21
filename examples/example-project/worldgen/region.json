@@ -47,7 +47,9 @@
       "Base",
       "Base",
       "Base"
-    ]
+    ],
+    "building_smoothing_radius": 24,
+    "building_smoothing_height": 8
   },
   "herds": [
     {
