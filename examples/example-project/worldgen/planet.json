@@ -322,5 +322,136 @@
   },
   "palette_layout": {
     "count": 3
+  },
+  "creatures": {
+    "archetypes": {
+      "empty": "none",
+      "defaults": "none",
+      "has_water": false,
+      "has_caves": false,
+      "ground": [
+        {
+          "id": "grazers",
+          "weight": 3
+        },
+        {
+          "id": "loners",
+          "weight": 1
+        }
+      ]
+    },
+    "archetype_tables": [
+      {
+        "domain": 0,
+        "id": "grazers",
+        "tables": {
+          "main": {
+            "tables": [
+              {
+                "table": 0,
+                "density": 1
+              },
+              {
+                "table": 1,
+                "density": 0.5
+              }
+            ]
+          }
+        }
+      },
+      {
+        "domain": 0,
+        "id": "loners",
+        "tables": {
+          "main": {
+            "tables": [
+              {
+                "table": 1,
+                "density": 1
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "tables": [
+      {
+        "roles": [
+          {
+            "chance": 1,
+            "weights": [
+              1,
+              0.5
+            ]
+          },
+          {
+            "chance": 0.5,
+            "weights": [
+              -1,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "roles": [
+          {
+            "chance": 1,
+            "weights": [
+              -1,
+              -1,
+              1
+            ]
+          }
+        ]
+      }
+    ],
+    "creatures": [
+      {
+        "id": "procmodel:models/creature.json",
+        "spawn": {
+          "min_scale": 0.8,
+          "max_scale": 1.2,
+          "groups_per_square_km": 300,
+          "min_group_size": 2,
+          "max_group_size": 5
+        },
+        "size": {
+          "size": 1,
+          "scale": 1,
+          "height": 0
+        }
+      },
+      {
+        "id": "procmodel:models/creature.json",
+        "spawn": {
+          "min_scale": 0.4,
+          "max_scale": 0.6,
+          "groups_per_square_km": 150,
+          "min_group_size": 3,
+          "max_group_size": 8
+        },
+        "size": {
+          "size": 1,
+          "scale": 1,
+          "height": 0
+        }
+      },
+      {
+        "id": "procmodel:models/creature.json",
+        "spawn": {
+          "min_scale": 1.6,
+          "max_scale": 2.2,
+          "groups_per_square_km": 60,
+          "min_group_size": 1,
+          "max_group_size": 2
+        },
+        "size": {
+          "size": 1,
+          "scale": 1,
+          "height": 0
+        }
+      }
+    ]
   }
 }

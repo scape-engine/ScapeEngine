@@ -329,7 +329,25 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->radius = generator.planet_radius;
       auto bare = std::make_shared<Worldgen::RegionContent>(*content);
       bare->objects.clear();
-      state.herd_content = std::make_shared<Worldgen::RegionContent>(*bare);
+      auto herds = std::make_shared<Worldgen::RegionContent>(*bare);
+      // A planet with an ecosystem replaces the region content's herds with
+      // its filled roles
+      // TODO: air, water and cave roles; only ground herds walk the navmesh
+      if (!planet.creatures.tables.empty()) {
+        herds->herds.clear();
+        herds->herd_sizes.clear();
+        herds->herd_ids.clear();
+        for (const Worldgen::PlanetHerd& herd : built.herds) {
+          if (herd.domain != 0)
+            continue;
+          const Worldgen::CreatureKind& kind =
+              planet.creatures.creatures[herd.creature];
+          herds->herds.push_back(herd.spawn);
+          herds->herd_sizes.push_back(kind.size);
+          herds->herd_ids.push_back(kind.id);
+        }
+      }
+      state.herd_content = std::move(herds);
       content->herds.clear();
       bare->herds.clear();
       state.content = std::move(content);
