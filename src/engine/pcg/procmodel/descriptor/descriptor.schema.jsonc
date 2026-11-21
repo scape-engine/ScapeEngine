@@ -18,6 +18,12 @@
   // whole model; set, two streams, the second taking over a pick with a
   // chance growing by this much per level.
 
+  "textures": { "bark": "bark.texture.json" },
+  // Optional. Procedural textures by material name: a worldgen texture
+  // description (relative to this file) whose image, coloured by the planet
+  // the model grows on, replaces the material's colour. Every model of this
+  // kind on one planet shares the texture.
+
   // TODO: "tags": ["vegetation", "tropical"],
   // Optional. Free-form tags for filtering/grouping.
 

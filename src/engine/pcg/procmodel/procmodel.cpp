@@ -1,9 +1,12 @@
 #include "procmodel.h"
 
 #include <filesystem>
+#include <fstream>
+#include <sstream>
 
 #include "engine/core/logger.h"
 
+#include "engine/content/cache/image_cache.h"
 #include "engine/content/io/json.h"
 #include "engine/content/loaders/mesh_loader.h"
 #include "engine/context/engine_context.h"
@@ -17,6 +20,8 @@
 #include "engine/pcg/procmodel/model_graph/model_graph_builder.h"
 #include "engine/pcg/procmodel/procmodel_resource.h"
 #include "engine/pcg/procmodel/validation/procmodel_evaluation.h"
+
+#include "content_json.h"
 
 namespace ProcModel {
 
@@ -67,6 +72,10 @@ ResourceID Subsystem::LoadArchetype(const std::string& descriptor_path) {
     if (std::filesystem::path(model_path).is_relative() &&
         std::filesystem::exists(beside))
       model_path = beside.string();
+    // Texture descriptions are always beside it
+    for (auto& [material, path] : resource->GetDescriptor().textures)
+      path = (std::filesystem::path(descriptor_path).parent_path() / path)
+                 .string();
   }
 
   PCG::ParsePipelineDescriptor(*json_opt, resource->GetPipelineDescriptor());
@@ -173,7 +182,8 @@ std::optional<ProcModel::InstanceData> Subsystem::GenerateInstance(
 // We need to wire instance_geometry through Instantiate when scene placement
 // UX is needed. No need to refactor Editor preview path
 ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
-    const std::string& descriptor_path, uint64_t seed, Entity parent) {
+    const std::string& descriptor_path, uint64_t seed, Entity parent,
+    const Worldgen::TextureInput* planet) {
 
   ResourceID resource_id = LoadArchetype(descriptor_path);
   if (resource_id == 0)
@@ -211,8 +221,115 @@ ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
   }
 
   // Instantiate into ECS
+  const std::vector<MaterialHandle>* materials =
+      planet ? TexturedMaterials(descriptor_path, resource->GetDescriptor(),
+                                 resource->GetGraph(), *planet)
+             : nullptr;
   return ProcModel::ModelInstantiator::Instantiate(
-      resolved->model, resource->GetGraph(), parent);
+      resolved->model, resource->GetGraph(), parent, materials);
+}
+
+static uint64_t _Hash(uint64_t hash, const void* data, size_t size) {
+  const auto* bytes = static_cast<const uint8_t*>(data);
+  for (size_t i = 0; i < size; ++i)
+    hash = (hash ^ bytes[i]) * 0x100000001b3ull;
+  return hash;
+}
+
+const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
+    const std::string& descriptor_path, const ModelDescriptor& descriptor,
+    const ModelGraph& graph, const Worldgen::TextureInput& planet) {
+  if (descriptor.textures.empty() || planet.palettes.empty())
+    return nullptr;
+
+  // Made once per kind of model and planet, so they all share the textures
+  uint64_t planet_key =
+      _Hash(0xcbf29ce484222325ull, &planet.seed, sizeof(planet.seed));
+  planet_key = _Hash(planet_key, planet.palettes.data(),
+                     planet.palettes.size() * sizeof(Worldgen::PlanetPalette));
+  auto [it, added] = model_materials_.try_emplace(
+      descriptor_path + "|" + std::to_string(planet_key));
+  std::vector<MaterialHandle>& materials = it->second;
+  if (!added)
+    return &materials;
+  materials = graph.material_handles;
+
+  Worldgen::TextureInput input = planet;
+  input.seed = _Hash(planet.seed, descriptor.model_id.data(),
+                     descriptor.model_id.size());
+  auto& images = Content::ImageCache::Instance();
+  for (size_t i = 0; i < graph.materials.size() && i < materials.size(); ++i) {
+    const Content::MaterialData& authored = graph.materials[i];
+    const auto path = descriptor.textures.find(authored.name);
+    if (path == descriptor.textures.end())
+      continue;
+    const Worldgen::TextureContent* content = LoadTextureContent(path->second);
+    if (!content)
+      continue;
+
+    // Equal choices give equal names: one image for all the planets they fit
+    const Worldgen::ProceduralTexture texture =
+        Worldgen::BuildProceduralTexture(*content, input);
+    const std::string key = "proctexture:" + path->second + "#" + texture.name;
+    if (!images.Contains(key)) {
+      const std::filesystem::path folder =
+          std::filesystem::path(path->second).parent_path();
+      Worldgen::TextureImage image = Worldgen::CompositeTexture(
+          texture, [&](const std::string& file) {
+            return LoadLayerImage((folder / file).string());
+          });
+      if (image.width <= 0 || image.width > 0xffff || image.height > 0xffff)
+        continue;  // nothing loaded: keep the authored material
+      Content::ImageData data;
+      data.width = static_cast<uint16_t>(image.width);
+      data.height = static_cast<uint16_t>(image.height);
+      data.pixels = std::move(image.rgba);
+      images.Put(key, std::move(data));
+    }
+
+    auto [material, made] = textured_materials_.try_emplace(
+        descriptor_path + "|" + authored.name + "|" + key);
+    if (made) {
+      Content::MaterialData textured = authored;
+      textured.albedo_map = key;
+      textured.base_color = glm::vec4(1.0f);  // the texture holds the colour
+      material->second = MaterialRegistry::Instance().Register(textured);
+    }
+    materials[i] = material->second;
+  }
+  return &materials;
+}
+
+const Worldgen::TextureContent* Subsystem::LoadTextureContent(
+    const std::string& path) {
+  auto [it, added] = texture_contents_.try_emplace(path);
+  if (added) {
+    std::ifstream file(path);
+    std::stringstream text;
+    text << file.rdbuf();
+    Worldgen::TextureContent content;
+    std::string error = "can't open it";
+    if (file && Worldgen::Json::LoadTextureContent(text.str(), content, &error))
+      it->second = std::move(content);
+    else
+      Logger::getInstance().Log(
+          LogLevel::Error, "[ProcModel::Subsystem] " + path + ": " + error);
+  }
+  return it->second ? &*it->second : nullptr;
+}
+
+const Worldgen::TextureImage* Subsystem::LoadLayerImage(
+    const std::string& path) {
+  auto [it, added] = layer_images_.try_emplace(path);
+  if (added) {
+    // Kept here as worldgen reads it, not in the image cache too
+    auto& images = Content::ImageCache::Instance();
+    const Content::ImageData& data = images.Get(path);
+    if (data.Valid() && data.format == Content::ImageFormat::RGBA8)
+      it->second = {data.width, data.height, data.pixels};
+    images.Evict(path);
+  }
+  return it->second.width > 0 ? &it->second : nullptr;
 }
 
 // Validation logger (one per session)

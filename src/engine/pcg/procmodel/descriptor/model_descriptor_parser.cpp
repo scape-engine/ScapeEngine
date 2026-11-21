@@ -168,6 +168,9 @@ bool ModelDescriptorParser::FromJson(const nlohmann::json& j,
   out.max_depth = j.value("max_depth", out.max_depth);
   if (j.contains("distortion"))
     out.distortion = j["distortion"].get<float>();
+  if (j.contains("textures"))
+    for (const auto& [material, path] : j["textures"].items())
+      out.textures[material] = path.get<std::string>();
 
   // Whole-model scale range
   if (j.contains("scale_min")) {

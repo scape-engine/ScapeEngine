@@ -132,6 +132,10 @@ struct ModelDescriptor {
   // growing by this much per level
   std::optional<float> distortion;
 
+  // Procedural textures by material name: each names a worldgen texture
+  // description (relative to the descriptor), coloured by the planet
+  std::unordered_map<std::string, std::string> textures;
+
   // Locator modifiers: declarative transformations applied per-group
   // to each locator's world frame before a part is placed.
   // Authored as a list of (kind, params) entries.

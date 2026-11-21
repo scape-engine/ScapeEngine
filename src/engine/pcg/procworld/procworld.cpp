@@ -286,6 +286,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     // The planet itself, from its own content: its terrain settings and tile
     // colours replace the region content's and the look's
     state.tile_colours = {};
+    state.textures = {};
     generator.planet_tile_colours = 0;
     generator.planet_terrain = false;
     generator.planet_radius = 0.0f;
@@ -299,6 +300,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       input.subtype = generator.subtype;
       input.size = generator.size;
       built = Worldgen::BuildPlanet(planet, input);
+      state.textures.seed = generator.seed;
+      state.textures.palettes = built.palettes;
       generator.planet_terrain = !planet.terrain_types.empty();
       generator.planet_radius = built.radius;
       for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
@@ -404,7 +407,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       auto result =
           RegionInstancer::Instance(ecs, region, content, entity,
                                     looks_[volume].material, root_,
-                                    skirt_depth);
+                                    skirt_depth, &state.textures);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
     }
     it = state.building.erase(it);

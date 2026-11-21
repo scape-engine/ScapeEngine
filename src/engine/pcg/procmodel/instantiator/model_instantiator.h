@@ -17,13 +17,16 @@ public:
     std::vector<Entity> part_entities;
   };
 
-  static InstantiateResult Instantiate(const InstanceModel& resolved,
-                                       const ModelGraph& graph,
-                                       Entity parent = entt::null);
+  // `materials`, by the graph's material index, replace the graph's own
+  static InstantiateResult Instantiate(
+      const InstanceModel& resolved, const ModelGraph& graph,
+      Entity parent = entt::null,
+      const std::vector<MaterialHandle>* materials = nullptr);
 
 private:
   static Entity CreatePartEntity(const ResolvedDescriptor& descriptor,
-                                 const ModelGraph& graph, Entity parent);
+                                 const ModelGraph& graph, Entity parent,
+                                 const std::vector<MaterialHandle>& materials);
 };
 
 }  // namespace ProcModel

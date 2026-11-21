@@ -13,6 +13,7 @@
 #include "engine/renderer/material/terrain_material.h"
 #include "engine/renderer/model/mesh.h"
 
+#include "api/procedural_texture.h"
 #include "api/region.h"
 
 namespace ProcWorld {
@@ -55,6 +56,8 @@ private:
     std::unordered_map<uint64_t, std::future<Worldgen::Region>> building;
     // The planet's tile colours (sRGB); alpha 0: the look's colour
     std::array<glm::vec4, TerrainMaterialData::tile_count> tile_colours{};
+    // The planet's seed and palettes, for the models' procedural textures
+    Worldgen::TextureInput textures;
   };
 
   void Build(Entity volume, RegionGenerator& generator);

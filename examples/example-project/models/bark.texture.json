@@ -1,0 +1,44 @@
+{
+  "list": {
+    "layers": [
+      {
+        "name": "MOSS",
+        "probability": 0.7,
+        "textures": [
+          {
+            "name": "MOSS",
+            "file": "textures/bark_moss.png",
+            "palette": 1,
+            "colour_alt": 1,
+            "probability": 1
+          }
+        ]
+      },
+      {
+        "name": "BASE",
+        "textures": [
+          {
+            "name": "PLAIN",
+            "file": "textures/bark_a.png",
+            "palette": 0,
+            "colour_alt": 0,
+            "probability": 1
+          },
+          {
+            "name": "PLATED",
+            "file": "textures/bark_b.png",
+            "palette": 0,
+            "colour_alt": 2,
+            "probability": 1
+          }
+        ]
+      }
+    ]
+  },
+  "rules": {
+    "match_ground": 6,
+    "none": 7,
+    "last_slot": 4,
+    "base_layer": "BASE"
+  }
+}

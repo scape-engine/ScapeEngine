@@ -20,12 +20,6 @@ const Mesh* ModelGraph::GetMesh(int index) const {
   return gpu_meshes[index].get();
 }
 
-MaterialHandle ModelGraph::GetMaterialHandle(const Mesh& mesh) const {
-  const uint32_t index = mesh.MaterialIndex();
-  return index < material_handles.size() ? material_handles[index]
-                                         : INVALID_MATERIAL;
-}
-
 const std::vector<Content::MaterialData>& ModelGraph::GetMaterials() const {
   return materials;
 }

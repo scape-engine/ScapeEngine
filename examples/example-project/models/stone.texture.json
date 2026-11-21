@@ -1,0 +1,44 @@
+{
+  "list": {
+    "layers": [
+      {
+        "name": "VEINS",
+        "probability": 0.5,
+        "textures": [
+          {
+            "name": "VEINS",
+            "file": "textures/stone_vein.png",
+            "palette": 2,
+            "colour_alt": 0,
+            "probability": 1
+          }
+        ]
+      },
+      {
+        "name": "BASE",
+        "textures": [
+          {
+            "name": "SPECKLED",
+            "file": "textures/stone_a.png",
+            "palette": 2,
+            "colour_alt": 1,
+            "probability": 1
+          },
+          {
+            "name": "LAYERED",
+            "file": "textures/stone_b.png",
+            "palette": 2,
+            "colour_alt": 3,
+            "probability": 1
+          }
+        ]
+      }
+    ]
+  },
+  "rules": {
+    "match_ground": 6,
+    "none": 7,
+    "last_slot": 4,
+    "base_layer": "BASE"
+  }
+}

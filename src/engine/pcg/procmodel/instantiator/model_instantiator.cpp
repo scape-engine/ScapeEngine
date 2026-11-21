@@ -12,7 +12,8 @@
 namespace ProcModel {
 
 ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
-    const InstanceModel& resolved, const ModelGraph& graph, Entity parent) {
+    const InstanceModel& resolved, const ModelGraph& graph, Entity parent,
+    const std::vector<MaterialHandle>* materials) {
   InstantiateResult result;
   auto& ecs = ECS::Main();
 
@@ -36,7 +37,8 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
   // part sits directly under the root
   for (const auto& descriptor : resolved.descriptors) {
     result.part_entities.push_back(
-        CreatePartEntity(descriptor, graph, result.root));
+        CreatePartEntity(descriptor, graph, result.root,
+                         materials ? *materials : graph.material_handles));
   }
 
   return result;
@@ -44,8 +46,13 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
 
 Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
                                            const ModelGraph& graph,
-                                           Entity parent) {
+                                           Entity parent,
+                                           const std::vector<MaterialHandle>& materials) {
   auto& ecs = ECS::Main();
+  const auto material = [&](const Mesh& mesh) {
+    const uint32_t index = mesh.MaterialIndex();
+    return index < materials.size() ? materials[index] : INVALID_MATERIAL;
+  };
 
   auto [entity, transform] = ecs.CreateEntity(descriptor.descriptor_id, parent);
 
@@ -78,7 +85,7 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
       auto& renderer = ecs.Add<MeshRendererComponent>(entity);
       renderer.mesh_ = mesh;
       renderer.enabled_ = true;
-      renderer.material_ = graph.GetMaterialHandle(*mesh);
+      renderer.material_ = material(*mesh);
     }
   } else if (descriptor.mesh_indices.size() > 1) {
     // Multiple meshes — create child entity per mesh
@@ -97,7 +104,7 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
       auto& renderer = ecs.Add<MeshRendererComponent>(child);
       renderer.mesh_ = mesh;
       renderer.enabled_ = true;
-      renderer.material_ = graph.GetMaterialHandle(*mesh);
+      renderer.material_ = material(*mesh);
     }
   }
 

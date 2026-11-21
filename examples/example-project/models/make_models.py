@@ -1,6 +1,8 @@
 # Writes the example project's test models (tree.glb, rock.glb) beside this script: parts as named
-# nodes with locator children, for the procmodel descriptors tree.json and rock.json.
-import json, math, os, random, struct, sys
+# nodes with locator children, for the procmodel descriptors tree.json and rock.json. Also the layer
+# images of their procedural textures (textures/*.png), which bark.texture.json and stone.texture.json
+# describe.
+import json, math, os, random, struct, sys, zlib
 
 def quat_mul(a, b):
     ax, ay, az, aw = a; bx, by, bz, bw = b
@@ -16,16 +18,18 @@ def outward(yaw, tilt):
     return quat_mul(axis_quat((0, 1, 0), yaw), axis_quat((0, 0, 1), -tilt))
 
 def cylinder(sides, h, r0, r1):
-    pos, nrm, idx = [], [], []
+    # u once around, v at the same scale up the side
+    pos, nrm, uv, idx = [], [], [], []
     for ring, (y, r) in enumerate(((0, r0), (h, r1))):
         for i in range(sides + 1):
             a = 2 * math.pi * i / sides
             pos.append((r * math.cos(a), y, r * math.sin(a)))
             nrm.append((math.cos(a), (r0 - r1) / h, math.sin(a)))
+            uv.append((i / sides, y / (2 * math.pi * r0)))
     n = sides + 1
     for i in range(sides):
         idx += [i, n + i, i + 1, i + 1, n + i, n + i + 1]
-    return pos, nrm, idx
+    return pos, nrm, uv, idx
 
 def blob(radius, centre, squash, jitter, rng, subdiv=2):
     # an icosphere with seeded radial noise
@@ -53,8 +57,10 @@ def blob(radius, centre, squash, jitter, rng, subdiv=2):
     scale = [radius * (1 + rng.uniform(-jitter, jitter)) for _ in v]
     pos = [(centre[0] + p[0] * s, centre[1] + p[1] * s * squash, centre[2] + p[2] * s) for p, s in zip(v, scale)]
     nrm = list(v)
+    # u mirrored around (no seam), v from pole to pole
+    uv = [(2 * abs(math.atan2(p[2], p[0])) / math.pi, 2 * math.acos(max(-1, min(1, p[1]))) / math.pi) for p in v]
     idx = [i for tri in f for i in (tri[0], tri[2], tri[1])]
-    return pos, nrm, idx
+    return pos, nrm, uv, idx
 
 class Glb:
     def __init__(self):
@@ -73,22 +79,23 @@ class Glb:
         self.bin += data
         return len(self.g["bufferViews"]) - 1
 
-    def _vec3(self, values):
-        data = b"".join(struct.pack("<3f", *p) for p in values)
-        acc = {"bufferView": self._view(data, 34962), "componentType": 5126, "count": len(values), "type": "VEC3"}
-        acc["min"] = [min(p[i] for p in values) for i in range(3)]
-        acc["max"] = [max(p[i] for p in values) for i in range(3)]
+    def _vec(self, values):
+        n = len(values[0])
+        data = b"".join(struct.pack("<%df" % n, *p) for p in values)
+        acc = {"bufferView": self._view(data, 34962), "componentType": 5126, "count": len(values), "type": "VEC%d" % n}
+        acc["min"] = [min(p[i] for p in values) for i in range(n)]
+        acc["max"] = [max(p[i] for p in values) for i in range(n)]
         self.g["accessors"].append(acc)
         return len(self.g["accessors"]) - 1
 
     def mesh(self, name, prims):
         out = []
-        for (pos, nrm, idx), mat in prims:
+        for (pos, nrm, uv, idx), mat in prims:
             ia = {"bufferView": self._view(struct.pack("<%dI" % len(idx), *idx), 34963), "componentType": 5125,
                   "count": len(idx), "type": "SCALAR"}
             self.g["accessors"].append(ia)
             indices = len(self.g["accessors"]) - 1
-            out.append({"attributes": {"POSITION": self._vec3(pos), "NORMAL": self._vec3(nrm)},
+            out.append({"attributes": {"POSITION": self._vec(pos), "NORMAL": self._vec(nrm), "TEXCOORD_0": self._vec(uv)},
                         "indices": indices, "material": mat})
         self.g["meshes"].append({"name": name, "primitives": out})
         return len(self.g["meshes"]) - 1
@@ -149,7 +156,71 @@ def rock(path):
                    axis_quat((0, 1, 0), i * 77), r)
     g.save(path)
 
+def save_png(path, size, texel):
+    # texel(x, y) -> RGBA floats 0..1; 8-bit RGBA, unfiltered rows
+    rows = b"".join(b"\0" + bytes(max(0, min(255, round(c * 255))) for x in range(size) for c in texel(x, y))
+                    for y in range(size))
+    chunk = lambda kind, data: struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    with open(path, "wb") as f:
+        f.write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">2I5B", size, size, 8, 6, 0, 0, 0)) +
+                chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b""))
+
+def noise(seed, cells_x, cells_y):
+    # tiling value noise, smoothly interpolated: f(u, v) for u, v in [0, 1)
+    rng = random.Random(seed)
+    grid = [[rng.random() for _ in range(cells_x)] for _ in range(cells_y)]
+    def f(u, v):
+        x, y = u * cells_x, v * cells_y
+        x0, y0 = int(x), int(y)
+        tx, ty = x - x0, y - y0
+        tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+        g = lambda i, j: grid[j % cells_y][i % cells_x]
+        top = g(x0, y0) + (g(x0 + 1, y0) - g(x0, y0)) * tx
+        bottom = g(x0, y0 + 1) + (g(x0 + 1, y0 + 1) - g(x0, y0 + 1)) * tx
+        return top + (bottom - top) * ty
+    return f
+
+def fbm(seed, cells_x, cells_y, octaves=4):
+    layers = [noise(seed + o, cells_x << o, cells_y << o) for o in range(octaves)]
+    return lambda u, v: sum(l(u, v) * 0.5 ** o for o, l in enumerate(layers)) / (2 - 0.5 ** (octaves - 1))
+
+def textures(folder, size=128):
+    # the procedural textures' layers: coloured, so a recolour has a hue to move (grey stays grey)
+    os.makedirs(folder, exist_ok=True)
+    s = float(size)
+    grain, plates, moss = fbm(10, 12, 2), fbm(20, 4, 3), fbm(30, 6, 6)
+    def bark_a(x, y):
+        # long grain with dark furrows
+        n = grain(x / s, y / s)
+        furrow = 0.45 + 0.55 * min(1, abs(n - 0.5) * 6)
+        return (0.46 * furrow, 0.31 * furrow, 0.19 * furrow, 1)
+    def bark_b(x, y):
+        # plates split by cracks
+        n = plates(x / s, y / s)
+        crack = min(1, abs(math.sin(n * 18)) * 3)
+        k = 0.35 + 0.65 * crack
+        return (0.5 * k, 0.36 * k, 0.24 * k, 1)
+    def bark_moss(x, y):
+        n = moss(x / s, y / s)
+        a = max(0, min(1, (n - 0.52) * 8))
+        return (0.33, 0.52, 0.2, a)
+    speckle, strata, vein = fbm(40, 8, 8), fbm(50, 3, 6), fbm(60, 5, 5)
+    def stone_a(x, y):
+        k = 0.55 + 0.55 * speckle(x / s, y / s)
+        return (0.47 * k, 0.43 * k, 0.38 * k, 1)
+    def stone_b(x, y):
+        n = strata(x / s, y / s)
+        k = 0.6 + 0.35 * math.sin((y / s + n * 0.6) * math.pi * 8)
+        return (0.5 * k, 0.42 * k, 0.34 * k, 1)
+    def stone_vein(x, y):
+        a = max(0, 1 - abs(vein(x / s, y / s) - 0.5) * 40)
+        return (0.75, 0.66, 0.5, a)
+    for name, texel in (("bark_a", bark_a), ("bark_b", bark_b), ("bark_moss", bark_moss), ("stone_a", stone_a),
+                        ("stone_b", stone_b), ("stone_vein", stone_vein)):
+        save_png(os.path.join(folder, name + ".png"), size, texel)
+
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 tree(out + "/tree.glb")
 rock(out + "/rock.glb")
-print("wrote", out + "/tree.glb", out + "/rock.glb")
+textures(out + "/textures")
+print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/textures")

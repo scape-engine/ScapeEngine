@@ -20,7 +20,8 @@ static bool _StartsWith(const std::string& text, const char* prefix) {
 
 // One instance of an object; entt::null if its source can't be made
 static Entity _CreateObject(ECS& ecs, const std::string& id, Entity source,
-                            uint64_t seed, const std::filesystem::path& root) {
+                            uint64_t seed, const std::filesystem::path& root,
+                            const Worldgen::TextureInput* planet) {
   if (_StartsWith(id, primitive_prefix)) {
     auto [entity, transform] = ecs.CreateEntity(id, source);
     ModelEntityFactory::AttachPrimitive(
@@ -31,7 +32,7 @@ static Entity _CreateObject(ECS& ecs, const std::string& id, Entity source,
     const auto path = root / id.substr(std::strlen(procmodel_prefix));
     return EngineContext::PCG()
         .GetProcModel()
-        .SpawnInstance(path.string(), seed, source)
+        .SpawnInstance(path.string(), seed, source, planet)
         .root;
   }
   const Entity entity = ModelEntityFactory::InstanceModel(ecs, id, root);
@@ -61,7 +62,7 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
     ECS& ecs, const Worldgen::Region& region,
     const Worldgen::RegionContent& content, Entity source,
     MaterialHandle terrain_material, const std::filesystem::path& root,
-    float skirt_depth) {
+    float skirt_depth, const Worldgen::TextureInput* planet) {
   InstanceResult result;
 
   if (!region.mesh.empty()) {
@@ -90,7 +91,7 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
   for (const Worldgen::ObjectInstances& instances : region.objects) {
     const std::string& id = content.objects[instances.object].id;
     for (const std::array<float, 16>& matrix : instances.matrices) {
-      const Entity entity = _CreateObject(ecs, id, source, ++seed, root);
+      const Entity entity = _CreateObject(ecs, id, source, ++seed, root, planet);
       if (entity == entt::null)
         break;  // the source is missing: skip the rest of this kind
       _SetTransform(ecs.Get<TransformComponent>(entity), matrix);

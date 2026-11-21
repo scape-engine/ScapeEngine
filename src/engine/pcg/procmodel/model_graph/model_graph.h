@@ -27,13 +27,12 @@ struct ModelGraph {
 
   // GPU-uploaded meshes
   std::vector<std::unique_ptr<Mesh>> gpu_meshes;
-  // The materials, registered once with the upload
+  // The materials, registered once with the upload; meshes index them by
+  // their material index
   std::vector<MaterialHandle> material_handles;
 
   bool UploadMeshes();
   const Mesh* GetMesh(int index) const;
-  // The mesh's registered material, or INVALID_MATERIAL
-  MaterialHandle GetMaterialHandle(const Mesh& mesh) const;
 
   // ? Check if it can be declared like GetMesh()
   const std::vector<Content::MaterialData>& GetMaterials() const;

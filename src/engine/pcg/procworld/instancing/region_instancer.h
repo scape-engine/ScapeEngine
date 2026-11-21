@@ -9,6 +9,7 @@
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
 
+#include "api/procedural_texture.h"
 #include "api/region.h"
 
 namespace ProcWorld {
@@ -18,7 +19,8 @@ namespace ProcWorld {
 // region origin), tagged with ProceduralInstanceComponent.
 // Object ids are sources: "primitive:<shape>", "procmodel:<descriptor>" or a
 // model path, relative to the project root. A skirt depth hangs a strip
-// from the terrain's border (see RegionMesher)
+// from the terrain's border (see RegionMesher). A planet (its seed and
+// palettes) colours the procmodels' procedural textures
 class RegionInstancer {
 public:
   struct InstanceResult {
@@ -31,7 +33,8 @@ public:
                                  const Worldgen::RegionContent& content,
                                  Entity source, MaterialHandle terrain_material,
                                  const std::filesystem::path& root,
-                                 float skirt_depth = 0.0f);
+                                 float skirt_depth = 0.0f,
+                                 const Worldgen::TextureInput* planet = nullptr);
 };
 
 }  // namespace ProcWorld
