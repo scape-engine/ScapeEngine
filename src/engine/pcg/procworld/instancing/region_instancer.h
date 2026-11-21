@@ -35,6 +35,14 @@ public:
                                  const std::filesystem::path& root,
                                  float skirt_depth = 0.0f,
                                  const Worldgen::TextureInput* planet = nullptr);
+
+  // One entity per creature of the region's herds, as children of the source,
+  // made from the content's herd ids (sources as above)
+  static std::vector<Entity> InstanceHerds(
+      ECS& ecs, const Worldgen::Region& region,
+      const Worldgen::RegionContent& content, Entity source,
+      const std::filesystem::path& root,
+      const Worldgen::TextureInput* planet = nullptr);
 };
 
 }  // namespace ProcWorld

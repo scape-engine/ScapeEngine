@@ -53,7 +53,7 @@
     {
       "min_scale": 0.8,
       "max_scale": 1.2,
-      "groups_per_square_km": 20000,
+      "groups_per_square_km": 300,
       "min_group_size": 2,
       "max_group_size": 5
     }
@@ -64,6 +64,9 @@
       "scale": 1,
       "height": 0
     }
+  ],
+  "herd_ids": [
+    "procmodel:models/creature.json"
   ],
   "young_share": 0.3,
   "young_scale": 0.5,

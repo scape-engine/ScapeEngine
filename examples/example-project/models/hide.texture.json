@@ -1,0 +1,50 @@
+{
+  "list": {
+    "layers": [
+      {
+        "name": "SPOTS",
+        "probability": 0.6,
+        "textures": [
+          {
+            "name": "SPOTS",
+            "file": "textures/hide_spots.png",
+            "normal": "textures/hide_spots.normal.png",
+            "masks": "textures/hide_spots.masks.png",
+            "palette": 0,
+            "colour_alt": 4,
+            "probability": 1
+          }
+        ]
+      },
+      {
+        "name": "BASE",
+        "textures": [
+          {
+            "name": "FUR",
+            "file": "textures/hide_a.png",
+            "normal": "textures/hide_a.normal.png",
+            "masks": "textures/hide_a.masks.png",
+            "palette": 0,
+            "colour_alt": 1,
+            "probability": 1
+          },
+          {
+            "name": "MOTTLED",
+            "file": "textures/hide_b.png",
+            "normal": "textures/hide_b.normal.png",
+            "masks": "textures/hide_b.masks.png",
+            "palette": 0,
+            "colour_alt": 3,
+            "probability": 1
+          }
+        ]
+      }
+    ]
+  },
+  "rules": {
+    "match_ground": 6,
+    "none": 7,
+    "last_slot": 4,
+    "base_layer": "BASE"
+  }
+}

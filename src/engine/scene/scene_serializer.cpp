@@ -171,6 +171,7 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"split_distance", planet.split_distance},
                         {"view_distance", planet.view_distance},
                         {"object_level", planet.object_level},
+                        {"herd_level", planet.herd_level},
                         {"worker_jobs", planet.worker_jobs},
                         {"planet", planet.planet_path},
                         {"seed", planet.seed},
@@ -203,6 +204,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     planet->view_distance =
         it->value("view_distance", planet->view_distance);
     planet->object_level = it->value("object_level", planet->object_level);
+    planet->herd_level = it->value("herd_level", planet->herd_level);
     planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
     planet->planet_path = it->value("planet", planet->planet_path);
     planet->seed = it->value("seed", planet->seed);

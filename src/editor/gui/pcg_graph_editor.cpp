@@ -306,6 +306,8 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
                    1.0e6f, "%.0f m");
   ImGui::TextDisabled("Regions farther are not loaded; 0: no limit");
   changed |= ImGui::SliderInt("Object Level", &planet.object_level, -1, 5);
+  changed |= ImGui::SliderInt("Herd Level", &planet.herd_level, -1, 5);
+  ImGui::TextDisabled("Creatures come from regions of this level; -1: none");
   ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);
   ImGui::TextDisabled("Regions building at once; 0: one per core but one");
 

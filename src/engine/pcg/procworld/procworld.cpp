@@ -213,6 +213,10 @@ void Subsystem::Clear(Entity volume) {
     for (auto& [key, build] : it->second.building)
       discarded_.push_back(std::move(build));
     it->second.building.clear();
+    it->second.herds.clear();  // destroyed above
+    for (auto& [key, build] : it->second.herd_building)
+      discarded_.push_back(std::move(build));
+    it->second.herd_building.clear();
   }
 }
 
@@ -238,10 +242,13 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
       Worldgen::BuildRegion(content, cell.x, cell.y, cell.z, level);
   auto result = RegionInstancer::Instance(ecs, region, content, volume,
                                           looks_[volume].material, root_);
+  const size_t creatures =
+      RegionInstancer::InstanceHerds(ecs, region, content, volume, root_)
+          .size();
   generator.build_ms = _Milliseconds(start);
 
   generator.vertex_count = region.mesh.size();
-  generator.instance_count = result.object_entities.size();
+  generator.instance_count = result.object_entities.size() + creatures;
   if (result.terrain_mesh)
     meshes_[volume] = std::move(result.terrain_mesh);
 
@@ -322,10 +329,13 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->radius = generator.planet_radius;
       auto bare = std::make_shared<Worldgen::RegionContent>(*content);
       bare->objects.clear();
+      state.herd_content = std::make_shared<Worldgen::RegionContent>(*bare);
+      content->herds.clear();
+      bare->herds.clear();
       state.content = std::move(content);
       state.bare_content = std::move(bare);
     } else {
-      state.content = state.bare_content = nullptr;
+      state.content = state.bare_content = state.herd_content = nullptr;
     }
   }
   if (!state.content) {
@@ -380,6 +390,50 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   std::unordered_map<uint64_t, bool> is_wanted;
   for (const Wanted& w : wanted)
     is_wanted[_CellKey(w.cell)] = true;
+
+  // The herd-level cells over the wanted regions that fine or finer (coarser
+  // ones are too far for creatures)
+  const int herd_level = generator.herd_level;
+  std::unordered_map<uint64_t, Worldgen::PlanetCell> herd_cells;
+  if (herd_level >= 0 && state.herd_content &&
+      !state.herd_content->herds.empty())
+    for (const Wanted& w : wanted)
+      if (w.cell.level <= herd_level) {
+        const int shift = herd_level - w.cell.level;
+        const Worldgen::PlanetCell cell{w.cell.face, w.cell.i >> shift,
+                                        w.cell.j >> shift, herd_level};
+        herd_cells.emplace(_CellKey(cell), cell);
+      }
+  for (auto it = state.herd_building.begin();
+       it != state.herd_building.end();) {
+    if (it->second.wait_for(std::chrono::seconds(0)) !=
+        std::future_status::ready) {
+      ++it;
+      continue;
+    }
+    const Worldgen::Region region = it->second.get();
+    if (herd_cells.count(it->first)) {
+      const Worldgen::PlanetCell cell = _CellOf(it->first);
+      auto [entity, transform] = ecs.CreateEntity(
+          "Herds " + std::to_string(cell.face) + "/" +
+              std::to_string(cell.level) + "/" + std::to_string(cell.i) + "/" +
+              std::to_string(cell.j),
+          volume);
+      transform.position_ =
+          glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
+      ecs.Add<ProceduralInstanceComponent>(entity, volume);
+      RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
+                                     root_, &state.textures);
+      state.herds[it->first] = entity;
+    }
+    it = state.herd_building.erase(it);
+  }
+  std::erase_if(state.herds, [&](auto& entry) {
+    if (herd_cells.count(entry.first))
+      return false;
+    ecs.DestroyEntity(entry.second);
+    return true;
+  });
 
   // Finished builds: instance the ones still wanted
   for (auto it = state.building.begin(); it != state.building.end();) {
@@ -442,7 +496,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                 : std::max(1, cores - 1));
   size_t started = 0;
   for (const Wanted& w : wanted) {
-    if (state.building.size() >= jobs)
+    if (state.building.size() + state.herd_building.size() >= jobs)
       break;
     std::shared_ptr<const Worldgen::RegionContent> content =
         w.cell.level <= generator.object_level ? state.content
@@ -456,6 +510,21 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           return Worldgen::BuildRegion(*content, x, y, z, level);
         });
     started++;
+  }
+  // Herds after the ground
+  // TODO: a herd cell that is also a wanted region is built twice
+  for (const auto& [key, cell] : herd_cells) {
+    if (state.building.size() + state.herd_building.size() >= jobs)
+      break;
+    if (state.herds.count(key) || state.herd_building.count(key))
+      continue;
+    int centre[3];
+    Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
+    state.herd_building[key] = std::async(
+        std::launch::async, [content = state.herd_content, x = centre[0],
+                             y = centre[1], z = centre[2], level = cell.level] {
+          return Worldgen::BuildRegion(*content, x, y, z, level);
+        });
   }
 
   const bool was_loading =

@@ -54,6 +54,12 @@ private:
     std::shared_ptr<const Worldgen::RegionContent> bare_content;  // no objects
     std::unordered_map<uint64_t, LoadedRegion> regions;  // by cell key
     std::unordered_map<uint64_t, std::future<Worldgen::Region>> building;
+    // Herds come from regions of the herd level, apart from the terrain
+    // (whose level changes under them): their content has no objects, the
+    // terrain's no herds
+    std::shared_ptr<const Worldgen::RegionContent> herd_content;
+    std::unordered_map<uint64_t, Entity> herds;  // by cell key
+    std::unordered_map<uint64_t, std::future<Worldgen::Region>> herd_building;
     // The planet's tile colours (sRGB); alpha 0: the look's colour
     std::array<glm::vec4, TerrainMaterialData::tile_count> tile_colours{};
     // The planet's seed and palettes, for the models' procedural textures

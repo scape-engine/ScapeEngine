@@ -1,0 +1,146 @@
+{
+  "model_id": "grazer",
+  "domain": "creature",
+  "path": "creature.glb",
+  "textures": {
+    "hide": "hide.texture.json"
+  },
+  "max_depth": 2,
+  "selection_groups": [
+    {
+      "group_id": "body",
+      "parts": [
+        {
+          "id": "BODY_A",
+          "weight": 1.0
+        },
+        {
+          "id": "BODY_B",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "group_id": "head_a",
+      "parent": [
+        "BODY_A"
+      ],
+      "locators": [
+        "A_NECK"
+      ],
+      "parts": [
+        {
+          "id": "HEAD_A",
+          "weight": 1.0
+        },
+        {
+          "id": "HEAD_B",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "group_id": "legs_a",
+      "parent": [
+        "BODY_A"
+      ],
+      "locators": [
+        "A_LEG1",
+        "A_LEG2",
+        "A_LEG3",
+        "A_LEG4"
+      ],
+      "parts": [
+        {
+          "id": "LEG_A",
+          "weight": 1.0
+        },
+        {
+          "id": "LEG_B",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "group_id": "tail_a",
+      "parent": [
+        "BODY_A"
+      ],
+      "locators": [
+        "A_TAIL"
+      ],
+      "required": false,
+      "parts": [
+        {
+          "id": "TAIL_A",
+          "weight": 1.0
+        },
+        {
+          "id": "TAIL_B",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "group_id": "head_b",
+      "parent": [
+        "BODY_B"
+      ],
+      "locators": [
+        "B_NECK"
+      ],
+      "parts": [
+        {
+          "id": "HEAD_A",
+          "weight": 1.0
+        },
+        {
+          "id": "HEAD_B",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "group_id": "legs_b",
+      "parent": [
+        "BODY_B"
+      ],
+      "locators": [
+        "B_LEG1",
+        "B_LEG2",
+        "B_LEG3",
+        "B_LEG4"
+      ],
+      "parts": [
+        {
+          "id": "LEG_A",
+          "weight": 1.0
+        },
+        {
+          "id": "LEG_B",
+          "weight": 1.0
+        }
+      ]
+    },
+    {
+      "group_id": "tail_b",
+      "parent": [
+        "BODY_B"
+      ],
+      "locators": [
+        "B_TAIL"
+      ],
+      "required": false,
+      "parts": [
+        {
+          "id": "TAIL_A",
+          "weight": 1.0
+        },
+        {
+          "id": "TAIL_B",
+          "weight": 1.0
+        }
+      ]
+    }
+  ]
+}

@@ -102,4 +102,37 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
   return result;
 }
 
+std::vector<Entity> RegionInstancer::InstanceHerds(
+    ECS& ecs, const Worldgen::Region& region,
+    const Worldgen::RegionContent& content, Entity source,
+    const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
+  std::vector<Entity> creatures;
+  // Every creature of a kind on a planet is the same model (one seed per kind
+  // and planet, as the game's spawns); the matrices hold their scale
+  for (size_t spawn = 0;
+       spawn < region.herds.size() && spawn < content.herd_ids.size();
+       ++spawn) {
+    const std::string& id = content.herd_ids[spawn];
+    const std::vector<float>& matrices = region.herds[spawn].matrices;
+    uint64_t kind_seed = planet ? planet->seed : 0;
+    for (const char c : id)
+      kind_seed = (kind_seed ^ static_cast<uint8_t>(c)) * 0x100000001b3ull;
+    for (size_t at = 0; !id.empty() && at + 12 <= matrices.size(); at += 12) {
+      std::array<float, 16> rows{};  // 12 floats: rows without w
+      for (int row = 0; row < 4; ++row)
+        for (int k = 0; k < 3; ++k)
+          rows[row * 4 + k] = matrices[at + row * 3 + k];
+      rows[15] = 1.0f;
+      const Entity entity =
+          _CreateObject(ecs, id, source, kind_seed, root, planet);
+      if (entity == entt::null)
+        break;  // the source is missing: skip the rest of this kind
+      _SetTransform(ecs.Get<TransformComponent>(entity), rows);
+      ecs.Add<ProceduralInstanceComponent>(entity, source);
+      creatures.push_back(entity);
+    }
+  }
+  return creatures;
+}
+
 }  // namespace ProcWorld

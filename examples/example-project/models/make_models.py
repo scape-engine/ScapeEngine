@@ -1,6 +1,6 @@
-# Writes the example project's test models (tree.glb, rock.glb) beside this script: parts as named
-# nodes with locator children, for the procmodel descriptors tree.json and rock.json. Also the layer
-# images of their procedural textures (textures/*.png), which bark.texture.json and stone.texture.json
+# Writes the example project's test models (tree.glb, rock.glb, creature.glb) beside this script: parts as named
+# nodes with locator children, for the procmodel descriptors tree.json, rock.json and creature.json. Also the layer
+# images of their procedural textures (textures/*.png), which bark, stone and hide .texture.json
 # describe.
 import json, math, os, random, struct, sys, zlib
 
@@ -156,6 +156,46 @@ def rock(path):
                    axis_quat((0, 1, 0), i * 77), r)
     g.save(path)
 
+def stretched(mesh, s):
+    # a mesh scaled per axis (normals rescaled the inverse way)
+    pos, nrm, uv, idx = mesh
+    pos = [tuple(p[k] * s[k] for k in range(3)) for p in pos]
+    nrm = [tuple(n[k] / s[k] for k in range(3)) for n in nrm]
+    nrm = [tuple(c / math.sqrt(sum(x * x for x in n)) for c in n) for n in nrm]
+    return pos, nrm, uv, idx
+
+def moved(mesh, t):
+    pos, nrm, uv, idx = mesh
+    return [tuple(p[k] + t[k] for k in range(3)) for p in pos], nrm, uv, idx
+
+def creature(path):
+    # a four-legged grazer facing +x: a body with locators for its neck, legs and tail; heads, legs and
+    # tails hang off them (legs grow down from their locators)
+    rng = random.Random(3)
+    g = Glb()
+    hide = g.material("hide", (0.55, 0.45, 0.32))
+    down = axis_quat((1, 0, 0), 180)
+    for name, x, (bx, by, bz), leg in (("BODY_A", 0, (0.75, 0.45, 0.4), 0.7), ("BODY_B", 3, (1.0, 0.38, 0.35), 0.85)):
+        y = leg + by * 0.5
+        b = g.node(name, g.mesh(name, [(moved(stretched(blob(1, (0, 0, 0), 1, 0.06, rng), (bx, by, bz)), (0, y, 0)), hide)]),
+                   (x, 0, 0))
+        p = name[-1]
+        g.node(p + "_NECK", None, (bx * 0.85, y + by * 0.45, 0), axis_quat((0, 0, 1), -20), b)
+        g.node(p + "_TAIL", None, (-bx * 0.95, y + by * 0.2, 0), axis_quat((0, 0, 1), 120), b)
+        for i, (lx, lz) in enumerate(((0.55, 0.6), (0.55, -0.6), (-0.6, 0.6), (-0.6, -0.6))):
+            g.node("%s_LEG%d" % (p, i + 1), None, (bx * lx, y - by * 0.5, bz * lz), down, b)
+    # heads: along +x from the neck
+    for name, x, mesh in (("HEAD_A", 6, moved(stretched(blob(1, (0, 0, 0), 1, 0.08, rng), (0.4, 0.26, 0.24)), (0.3, 0.15, 0))),
+                          ("HEAD_B", 8, moved(stretched(blob(1, (0, 0, 0), 1, 0.12, rng), (0.32, 0.32, 0.3)), (0.22, 0.2, 0)))):
+        g.node(name, g.mesh(name, [(mesh, hide)]), (x, 0, 0))
+    # legs: from the hip down (local +y); the thick ones are shorter, so the body sits lower
+    for name, x, length, r0, r1 in (("LEG_A", 10, 0.8, 0.1, 0.06), ("LEG_B", 11, 0.95, 0.14, 0.1)):
+        g.node(name, g.mesh(name, [(cylinder(8, length, r0, r1), hide)]), (x, 0, 0))
+    for name, x, mesh in (("TAIL_A", 12, cylinder(6, 0.6, 0.06, 0.02)),
+                          ("TAIL_B", 13, moved(stretched(blob(1, (0, 0, 0), 1, 0.2, rng), (0.18, 0.3, 0.18)), (0, 0.25, 0)))):
+        g.node(name, g.mesh(name, [(mesh, hide)]), (x, 0, 0))
+    g.save(path)
+
 def save_png(path, size, texel):
     # texel(x, y) -> RGBA floats 0..1; 8-bit RGBA, unfiltered rows
     rows = b"".join(b"\0" + bytes(max(0, min(255, round(c * 255))) for x in range(size) for c in texel(x, y))
@@ -217,12 +257,26 @@ def textures(folder, size=128):
         return (0.75, 0.66, 0.5, a)
     # with each: a normal map from its height (brightness, or alpha where it has holes) and masks
     # (g roughness, b metallic): veins are a shiny mineral
+    fur, mottle, spots = fbm(70, 32, 32, 3), fbm(80, 5, 5), fbm(90, 7, 7)
+    def hide_a(x, y):
+        # short fur
+        k = 0.7 + 0.4 * fur(x / s, y / s)
+        return (0.55 * k, 0.43 * k, 0.3 * k, 1)
+    def hide_b(x, y):
+        # a pale belly-like mottle
+        k = 0.75 + 0.3 * mottle(x / s, y / s) + 0.15 * fur(x / s, y / s)
+        return (0.6 * k, 0.5 * k, 0.36 * k, 1)
+    def hide_spots(x, y):
+        a = max(0, min(1, (spots(x / s, y / s) - 0.56) * 10))
+        return (0.3, 0.2, 0.12, a)
     for name, texel, roughness, metallic in (("bark_a", bark_a, 0.9, 0), ("bark_b", bark_b, 0.85, 0),
                                              ("bark_moss", bark_moss, 0.7, 0), ("stone_a", stone_a, 0.8, 0),
-                                             ("stone_b", stone_b, 0.75, 0), ("stone_vein", stone_vein, 0.35, 0.8)):
+                                             ("stone_b", stone_b, 0.75, 0), ("stone_vein", stone_vein, 0.35, 0.8),
+                                             ("hide_a", hide_a, 0.8, 0), ("hide_b", hide_b, 0.8, 0),
+                                             ("hide_spots", hide_spots, 0.75, 0)):
         save_png(os.path.join(folder, name + ".png"), size, texel)
         rgba = [[texel(x, y) for x in range(size)] for y in range(size)]
-        height = [[t[3] if t[3] < 1 or name.endswith(("moss", "vein")) else (t[0] + t[1] + t[2]) / 1.5 for t in row]
+        height = [[t[3] if t[3] < 1 or name.endswith(("moss", "vein", "spots")) else (t[0] + t[1] + t[2]) / 1.5 for t in row]
                   for row in rgba]
         def normal(x, y):
             h = lambda i, j: height[j % size][i % size]
@@ -236,5 +290,6 @@ def textures(folder, size=128):
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 tree(out + "/tree.glb")
 rock(out + "/rock.glb")
+creature(out + "/creature.glb")
 textures(out + "/textures")
-print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/textures")
+print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/creature.glb", out + "/textures")
