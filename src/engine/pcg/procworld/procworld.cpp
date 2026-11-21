@@ -337,6 +337,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         herds->herds.clear();
         herds->herd_sizes.clear();
         herds->herd_ids.clear();
+        herds->herd_seeds.clear();
         for (const Worldgen::PlanetHerd& herd : built.herds) {
           if (herd.domain != 0)
             continue;
@@ -345,6 +346,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           herds->herds.push_back(herd.spawn);
           herds->herd_sizes.push_back(kind.size);
           herds->herd_ids.push_back(kind.id);
+          herds->herd_seeds.push_back(herd.seed);
         }
       }
       state.herd_content = std::move(herds);
