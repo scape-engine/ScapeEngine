@@ -45,8 +45,11 @@ bgfx::ShaderHandle ShaderManager::LoadShader(const std::string& path) {
 bgfx::ProgramHandle ShaderManager::LoadProgram(const std::string& name,
                                                const std::string& vsPath,
                                                const std::string& fsPath) {
-  if (program_cache_.count(name))
-    return program_cache_[name];
+  // Keyed by the shader pair: one name can hold several programs (e.g. a
+  // material's plain and instanced ones)
+  const std::string key = vsPath + "|" + fsPath;
+  if (program_cache_.count(key))
+    return program_cache_[key];
 
   bgfx::ShaderHandle vs = LoadShader(vsPath);
   bgfx::ShaderHandle fs = LoadShader(fsPath);
@@ -72,7 +75,7 @@ bgfx::ProgramHandle ShaderManager::LoadProgram(const std::string& name,
             "', handle=" + std::to_string(program.idx));
   }
   // To catch linker errors
-  program_cache_[name] = program;
+  program_cache_[key] = program;
   return program;
  
 }

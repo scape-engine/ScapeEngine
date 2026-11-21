@@ -4,6 +4,8 @@
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 
+struct DrawList;
+
 // Geometry pass before the forward pass: view-space normals and linear view
 // depth of every mesh, the inputs of screen-space effects (SSAO)
 class PrePass {
@@ -13,12 +15,12 @@ public:
   void Create();
   void Destroy();
 
-  // Renders the ECS render queue into the top left width x height area.
+  // Renders the frame's draw list into the top left width x height area.
   // Targets are target_width x target_height, the scene framebuffer size, and
   // are recreated when it changes
-  void Render(const glm::mat4& view, const glm::mat4& projection,
-              uint16_t width, uint16_t height, uint16_t target_width,
-              uint16_t target_height);
+  void Render(const DrawList& draws, const glm::mat4& view,
+              const glm::mat4& projection, uint16_t width, uint16_t height,
+              uint16_t target_width, uint16_t target_height);
 
   // View-space normals (RGBA16F)
   bgfx::TextureHandle GetNormalOutput() const;
@@ -31,6 +33,7 @@ private:
   void DestroyTargets();
 
   bgfx::ProgramHandle program_;
+  bgfx::ProgramHandle instanced_program_;
 
   bgfx::FrameBufferHandle fbo_;
   bgfx::TextureHandle normal_output_;

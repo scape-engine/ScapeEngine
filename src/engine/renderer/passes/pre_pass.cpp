@@ -5,11 +5,12 @@
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/core/view_ids.h"
-#include "engine/ecs/world.h"
+#include "engine/renderer/draw_list.h"
 #include "engine/renderer/model/mesh.h"
 
 PrePass::PrePass()
     : program_(BGFX_INVALID_HANDLE),
+      instanced_program_(BGFX_INVALID_HANDLE),
       fbo_(BGFX_INVALID_HANDLE),
       normal_output_(BGFX_INVALID_HANDLE),
       depth_output_(BGFX_INVALID_HANDLE),
@@ -19,6 +20,8 @@ PrePass::PrePass()
 void PrePass::Create() {
   program_ = EngineContext::Shader().LoadProgram("pre_pass", "vs_pre_pass.bin",
                                                  "fs_pre_pass.bin");
+  instanced_program_ = EngineContext::Shader().LoadProgram(
+      "pre_pass", "vs_pre_pass_instanced.bin", "fs_pre_pass.bin");
 
   if (!bgfx::isValid(program_)) {
     Logger::getInstance().Log(LogLevel::Error,
@@ -30,8 +33,9 @@ void PrePass::Destroy() {
   DestroyTargets();
 }
 
-void PrePass::Render(const glm::mat4& view, const glm::mat4& projection,
-                     uint16_t width, uint16_t height, uint16_t target_width,
+void PrePass::Render(const DrawList& draws, const glm::mat4& view,
+                     const glm::mat4& projection, uint16_t width,
+                     uint16_t height, uint16_t target_width,
                      uint16_t target_height) {
   if (!bgfx::isValid(program_) || width == 0 || height == 0)
     return;
@@ -54,17 +58,19 @@ void PrePass::Render(const glm::mat4& view, const glm::mat4& projection,
                          glm::value_ptr(projection));
   bgfx::touch(ViewID::PRE_PASS);
 
-  // Render every mesh (transforms must have been evaluated beforehand)
-  for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
-    if (!renderer.enabled_ || !renderer.mesh_)
-      continue;
-
-    bgfx::setTransform(glm::value_ptr(transform.model_));
-    renderer.mesh_->Bind();
-
-    bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                   BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
-                   BGFX_STATE_CULL_CW);
+  // Render every mesh
+  const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
+                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
+                         BGFX_STATE_CULL_CW;
+  for (const DrawList::Batch& batch : draws.batches) {
+    DrawList::Bind(batch);
+    bgfx::setState(state);
+    bgfx::submit(ViewID::PRE_PASS, instanced_program_);
+  }
+  for (const DrawList::Single& single : draws.singles) {
+    bgfx::setTransform(glm::value_ptr(*single.model));
+    single.mesh->Bind();
+    bgfx::setState(state);
     bgfx::submit(ViewID::PRE_PASS, program_);
   }
 }

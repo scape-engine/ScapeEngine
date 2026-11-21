@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include "engine/ecs/ecs_collection.h"
+#include "engine/renderer/draw_list.h"
 #include "engine/renderer/frame_graph.h"
 #include "engine/renderer/passes/pre_pass.h"
 #include "engine/renderer/passes/ssao_pass.h"
@@ -112,6 +113,9 @@ private:
   // Mesh helpers
   void RenderMesh(TransformComponent& transform,
                   MeshRendererComponent& renderer);
+  // One lit draw: of `model`, or of the instances bound beforehand
+  void SubmitLit(const Mesh& mesh, MaterialHandle material,
+                 const glm::mat4* model);
   void RenderSelectedEntity(EntityContainer* entity);
   void RenderSelectedEntityOutline(EntityContainer* entity);
 
@@ -143,6 +147,10 @@ private:
   bgfx::ProgramHandle selection_program_;
   bgfx::ProgramHandle debug_program_;
   bgfx::ProgramHandle shadow_program_;
+  bgfx::ProgramHandle shadow_instanced_program_;
+
+  // The frame's meshes, grouped for instanced draws
+  DrawList draws_;
 
   // Grid resources
   const Mesh* grid_mesh_;

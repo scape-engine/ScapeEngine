@@ -48,6 +48,7 @@ SceneViewPipeline::SceneViewPipeline()
       show_grid_(true),
       selection_program_(BGFX_INVALID_HANDLE),
       shadow_program_(BGFX_INVALID_HANDLE),
+      shadow_instanced_program_(BGFX_INVALID_HANDLE),
       grid_mesh_(nullptr),
       pre_pass_(),
       ssao_pass_(),
@@ -73,6 +74,8 @@ void SceneViewPipeline::Create() {
                                                   "fs_grid_plane.bin");
   shadow_program_ = Runtime::Shader()->LoadProgram("shadow", "vs_shadow.bin",
                                                    "fs_shadow.bin");
+  shadow_instanced_program_ = Runtime::Shader()->LoadProgram(
+      "shadow", "vs_shadow_instanced.bin", "fs_shadow.bin");
 
   BuildReferenceGrid(glm::mat4(1.0f));
   CreatePasses();
@@ -251,7 +254,7 @@ void SceneViewPipeline::RenderPrePassNode(const Node::Context& context) {
   if (!bgfx::isValid(renderer->GetSceneFramebuffer()))
     return;
 
-  pre_pass_.Render(view_, projection_, canvasViewportW, canvasViewportH,
+  pre_pass_.Render(draws_, view_, projection_, canvasViewportW, canvasViewportH,
                    renderer->GetFramebufferWidth(),
                    renderer->GetFramebufferHeight());
 }
@@ -423,12 +426,16 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
 
   // Render each entity except selected ones (rendered with outline in the
   // selection node)
-  for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
+  for (const DrawList::Batch& batch : draws_.batches) {
+    bgfx::setInstanceDataBuffer(&batch.instances);
+    SubmitLit(*batch.mesh, batch.material, nullptr);
+  }
+  for (const DrawList::Single& single : draws_.singles) {
     if (std::find(selected_entities_.begin(), selected_entities_.end(),
-                  entity) != selected_entities_.end())
+                  single.entity) != selected_entities_.end())
       continue;
 
-    RenderMesh(transform, renderer_comp);
+    SubmitLit(*single.mesh, single.material, single.model);
   }
 
   // Render skybox (after opaque meshes so depth test rejects covered pixels)
@@ -545,18 +552,18 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
     return;
   }
 
-  // Render all meshes to shadow map
-  for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
-    if (!renderer_comp.enabled_ || !renderer_comp.mesh_)
-      continue;
-
-    bgfx::setTransform(glm::value_ptr(transform.model_));
-    renderer_comp.mesh_->Bind();
-
-    // Shadow pass state
-    // write depth, cull front faces
-    bgfx::setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
-                   BGFX_STATE_CULL_CW);
+  // Render all meshes to shadow map: write depth, cull front faces
+  const uint64_t state =
+      BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
+  for (const DrawList::Batch& batch : draws_.batches) {
+    DrawList::Bind(batch);
+    bgfx::setState(state);
+    bgfx::submit(ViewID::SHADOW_PASS, shadow_instanced_program_);
+  }
+  for (const DrawList::Single& single : draws_.singles) {
+    bgfx::setTransform(glm::value_ptr(*single.model));
+    single.mesh->Bind();
+    bgfx::setState(state);
     bgfx::submit(ViewID::SHADOW_PASS, shadow_program_);
   }
 }
@@ -632,6 +639,11 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   if (!renderer.mesh_)
     return;
 
+  SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_);
+}
+
+void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
+                                  const glm::mat4* model) {
   auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
   // Textures are per-draw in bgfx
@@ -643,7 +655,7 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
 
   // Material params and textures, and the program to draw with
   const bgfx::ProgramHandle material_program =
-      MaterialRegistry::Instance().Bind(renderer.material_);
+      MaterialRegistry::Instance().Bind(material, model == nullptr);
 
   // Scene textures read by the lit shaders
   SkyLight::BindTextures();
@@ -658,8 +670,9 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
                    ambient_occlusion);
 
   // Bind mesh
-  bgfx::setTransform(glm::value_ptr(transform.model_));
-  renderer.mesh_->Bind();
+  if (model)
+    bgfx::setTransform(glm::value_ptr(*model));
+  mesh.Bind();
 
   // Set culling/state
   uint64_t render_state = BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW;
@@ -796,6 +809,8 @@ void SceneViewPipeline::Render() {
   for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
     Transform::UpdateMVP(transform, view_projection);
   }
+  // The unlit program has no instanced version
+  draws_.Build(selected_entities_, !unlit_);
 
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();

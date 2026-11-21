@@ -33,6 +33,9 @@ struct MaterialParam {
 struct Material {
   std::string name;
   bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
+  // The same shading with the model matrix per instance (i_data0..3), for
+  // instanced draws; invalid: the material only draws one mesh at a time
+  bgfx::ProgramHandle instanced_program = BGFX_INVALID_HANDLE;
   std::vector<MaterialTexture> textures;  // stages below MATERIAL_STAGE_COUNT
   std::vector<MaterialParam> params;
 
