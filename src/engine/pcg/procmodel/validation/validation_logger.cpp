@@ -85,8 +85,9 @@ bool ValidationLogger::Write(const ProcModelSample& result) {
   }
 
   try {
+    // Not flushed per record: a sync write per spawned model slowed region
+    // loading; the stream flushes on its own and on close
     stream_ << SerializeSample(result).dump() << '\n';
-    stream_.flush();
     return stream_.good();
   } catch (const std::exception& e) {
     Logger::getInstance().Log(

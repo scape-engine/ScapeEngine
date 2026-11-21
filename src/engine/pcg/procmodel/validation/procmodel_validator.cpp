@@ -146,12 +146,6 @@ static void CheckConstraints(const InstanceModel& result,
 //
 static void CheckLocators(const InstanceModel& result, const ModelGraph& graph,
                           ProcModelSample& out) {
-  for (const auto& d : result.descriptors) {
-    Logger::getInstance().Log(
-        LogLevel::Debug,
-        "[CheckLocators] descriptor_id: '" + d.descriptor_id + "'");
-  }
-
   std::unordered_map<std::string, std::vector<std::string>> locator_occupants;
 
   for (const auto& d : result.descriptors) {
