@@ -29,6 +29,7 @@
  **************************************************************************/
 
 #include "engine_context.h"
+#include "engine/animation/animation.h"
 #include "engine/audio/sound_manager.h"
 #include "engine/context/subsystem_list.h"
 #include "engine/core/logger.h"
@@ -107,6 +108,9 @@ void NextFrame() {
   previous = now;
 
   Time::Step(delta_time);
+
+  // Skinned models' poses, before anything draws them
+  Animation::Update(ECS::Main(), Time::Deltaf());
 
   if (resource_manager_) {
     resource_manager_->UpdateContext();

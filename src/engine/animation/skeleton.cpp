@@ -28,12 +28,14 @@ static T Sample(const std::vector<float>& times, const std::vector<T>& values,
 }
 
 void SamplePose(const Skeleton& skeleton, const AnimationClip* clip,
-                float time, std::vector<glm::mat4>& globals) {
+                float time, bool loop, std::vector<glm::mat4>& globals) {
   std::vector<glm::mat4> locals = skeleton.locals;
   if (clip && clip->duration > 0.0f) {
-    time = std::fmod(time, clip->duration);
-    if (time < 0.0f)
-      time += clip->duration;
+    if (loop) {
+      time = std::fmod(time, clip->duration);
+      if (time < 0.0f)
+        time += clip->duration;
+    }
     for (const AnimationClip::Channel& channel : clip->channels) {
       if (channel.node < 0 || channel.node >= static_cast<int>(locals.size()))
         continue;

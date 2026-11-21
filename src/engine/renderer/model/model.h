@@ -67,6 +67,10 @@ public:
 
   const std::vector<Content::MaterialData>& GetMaterials() const;
 
+  // An animated model's skeleton and clips (its meshes are skinned to it);
+  // null for the rest
+  const SkeletalData* Skeletal() const { return skeletal_; }
+
   void Destroy() override;
 
 private:
@@ -89,6 +93,8 @@ private:
 
   // Final GPU mesh_data
   std::vector<std::unique_ptr<Mesh>> meshes_;
+
+  const SkeletalData* skeletal_ = nullptr;  // owned by the mesh cache
 };
 
 #endif  // MODEL_H

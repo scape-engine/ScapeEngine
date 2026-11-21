@@ -1,0 +1,25 @@
+#ifndef ANIMATION_H
+#define ANIMATION_H
+
+#include "engine/ecs/world.h"
+
+struct AnimatorComponent;
+struct SkeletalData;
+
+namespace Animation {
+
+// Gives `entity` an animator for `data` (left as it is when null or empty),
+// posed at time 0. Skinned meshes follow it once their renderers name it
+AnimatorComponent* AddAnimator(ECS& ecs, Entity entity,
+                               const SkeletalData* data);
+
+// Advances every playing animator by `dt` seconds and samples its pose
+void Update(ECS& ecs, float dt);
+
+// The pose a renderer's skinned mesh follows, and its node count; null when
+// it names no animator
+const glm::mat4* Pose(ECS& ecs, Entity animator, uint32_t& count);
+
+}  // namespace Animation
+
+#endif  // ANIMATION_H

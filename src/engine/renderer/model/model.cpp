@@ -29,6 +29,7 @@ std::shared_ptr<Model> Model::Load(const std::string& file) {
 
   auto out = std::make_shared<Model>();
   out->materials_ = materials;
+  out->skeletal_ = Content::MeshCache::Instance().Skeletal(file);
   out->meshes_.reserve(mesh_list.size());
 
   for (const auto& geom : mesh_list)

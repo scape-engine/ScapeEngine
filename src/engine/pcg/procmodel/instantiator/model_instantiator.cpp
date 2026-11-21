@@ -10,7 +10,8 @@
 #include "engine/ecs/ecs_collection.h"
 #include "engine/ecs/world.h"
 #include "engine/math/transformation.h"
-#include "engine/ecs/components/skeleton_pose_component.h"
+#include "engine/animation/animation.h"
+#include "engine/ecs/components/animator_component.h"
 #include "engine/renderer/model/mesh.h"
 
 namespace ProcModel {
@@ -37,22 +38,22 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
     transform.modified_ = true;
   }
 
-  // A model with skinned meshes poses them on its root, from its first
-  // animation; the phase, from the entity, keeps herds out of step
+  // A model with skinned meshes plays its first clip on its root, started at
+  // a point from the entity so herds move out of step
   // TODO: worldgen's pose values (PoseValues), blending the model's poses
-  const glm::mat4* pose = nullptr;
+  Entity animator = entt::null;
   if (std::any_of(graph.gpu_meshes.begin(), graph.gpu_meshes.end(),
                   [](const auto& mesh) { return mesh->Skinned(); })) {
-    auto& skeleton = ecs.Add<SkeletonPoseComponent>(result.root);
-    skeleton.skeleton = &graph.skeleton;
-    skeleton.clip = graph.animations.empty() ? nullptr : &graph.animations[0];
-    if (skeleton.clip)
-      skeleton.phase = skeleton.clip->duration *
-                       std::fmod(static_cast<float>(static_cast<uint32_t>(result.root)) *
-                                 0.618034f,
-                             1.0f);
-    SamplePose(graph.skeleton, skeleton.clip, skeleton.phase, skeleton.nodes);
-    pose = skeleton.nodes.data();
+    if (AnimatorComponent* added =
+            Animation::AddAnimator(ecs, result.root, &graph.skeletal)) {
+      if (!graph.skeletal.clips.empty())
+        added->time_ =
+            graph.skeletal.clips[0].duration *
+            std::fmod(static_cast<float>(static_cast<uint32_t>(result.root)) *
+                          0.618034f,
+                      1.0f);
+      animator = result.root;
+    }
   }
 
   // Part transforms are in model space (as the previews read them), so every
@@ -60,7 +61,8 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
   for (const auto& descriptor : resolved.descriptors) {
     result.part_entities.push_back(
         CreatePartEntity(descriptor, graph, result.root,
-                         materials ? *materials : graph.material_handles, pose));
+                         materials ? *materials : graph.material_handles,
+                         animator));
   }
 
   return result;
@@ -70,7 +72,7 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
                                            const ModelGraph& graph,
                                            Entity parent,
                                            const std::vector<MaterialHandle>& materials,
-                                           const glm::mat4* pose) {
+                                           Entity animator) {
   auto& ecs = ECS::Main();
   const auto material = [&](const Mesh& mesh) {
     const uint32_t index = mesh.MaterialIndex();
@@ -126,7 +128,7 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
     renderer.enabled_ = true;
     renderer.material_ = material(*mesh);
     if (mesh->Skinned())
-      renderer.pose_ = pose;
+      renderer.animator_ = animator;
   }
 
   return entity;

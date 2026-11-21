@@ -30,9 +30,17 @@ struct AnimationClip {
   std::vector<Channel> channels;
 };
 
-// Each node's model-space transform at `time` (looped over the clip; no clip:
-// the bind pose)
+// What an animated model brings: its skeleton and clips
+struct SkeletalData {
+  Skeleton skeleton;
+  std::vector<AnimationClip> clips;
+
+  bool Empty() const { return skeleton.names.empty(); }
+};
+
+// Each node's model-space transform at `time` in the clip (looped, else held
+// at its ends; no clip: the bind pose)
 void SamplePose(const Skeleton& skeleton, const AnimationClip* clip,
-                float time, std::vector<glm::mat4>& globals);
+                float time, bool loop, std::vector<glm::mat4>& globals);
 
 #endif  // SKELETON_H

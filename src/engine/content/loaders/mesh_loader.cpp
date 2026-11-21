@@ -129,6 +129,46 @@ void AddNodes(const aiNode* node, int parent, Skeleton& skeleton) {
     AddNodes(node->mChildren[i], index, skeleton);
 }
 
+bool HasBones(const aiScene* scene) {
+  for (unsigned int i = 0; i < scene->mNumMeshes; ++i)
+    if (scene->mMeshes[i]->HasBones())
+      return true;
+  return false;
+}
+
+// An animated model's meshes, flat, all in model space and all skinned: a
+// mesh without bones follows its own node rigidly. `index` counts nodes in
+// the order AddNodes adds them
+void ProcessAnimatedNode(const aiNode* node, const glm::mat4& parent,
+                         const aiScene* scene, const Skeleton& skeleton,
+                         int& index,
+                         std::vector<Geometry::MeshData>& out_meshes) {
+  const int node_index = index++;
+  const glm::mat4 global = parent * ToGlm(node->mTransformation);
+  const glm::mat3 normal_matrix =
+      glm::transpose(glm::inverse(glm::mat3(global)));
+  for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
+    Geometry::MeshData mesh =
+        ConvertMesh(scene->mMeshes[node->mMeshes[i]], &skeleton);
+    if (mesh.bone_nodes.empty()) {
+      for (auto& v : mesh.vertices) {
+        v.position = glm::vec3(global * glm::vec4(v.position, 1.0f));
+        v.normal = glm::normalize(normal_matrix * v.normal);
+        v.tangent = glm::mat3(global) * v.tangent;
+        v.bitangent = glm::mat3(global) * v.bitangent;
+      }
+      mesh.joints.assign(mesh.vertices.size(), glm::u8vec4(0));
+      mesh.weights.assign(mesh.vertices.size(), glm::vec4(1, 0, 0, 0));
+      mesh.bone_nodes = {node_index};
+      mesh.bone_offsets = {glm::inverse(global)};
+    }
+    out_meshes.push_back(std::move(mesh));
+  }
+  for (unsigned int i = 0; i < node->mNumChildren; ++i)
+    ProcessAnimatedNode(node->mChildren[i], global, scene, skeleton, index,
+                        out_meshes);
+}
+
 AnimationClip ConvertAnimation(const aiAnimation* animation,
                                const Skeleton& skeleton) {
   const double ticks =
@@ -163,27 +203,45 @@ AnimationClip ConvertAnimation(const aiAnimation* animation,
 }
 }  // namespace
 
-std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
+// aiProcess_FlipUVs: Assimp returns texture coordinates with a bottom left
+// origin, while textures are sampled with a top left one (the first stored
+// row at v = 0) on every bgfx backend. aiProcess_OptimizeGraph and
+// aiProcess_PreTransformVertices are left out to keep the hierarchy
+static constexpr unsigned int scene_flags =
+    aiProcess_Triangulate | aiProcess_GenSmoothNormals |
+    aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace |
+    aiProcess_LimitBoneWeights | aiProcess_SplitByBoneCount |
+    aiProcess_FlipUVs;
+
+std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path,
+                                                 SkeletalData* skeletal) {
   Assimp::Importer importer;
 
   // PreTransformVertices joins meshes that share a material by default;
   // keeping the hierarchy bakes transforms but keeps every part separate
   importer.SetPropertyBool(AI_CONFIG_PP_PTV_KEEP_HIERARCHY, true);
+  // Meshes with more bones than a draw takes (Mesh::max_bones) split
+  importer.SetPropertyInteger(AI_CONFIG_PP_SBBC_MAX_BONES, 64);
 
   std::string base_dir = path.substr(0, path.find_last_of("/\\") + 1);
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loading from base_dir: " + base_dir);
 
-  // The flat mesh list has no nodes, so node transforms (e.g. a model's
-  // up-axis rotation) are baked into the vertices.
-  // aiProcess_FlipUVs: Assimp returns texture coordinates with a bottom left
-  // origin, while textures are sampled with a top left one (the first stored
-  // row at v = 0) on every bgfx backend
-  const aiScene* scene = importer.ReadFile(
-      path, aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_JoinIdenticalVertices |
-                aiProcess_ImproveCacheLocality | aiProcess_CalcTangentSpace |
-                aiProcess_PreTransformVertices | aiProcess_FlipUVs);
+  // Read first, then post-process by kind: an animated model (skins or
+  // clips) keeps its hierarchy when the caller takes its skeleton; the rest
+  // bake node transforms (e.g. a model's up-axis rotation) into the vertices,
+  // as the flat mesh list has no nodes
+  const aiScene* scene = importer.ReadFile(path, 0);
+  const bool animated = skeletal && scene &&
+                        (scene->mNumAnimations > 0 || HasBones(scene));
+  if (scene)
+    scene = importer.ApplyPostProcessing(
+        animated ? scene_flags
+                 : aiProcess_Triangulate | aiProcess_GenSmoothNormals |
+                       aiProcess_JoinIdenticalVertices |
+                       aiProcess_ImproveCacheLocality |
+                       aiProcess_CalcTangentSpace |
+                       aiProcess_PreTransformVertices | aiProcess_FlipUVs);
 
   if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
       !scene->mRootNode) {
@@ -196,7 +254,17 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
   }
 
   std::vector<Geometry::MeshData> mesh_data;
-  ProcessNode(scene->mRootNode, scene, mesh_data);
+  if (animated) {
+    AddNodes(scene->mRootNode, -1, skeletal->skeleton);
+    int index = 0;
+    ProcessAnimatedNode(scene->mRootNode, glm::mat4(1.0f), scene,
+                        skeletal->skeleton, index, mesh_data);
+    for (unsigned int i = 0; i < scene->mNumAnimations; ++i)
+      skeletal->clips.push_back(
+          ConvertAnimation(scene->mAnimations[i], skeletal->skeleton));
+  } else {
+    ProcessNode(scene->mRootNode, scene, mesh_data);
+  }
 
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loaded " +
@@ -215,14 +283,7 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loading from base_dir: " + base_dir);
 
-  // aiProcess_OptimizeGraph and aiProcess_PreTransformVertices omitted to
-  // preserve hierarchy
-  // aiProcess_FlipUVs: top left texture coordinate origin, see Load()
-  const aiScene* scene = importer.ReadFile(
-      path, aiProcess_Triangulate | aiProcess_GenSmoothNormals |
-                aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace |
-                aiProcess_LimitBoneWeights | aiProcess_SplitByBoneCount |
-                aiProcess_FlipUVs);
+  const aiScene* scene = importer.ReadFile(path, scene_flags);
 
   if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
       !scene->mRootNode) {
@@ -234,12 +295,12 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
 
   SceneData data;
 
-  AddNodes(scene->mRootNode, -1, data.skeleton);
-  data.root = ProcessNodeHierarchy(scene->mRootNode, scene, data.skeleton,
-                                   data.mesh_data);
+  AddNodes(scene->mRootNode, -1, data.skeletal.skeleton);
+  data.root = ProcessNodeHierarchy(scene->mRootNode, scene,
+                                   data.skeletal.skeleton, data.mesh_data);
   for (unsigned int i = 0; i < scene->mNumAnimations; ++i)
-    data.animations.push_back(
-        ConvertAnimation(scene->mAnimations[i], data.skeleton));
+    data.skeletal.clips.push_back(
+        ConvertAnimation(scene->mAnimations[i], data.skeletal.skeleton));
   // The meshes' material indices index these
   data.materials = MaterialLoader::LoadFromScene(path);
 

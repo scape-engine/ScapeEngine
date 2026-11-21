@@ -12,6 +12,7 @@ add_includedirs("..", { public = true })
 -- IMPLEMENTATION FILES -------
 add_files(
 	"core/*.cpp",
+	"animation/*.cpp",
 	"audio/*.cpp",
 	"misc/*.cpp",
 	"scene/*.cpp",
@@ -87,6 +88,7 @@ add_headerfiles(
 	"diagnostics/*.h",
 
 	-- renderer files
+	"animation/*.h",
 	"renderer/*.h",
 	"renderer/lighting/*.h",
 	"renderer/shaders/*.h",

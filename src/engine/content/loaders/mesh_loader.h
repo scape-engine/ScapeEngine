@@ -11,8 +11,10 @@ namespace Content {
 
 class MeshLoader {
 public:
-  // Load from file (dispatch based on extension)
-  static std::vector<Geometry::MeshData> Load(const std::string& path);
+  // Load from file (dispatch based on extension). Given `skeletal`, an
+  // animated model fills it and its meshes come skinned to it, in model space
+  static std::vector<Geometry::MeshData> Load(const std::string& path,
+                                              SkeletalData* skeletal = nullptr);
 
   static bool IsSupported(const std::string& path);
 

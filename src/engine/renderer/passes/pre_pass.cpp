@@ -74,7 +74,8 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
     single.mesh->Bind();
     bgfx::setState(state);
     const bool skinned = bgfx::isValid(skinned_program_) &&
-                         DrawList::SetBones(*single.mesh, single.pose);
+                         DrawList::SetBones(*single.mesh, single.pose,
+                                              single.pose_count);
     bgfx::submit(ViewID::PRE_PASS, skinned ? skinned_program_ : program_);
   }
 }

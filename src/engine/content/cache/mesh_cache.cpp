@@ -15,7 +15,10 @@ const std::vector<Geometry::MeshData>& MeshCache::Get(const std::string& path) {
   if (it != cache_.end())
     return it->second;
 
-  auto mesh_data = MeshLoader::Load(path);
+  SkeletalData skeletal;
+  auto mesh_data = MeshLoader::Load(path, &skeletal);
+  if (!skeletal.Empty())
+    skeletal_[path] = std::move(skeletal);
   if (mesh_data.empty()) {
     Logger::getInstance().Log(LogLevel::Warning,
                               "[MeshCache] No mesh_data loaded from: " + path);
@@ -28,12 +31,19 @@ const std::vector<Geometry::MeshData>& MeshCache::Get(const std::string& path) {
   return emplace_it->second;
 }
 
+const SkeletalData* MeshCache::Skeletal(const std::string& path) const {
+  auto it = skeletal_.find(path);
+  return it == skeletal_.end() ? nullptr : &it->second;
+}
+
 void MeshCache::Evict(const std::string& path) {
   cache_.erase(path);
+  skeletal_.erase(path);
 }
 
 void MeshCache::Clear() {
   cache_.clear();
+  skeletal_.clear();
 }
 
 }  // namespace Content

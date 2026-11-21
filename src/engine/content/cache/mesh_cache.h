@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine/animation/skeleton.h"
 #include "engine/core/types/geometry_data.h"
 
 namespace Content {
@@ -15,6 +16,8 @@ public:
 
   // Load with caching
   const std::vector<Geometry::MeshData>& Get(const std::string& path);
+  // An animated model's skeleton and clips (after Get); null for the rest
+  const SkeletalData* Skeletal(const std::string& path) const;
 
   // Cache management
   void Evict(const std::string& path);
@@ -24,6 +27,7 @@ public:
 private:
   MeshCache() = default;
   std::unordered_map<std::string, std::vector<Geometry::MeshData>> cache_;
+  std::unordered_map<std::string, SkeletalData> skeletal_;
 };
 
 }  // namespace Content

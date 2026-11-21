@@ -20,9 +20,9 @@ struct MeshRendererComponent {
   std::string source_;
   // Index of the mesh within the source model
   uint32_t mesh_index_{0};
-  // A skinned mesh's skeleton nodes, in model space (a SkeletonPoseComponent's);
-  // null: drawn in its bind pose
-  const glm::mat4* pose_{nullptr};
+  // The entity whose AnimatorComponent poses this skinned mesh; none: drawn
+  // in its bind pose
+  entt::entity animator_{entt::null};
 };
 
 #endif  // MESH_RENDERER_COMPONENT_H

@@ -156,11 +156,13 @@ void Mesh::Bind() const {
   bgfx::setIndexBuffer(ibo_);
 }
 
-void Mesh::SkinMatrices(const glm::mat4* pose, glm::mat4* out) const {
-  // A bone naming no node stays in the bind pose
+void Mesh::SkinMatrices(const glm::mat4* pose, uint32_t count,
+                        glm::mat4* out) const {
+  // A bone naming no node of the pose stays in the bind pose
   for (size_t i = 0; i < bone_nodes_.size(); ++i)
-    out[i] = bone_nodes_[i] < 0 ? glm::mat4(1.0f)
-                                : pose[bone_nodes_[i]] * bone_offsets_[i];
+    out[i] = bone_nodes_[i] < 0 || bone_nodes_[i] >= static_cast<int>(count)
+                 ? glm::mat4(1.0f)
+                 : pose[bone_nodes_[i]] * bone_offsets_[i];
 }
 
 uint32_t Mesh::MaterialIndex() const {

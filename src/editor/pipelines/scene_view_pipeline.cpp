@@ -9,6 +9,7 @@
 #include "editor/editor_ui.h"
 #include "editor/gizmos/component_gizmos.h"
 #include "editor/runtime/runtime.h"  // TODO: Remove this once pipeline is done
+#include "engine/animation/animation.h"
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
 #include "engine/core/view_ids.h"
@@ -437,7 +438,8 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
                   single.entity) != selected_entities_.end())
       continue;
 
-    SubmitLit(*single.mesh, single.material, single.model, single.pose);
+    SubmitLit(*single.mesh, single.material, single.model, single.pose,
+              single.pose_count);
   }
 
   // Render skybox (after opaque meshes so depth test rejects covered pixels)
@@ -569,7 +571,8 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
     single.mesh->Bind();
     bgfx::setState(state);
     const bool skinned = bgfx::isValid(shadow_skinned_program_) &&
-                         DrawList::SetBones(*single.mesh, single.pose);
+                         DrawList::SetBones(*single.mesh, single.pose,
+                                              single.pose_count);
     bgfx::submit(ViewID::SHADOW_PASS,
                  skinned ? shadow_skinned_program_ : shadow_program_);
   }
@@ -646,13 +649,17 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   if (!renderer.mesh_)
     return;
 
-  SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_,
-            renderer.pose_);
+  uint32_t pose_count = 0;
+  const glm::mat4* pose =
+      Animation::Pose(ECS::Main(), renderer.animator_, pose_count);
+  SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_, pose,
+            pose_count);
 }
 
 void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
                                   const glm::mat4* model,
-                                  const glm::mat4* pose) {
+                                  const glm::mat4* pose,
+                                  uint32_t pose_count) {
   auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
   // Textures are per-draw in bgfx
@@ -663,7 +670,7 @@ void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
   }
 
   // Material params and textures, and the program to draw with
-  const bool skinned = DrawList::SetBones(mesh, pose);
+  const bool skinned = DrawList::SetBones(mesh, pose, pose_count);
   const bgfx::ProgramHandle material_program =
       MaterialRegistry::Instance().Bind(material, model == nullptr, skinned);
 

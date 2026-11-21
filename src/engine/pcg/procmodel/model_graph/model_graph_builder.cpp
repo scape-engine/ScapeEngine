@@ -66,8 +66,7 @@ ModelGraph ModelGraphBuilder::Build(const Content::SceneData& scene,
   graph.source_path = source_path;
   graph.mesh_data = scene.mesh_data;
   graph.materials = scene.materials;
-  graph.skeleton = scene.skeleton;
-  graph.animations = scene.animations;
+  graph.skeletal = scene.skeletal;
   graph.root = ConvertNode(scene.root, glm::mat4(1.0f));
 
   BuildLookup(graph.root, graph.node_lookup);

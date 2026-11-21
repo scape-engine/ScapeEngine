@@ -10,7 +10,7 @@
 #include <engine/ecs/components/light_component.h>
 #include <engine/ecs/components/mesh_renderer_component.h>
 #include <engine/ecs/components/procedural_instance_component.h>
-#include <engine/ecs/components/skeleton_pose_component.h>
+#include <engine/ecs/components/animator_component.h>
 #include <engine/ecs/components/transform_component.h>
 #include <engine/ecs/components/volume_component.h>
 #include <engine/ecs/entity_container.h>

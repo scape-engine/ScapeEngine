@@ -48,8 +48,9 @@ public:
   static constexpr uint32_t max_bones = 64;
   bool Skinned() const { return bgfx::isValid(skin_vbo_); }
   uint32_t BoneCount() const { return static_cast<uint32_t>(bone_nodes_.size()); }
-  // The bones' matrices from the nodes' model-space transforms
-  void SkinMatrices(const glm::mat4* pose, glm::mat4* out) const;
+  // The bones' matrices from the `count` nodes' model-space transforms
+  void SkinMatrices(const glm::mat4* pose, uint32_t count,
+                    glm::mat4* out) const;
 
   // Sphere around the vertices, in mesh space (for culling)
   const glm::vec3& BoundsCenter() const { return bounds_center_; }

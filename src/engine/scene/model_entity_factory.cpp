@@ -4,6 +4,7 @@
 #include <memory>
 #include <unordered_map>
 
+#include "engine/animation/animation.h"
 #include "engine/core/logger.h"
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/model.h"
@@ -80,6 +81,9 @@ Entity ModelEntityFactory::InstanceModel(ECS& ecs, const std::string& source,
 
   const Entity entity = std::get<0>(
       ecs.CreateEntity(std::filesystem::path(source).filename().string()));
+  // An animated model plays its clips on its root
+  const bool animated =
+      Animation::AddAnimator(ecs, entity, model->Skeletal()) != nullptr;
 
   for (uint32_t i = 0; i < model->NLoadedMeshes(); ++i) {
     // Single mesh: keep it on the root so selecting the model selects (and
@@ -94,6 +98,8 @@ Entity ModelEntityFactory::InstanceModel(ECS& ecs, const std::string& source,
     renderer.source_ = source;
     renderer.mesh_index_ = i;
     _Bind(renderer, root);
+    if (animated)
+      renderer.animator_ = entity;
   }
   return entity;
 }
@@ -105,6 +111,8 @@ void ModelEntityFactory::AttachPrimitive(ECS& ecs, Entity entity,
   renderer.mesh_ = _LoadPrimitive(shape);
 }
 
+// TODO: saved scenes keep no animator, so their skinned models load in the
+// bind pose; save AnimatorComponent with the scene and relink here
 void ModelEntityFactory::BindMeshRenderers(ECS& ecs,
                                            const std::filesystem::path& root) {
   for (auto [entity, renderer] : ecs.View<MeshRendererComponent>().each()) {

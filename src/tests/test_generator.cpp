@@ -511,6 +511,7 @@ void TestShapes();
 void TestSceneSerializer();
 void TestTerrainTiles();
 void TestModelGenerator();
+void TestAnimation();
 }
 
 // Entry point for running tests standalone
@@ -519,6 +520,7 @@ int main() {
   Tests::TestSceneSerializer();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
+  Tests::TestAnimation();
   Tests::RunAllGeneratorTests();
   return 0;
 }

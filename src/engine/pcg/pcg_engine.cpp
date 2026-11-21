@@ -3,10 +3,8 @@
 #include "engine/content/loaders/mesh_loader.h"
 #include "engine/context/engine_context.h"
 #include "engine/ecs/components/mesh_renderer_component.h"
-#include "engine/ecs/components/skeleton_pose_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
-#include "engine/time/time.h"
 
 #include "generator_resource.h"
 
@@ -27,12 +25,6 @@ void PCGEngine::ProcessQueued() {
 
   // Region volumes
   procworld_.Update();
-
-  // Skinned models' poses at this frame's time
-  const float time = Time::Nowf();
-  ecs.View<SkeletonPoseComponent>().each([&](SkeletonPoseComponent& pose) {
-    SamplePose(*pose.skeleton, pose.clip, time + pose.phase, pose.nodes);
-  });
 
   // Process all dirty volumes
   ecs.View<VolumeComponent, MeshRendererComponent>().each(

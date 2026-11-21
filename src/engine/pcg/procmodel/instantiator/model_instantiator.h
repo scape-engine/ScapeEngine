@@ -27,7 +27,7 @@ private:
   static Entity CreatePartEntity(const ResolvedDescriptor& descriptor,
                                  const ModelGraph& graph, Entity parent,
                                  const std::vector<MaterialHandle>& materials,
-                                 const glm::mat4* pose);
+                                 Entity animator);
 };
 
 }  // namespace ProcModel
