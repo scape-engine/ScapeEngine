@@ -495,12 +495,8 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
   }
 }
 
-void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
-  if (!render_shadows_)
-    return;
-
+void SceneViewPipeline::UpdateLightMatrices() {
   auto& world = ECS::Main();
-  auto& shadow_map = Runtime::MainShadowMap();
 
   // Get directional light
   glm::vec3 light_dir(0.0f, -1.0f, 0.0f);
@@ -532,19 +528,25 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
                0.0f,                                     // offset
                bgfx::getCaps()->homogeneousDepth, bx::Handedness::Left);
 
-  // Build light space matrix
-  float light_space_arr[16];
-  bx::mtxMul(light_space_arr, light_view_arr, light_proj_arr);
+  light_view_ = glm::make_mat4(light_view_arr);
+  light_projection_ = glm::make_mat4(light_proj_arr);
+  Runtime::MainShadowMap().SetLightSpaceMatrix(light_projection_ *
+                                              light_view_);
+}
 
-  glm::mat4 light_space = glm::make_mat4(light_space_arr);
-  shadow_map.SetLightSpaceMatrix(light_space);
+void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
+  if (!render_shadows_)
+    return;
+
+  auto& shadow_map = Runtime::MainShadowMap();
 
   // Setup BGFX view
   uint16_t resolution = shadow_map.GetResolution();
   bgfx::setViewRect(ViewID::SHADOW_PASS, 0, 0, resolution, resolution);
   bgfx::setViewFrameBuffer(ViewID::SHADOW_PASS, shadow_map.GetFramebuffer());
   bgfx::setViewClear(ViewID::SHADOW_PASS, BGFX_CLEAR_DEPTH, 0, 1.0f, 0);
-  bgfx::setViewTransform(ViewID::SHADOW_PASS, light_view_arr, light_proj_arr);
+  bgfx::setViewTransform(ViewID::SHADOW_PASS, glm::value_ptr(light_view_),
+                         glm::value_ptr(light_projection_));
 
   // Load shadow shader
   if (!bgfx::isValid(shadow_program_)) {
@@ -555,12 +557,12 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
   // Render all meshes to shadow map: write depth, cull front faces
   const uint64_t state =
       BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
-  for (const DrawList::Batch& batch : draws_.batches) {
+  for (const DrawList::Batch& batch : shadow_draws_.batches) {
     DrawList::Bind(batch);
     bgfx::setState(state);
     bgfx::submit(ViewID::SHADOW_PASS, shadow_instanced_program_);
   }
-  for (const DrawList::Single& single : draws_.singles) {
+  for (const DrawList::Single& single : shadow_draws_.singles) {
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
     bgfx::setState(state);
@@ -806,8 +808,16 @@ void SceneViewPipeline::Render() {
   // Evaluate and update transforms, before any node renders meshes
   //
   transform_system_.Perform(view_projection);
-  // The unlit program has no instanced version
-  draws_.Build(selected_entities_, view_projection, !unlit_);
+  // The camera's and the shadow map's draws, in one pass over the scene. The
+  // unlit program has no instanced version
+  if (render_shadows_) {
+    UpdateLightMatrices();
+    DrawList::Build({{&draws_, view_projection},
+                     {&shadow_draws_, light_projection_ * light_view_}},
+                    selected_entities_, !unlit_);
+  } else {
+    DrawList::Build({{&draws_, view_projection}}, selected_entities_, !unlit_);
+  }
 
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();

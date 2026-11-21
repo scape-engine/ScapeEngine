@@ -121,6 +121,9 @@ private:
 
   void BuildReferenceGrid(const glm::mat4& view_projection);
 
+  // The shadow map's light view and projection, from the directional light
+  void UpdateLightMatrices();
+
   // Camera
   TransformComponent god_camera_transform_;
   CameraComponent god_camera_root_;
@@ -132,6 +135,8 @@ private:
   // Matrix cache
   glm::mat4 view_;
   glm::mat4 projection_;
+  glm::mat4 light_view_;
+  glm::mat4 light_projection_;
 
   // Entity selection
   std::vector<Entity> selected_entities_;
@@ -149,8 +154,10 @@ private:
   bgfx::ProgramHandle shadow_program_;
   bgfx::ProgramHandle shadow_instanced_program_;
 
-  // The frame's meshes, grouped for instanced draws
+  // The frame's meshes, grouped for instanced draws: what the camera sees,
+  // and what the shadow map sees
   DrawList draws_;
+  DrawList shadow_draws_;
 
   // Grid resources
   const Mesh* grid_mesh_;
