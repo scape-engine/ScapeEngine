@@ -1,6 +1,7 @@
 #include "draw_list.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <unordered_map>
 
@@ -26,11 +27,39 @@ struct BatchKeyHash {
 
 constexpr uint16_t instance_stride = sizeof(glm::mat4);
 
+// The frustum's planes (inside where dot(xyz, p) + w >= 0), from a
+// left-handed projection with depth 0..1 (Transformation::Projection)
+std::array<glm::vec4, 6> FrustumPlanes(const glm::mat4& m) {
+  const glm::mat4 t = glm::transpose(m);  // rows of m
+  std::array<glm::vec4, 6> planes = {t[3] + t[0], t[3] - t[0], t[3] + t[1],
+                                     t[3] - t[1], t[2],        t[3] - t[2]};
+  for (glm::vec4& plane : planes)
+    plane /= glm::length(glm::vec3(plane));
+  return planes;
+}
+
+bool InFrustum(const std::array<glm::vec4, 6>& planes, const glm::mat4& model,
+               const Mesh& mesh) {
+  const glm::vec3 center = model * glm::vec4(mesh.BoundsCenter(), 1.0f);
+  const float scale = glm::sqrt(glm::max(
+      glm::max(glm::dot(model[0], model[0]), glm::dot(model[1], model[1])),
+      glm::dot(model[2], model[2])));
+  const float radius = mesh.BoundsRadius() * scale;
+  for (const glm::vec4& plane : planes)
+    if (glm::dot(glm::vec3(plane), center) + plane.w < -radius)
+      return false;
+  return true;
+}
+
 }  // namespace
 
-void DrawList::Build(const std::vector<Entity>& apart, bool instanced) {
+void DrawList::Build(const std::vector<Entity>& apart,
+                     const glm::mat4& view_projection, bool instanced) {
   batches.clear();
   singles.clear();
+
+  // TODO: shadow casters outside the camera's view are culled too
+  const std::array<glm::vec4, 6> planes = FrustumPlanes(view_projection);
 
   auto& registry = MaterialRegistry::Instance();
   struct Group {
@@ -41,7 +70,8 @@ void DrawList::Build(const std::vector<Entity>& apart, bool instanced) {
   std::unordered_map<BatchKey, size_t, BatchKeyHash> group_of;
 
   for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
-    if (!renderer.enabled_ || !renderer.mesh_)
+    if (!renderer.enabled_ || !renderer.mesh_ ||
+        !InFrustum(planes, transform.model_, *renderer.mesh_))
       continue;
     const Single single{entity, &transform.model_, renderer.mesh_,
                         renderer.material_};

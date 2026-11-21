@@ -30,11 +30,12 @@ struct DrawList {
   std::vector<Batch> batches;
   std::vector<Single> singles;
 
-  // Groups the render queue's enabled meshes, once per frame after the
-  // transforms are evaluated. `apart` entities always draw one by one (e.g.
-  // the selection, which passes skip or draw differently), as everything
-  // does without `instanced`
-  void Build(const std::vector<Entity>& apart, bool instanced = true);
+  // Groups the render queue's enabled meshes inside the `view_projection`
+  // frustum, once per frame after the transforms are evaluated. `apart`
+  // entities always draw one by one (e.g. the selection, which passes skip or
+  // draw differently), as everything does without `instanced`
+  void Build(const std::vector<Entity>& apart,
+             const glm::mat4& view_projection, bool instanced = true);
 
   // Binds the batch's instances and mesh for the next submit
   static void Bind(const Batch& batch);

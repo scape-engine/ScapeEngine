@@ -810,7 +810,7 @@ void SceneViewPipeline::Render() {
     Transform::UpdateMVP(transform, view_projection);
   }
   // The unlit program has no instanced version
-  draws_.Build(selected_entities_, !unlit_);
+  draws_.Build(selected_entities_, view_projection, !unlit_);
 
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();

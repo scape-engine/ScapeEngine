@@ -2,6 +2,7 @@
 #define MESH_H
 
 #include <bgfx/bgfx.h>
+#include <glm/glm.hpp>
 #include <vector>
 
 #include "engine/core/types/geometry_data.h"
@@ -42,6 +43,10 @@ public:
   // Return mesh material index related to parent model
   uint32_t MaterialIndex() const;
 
+  // Sphere around the vertices, in mesh space (for culling)
+  const glm::vec3& BoundsCenter() const { return bounds_center_; }
+  float BoundsRadius() const { return bounds_radius_; }
+
 private:
   bgfx::VertexBufferHandle vbo_ = BGFX_INVALID_HANDLE;
   bgfx::IndexBufferHandle ibo_ = BGFX_INVALID_HANDLE;
@@ -49,6 +54,10 @@ private:
   uint32_t index_count_{0};  // TODO: remove this
 
   uint32_t material_index_{0};
+
+  glm::vec3 bounds_center_{0.0f};
+  float bounds_radius_{0.0f};
+  void SetBounds(const uint8_t* positions, uint32_t count, uint32_t stride);
 
   // Vertex layout: VertexData + smoothed normal (TexCoord1) for outlines
   static bgfx::VertexLayout layout_;

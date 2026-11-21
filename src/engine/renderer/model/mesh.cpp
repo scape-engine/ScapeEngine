@@ -72,6 +72,9 @@ Mesh::Mesh(const Geometry::MeshData& src) {
 
   index_count_ = static_cast<uint32_t>(src.indices.size());
   material_index_ = src.material_index;
+  SetBounds(reinterpret_cast<const uint8_t*>(src.vertices.data()),
+            static_cast<uint32_t>(src.vertices.size()),
+            sizeof(Geometry::VertexData));
 }
 
 Mesh::Mesh(const void* vertices, uint32_t vertex_count,
@@ -83,6 +86,33 @@ Mesh::Mesh(const void* vertices, uint32_t vertex_count,
       bgfx::copy(indices.data(), sizeof(uint32_t) * indices.size()),
       BGFX_BUFFER_INDEX32);
   index_count_ = static_cast<uint32_t>(indices.size());
+  SetBounds(static_cast<const uint8_t*>(vertices) +
+                layout.getOffset(bgfx::Attrib::Position),
+            vertex_count, layout.getStride());
+}
+
+// Box center, and the farthest vertex from it
+void Mesh::SetBounds(const uint8_t* positions, uint32_t count,
+                     uint32_t stride) {
+  if (count == 0)
+    return;
+  const auto position = [&](uint32_t i) {
+    glm::vec3 p;
+    std::memcpy(&p, positions + size_t(i) * stride, sizeof(p));
+    return p;
+  };
+  glm::vec3 low = position(0), high = low;
+  for (uint32_t i = 1; i < count; ++i) {
+    low = glm::min(low, position(i));
+    high = glm::max(high, position(i));
+  }
+  bounds_center_ = (low + high) * 0.5f;
+  float radius2 = 0.0f;
+  for (uint32_t i = 0; i < count; ++i) {
+    const glm::vec3 d = position(i) - bounds_center_;
+    radius2 = glm::max(radius2, glm::dot(d, d));
+  }
+  bounds_radius_ = glm::sqrt(radius2);
 }
 
 Mesh::~Mesh() {
