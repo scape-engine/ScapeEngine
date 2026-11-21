@@ -34,6 +34,7 @@ private:
 
   bgfx::ProgramHandle program_;
   bgfx::ProgramHandle instanced_program_;
+  bgfx::ProgramHandle skinned_program_ = BGFX_INVALID_HANDLE;
 
   bgfx::FrameBufferHandle fbo_;
   bgfx::TextureHandle normal_output_;

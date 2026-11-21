@@ -13,7 +13,38 @@ namespace Content {
 
 namespace {
 
-Geometry::MeshData ConvertMesh(const aiMesh* ai_mesh) {
+glm::mat4 ToGlm(const aiMatrix4x4& m) {
+  // Assimp's row-major 4x4 to glm column-major
+  return glm::mat4(m.a1, m.b1, m.c1, m.d1, m.a2, m.b2, m.c2, m.d2, m.a3, m.b3,
+                   m.c3, m.d3, m.a4, m.b4, m.c4, m.d4);
+}
+
+// The mesh's bones as skeleton nodes, and per vertex the four heaviest
+// (aiProcess_LimitBoneWeights keeps at most four)
+void ConvertBones(const aiMesh* ai_mesh, const Skeleton& skeleton,
+                  Geometry::MeshData& out) {
+  if (!ai_mesh->HasBones())
+    return;
+  out.joints.assign(ai_mesh->mNumVertices, glm::u8vec4(0));
+  out.weights.assign(ai_mesh->mNumVertices, glm::vec4(0.0f));
+  std::vector<uint8_t> used(ai_mesh->mNumVertices, 0);
+  for (unsigned int b = 0; b < ai_mesh->mNumBones; ++b) {
+    const aiBone* bone = ai_mesh->mBones[b];
+    out.bone_nodes.push_back(skeleton.Find(bone->mName.C_Str()));
+    out.bone_offsets.push_back(ToGlm(bone->mOffsetMatrix));
+    for (unsigned int w = 0; w < bone->mNumWeights; ++w) {
+      const unsigned int v = bone->mWeights[w].mVertexId;
+      if (v >= used.size() || used[v] >= 4)
+        continue;
+      out.joints[v][used[v]] = static_cast<uint8_t>(b);
+      out.weights[v][used[v]] = bone->mWeights[w].mWeight;
+      ++used[v];
+    }
+  }
+}
+
+Geometry::MeshData ConvertMesh(const aiMesh* ai_mesh,
+                               const Skeleton* skeleton = nullptr) {
   Geometry::MeshData out;
   out.vertices.reserve(ai_mesh->mNumVertices);
   out.material_index = ai_mesh->mMaterialIndex;
@@ -49,6 +80,8 @@ Geometry::MeshData ConvertMesh(const aiMesh* ai_mesh) {
       out.indices.push_back(face.mIndices[j]);
   }
 
+  if (skeleton)
+    ConvertBones(ai_mesh, *skeleton, out);
   return out;
 }
 
@@ -66,28 +99,67 @@ void ProcessNode(const aiNode* node, const aiScene* scene,
 
 // Build SceneNode tree
 SceneNode ProcessNodeHierarchy(const aiNode* node, const aiScene* scene,
+                               const Skeleton& skeleton,
                                std::vector<Geometry::MeshData>& out_meshes) {
   SceneNode result;
   result.name = node->mName.C_Str();
 
-  // Convert Assimp's row-major 4x4 to glm column-major
-  const auto& m = node->mTransformation;
-  result.local_transform =
-      glm::mat4(m.a1, m.b1, m.c1, m.d1, m.a2, m.b2, m.c2, m.d2, m.a3, m.b3,
-                m.c3, m.d3, m.a4, m.b4, m.c4, m.d4);
+  result.local_transform = ToGlm(node->mTransformation);
 
   for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
     const aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
     result.mesh_indices.push_back(static_cast<int>(out_meshes.size()));
-    out_meshes.push_back(ConvertMesh(mesh));
+    out_meshes.push_back(ConvertMesh(mesh, &skeleton));
   }
 
   for (unsigned int i = 0; i < node->mNumChildren; ++i) {
-    result.children.push_back(
-        ProcessNodeHierarchy(node->mChildren[i], scene, out_meshes));
+    result.children.push_back(ProcessNodeHierarchy(node->mChildren[i], scene,
+                                                   skeleton, out_meshes));
   }
 
   return result;
+}
+
+void AddNodes(const aiNode* node, int parent, Skeleton& skeleton) {
+  const int index = static_cast<int>(skeleton.names.size());
+  skeleton.names.push_back(node->mName.C_Str());
+  skeleton.parents.push_back(parent);
+  skeleton.locals.push_back(ToGlm(node->mTransformation));
+  for (unsigned int i = 0; i < node->mNumChildren; ++i)
+    AddNodes(node->mChildren[i], index, skeleton);
+}
+
+AnimationClip ConvertAnimation(const aiAnimation* animation,
+                               const Skeleton& skeleton) {
+  const double ticks =
+      animation->mTicksPerSecond > 0.0 ? animation->mTicksPerSecond : 1.0;
+  AnimationClip clip;
+  clip.name = animation->mName.C_Str();
+  clip.duration = static_cast<float>(animation->mDuration / ticks);
+  for (unsigned int c = 0; c < animation->mNumChannels; ++c) {
+    const aiNodeAnim* in = animation->mChannels[c];
+    AnimationClip::Channel channel;
+    channel.node = skeleton.Find(in->mNodeName.C_Str());
+    for (unsigned int k = 0; k < in->mNumPositionKeys; ++k) {
+      const aiVectorKey& key = in->mPositionKeys[k];
+      channel.position_times.push_back(static_cast<float>(key.mTime / ticks));
+      channel.positions.emplace_back(key.mValue.x, key.mValue.y, key.mValue.z);
+    }
+    for (unsigned int k = 0; k < in->mNumRotationKeys; ++k) {
+      const aiQuatKey& key = in->mRotationKeys[k];
+      channel.rotation_times.push_back(static_cast<float>(key.mTime / ticks));
+      channel.rotations.emplace_back(key.mValue.w, key.mValue.x, key.mValue.y,
+                                     key.mValue.z);
+    }
+    for (unsigned int k = 0; k < in->mNumScalingKeys; ++k) {
+      const aiVectorKey& key = in->mScalingKeys[k];
+      channel.scale_times.push_back(static_cast<float>(key.mTime / ticks));
+      channel.scales.emplace_back(key.mValue.x, key.mValue.y, key.mValue.z);
+    }
+    if (channel.node >= 0)
+      clip.channels.push_back(std::move(channel));
+  }
+  return clip;
 }
 }  // namespace
 
@@ -136,6 +208,8 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
 
 SceneData MeshLoader::LoadScene(const std::string& path) {
   Assimp::Importer importer;
+  // Meshes with more bones than a draw takes (Mesh::max_bones) split
+  importer.SetPropertyInteger(AI_CONFIG_PP_SBBC_MAX_BONES, 64);
 
   std::string base_dir = path.substr(0, path.find_last_of("/\\") + 1);
   Logger::getInstance().Log(LogLevel::Debug,
@@ -147,6 +221,7 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
   const aiScene* scene = importer.ReadFile(
       path, aiProcess_Triangulate | aiProcess_GenSmoothNormals |
                 aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace |
+                aiProcess_LimitBoneWeights | aiProcess_SplitByBoneCount |
                 aiProcess_FlipUVs);
 
   if (!scene || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) ||
@@ -159,7 +234,12 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
 
   SceneData data;
 
-  data.root = ProcessNodeHierarchy(scene->mRootNode, scene, data.mesh_data);
+  AddNodes(scene->mRootNode, -1, data.skeleton);
+  data.root = ProcessNodeHierarchy(scene->mRootNode, scene, data.skeleton,
+                                   data.mesh_data);
+  for (unsigned int i = 0; i < scene->mNumAnimations; ++i)
+    data.animations.push_back(
+        ConvertAnimation(scene->mAnimations[i], data.skeleton));
   // The meshes' material indices index these
   data.materials = MaterialLoader::LoadFromScene(path);
 

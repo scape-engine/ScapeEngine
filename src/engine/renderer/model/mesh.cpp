@@ -70,6 +70,31 @@ Mesh::Mesh(const Geometry::MeshData& src) {
       bgfx::copy(src.indices.data(), sizeof(uint32_t) * src.indices.size());
   ibo_ = bgfx::createIndexBuffer(imem, BGFX_BUFFER_INDEX32);
 
+  if (!src.bone_nodes.empty() && src.bone_nodes.size() <= max_bones &&
+      src.joints.size() == src.vertices.size()) {
+    static bgfx::VertexLayout skin_layout;
+    if (skin_layout.getStride() == 0)
+      skin_layout.begin()
+          // floats: integer attributes don't reach a float input alike on
+          // every backend
+          .add(bgfx::Attrib::Indices, 4, bgfx::AttribType::Float)
+          .add(bgfx::Attrib::Weight, 4, bgfx::AttribType::Float)
+          .end();
+    std::vector<uint8_t> skin(skin_layout.getSize(
+        static_cast<uint32_t>(src.vertices.size())));
+    for (size_t i = 0; i < src.vertices.size(); ++i) {
+      uint8_t* at = skin.data() + i * skin_layout.getStride();
+      const glm::vec4 joints(src.joints[i]);
+      std::memcpy(at, &joints, sizeof(glm::vec4));
+      std::memcpy(at + sizeof(glm::vec4), &src.weights[i], sizeof(glm::vec4));
+    }
+    skin_vbo_ = bgfx::createVertexBuffer(
+        bgfx::copy(skin.data(), static_cast<uint32_t>(skin.size())),
+        skin_layout);
+    bone_nodes_ = src.bone_nodes;
+    bone_offsets_ = src.bone_offsets;
+  }
+
   index_count_ = static_cast<uint32_t>(src.indices.size());
   material_index_ = src.material_index;
   SetBounds(reinterpret_cast<const uint8_t*>(src.vertices.data()),
@@ -120,11 +145,22 @@ Mesh::~Mesh() {
     bgfx::destroy(vbo_);
   if (bgfx::isValid(ibo_))
     bgfx::destroy(ibo_);
+  if (bgfx::isValid(skin_vbo_))
+    bgfx::destroy(skin_vbo_);
 }
 
 void Mesh::Bind() const {
   bgfx::setVertexBuffer(0, vbo_);
+  if (bgfx::isValid(skin_vbo_))
+    bgfx::setVertexBuffer(1, skin_vbo_);
   bgfx::setIndexBuffer(ibo_);
+}
+
+void Mesh::SkinMatrices(const glm::mat4* pose, glm::mat4* out) const {
+  // A bone naming no node stays in the bind pose
+  for (size_t i = 0; i < bone_nodes_.size(); ++i)
+    out[i] = bone_nodes_[i] < 0 ? glm::mat4(1.0f)
+                                : pose[bone_nodes_[i]] * bone_offsets_[i];
 }
 
 uint32_t Mesh::MaterialIndex() const {

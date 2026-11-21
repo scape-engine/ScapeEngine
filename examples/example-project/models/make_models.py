@@ -1,5 +1,6 @@
 # Writes the example project's test models (tree.glb, rock.glb, creature.glb) beside this script: parts as named
-# nodes with locator children, for the procmodel descriptors tree.json, rock.json and creature.json. Also the layer
+# nodes, with locator children or (the creature's) skinned to a shared skeleton, for the procmodel descriptors
+# tree.json, rock.json and creature.json. Also the layer
 # images of their procedural textures (textures/*.png), which bark, stone and hide .texture.json
 # describe.
 import json, math, os, random, struct, sys, zlib
@@ -90,13 +91,22 @@ class Glb:
 
     def mesh(self, name, prims):
         out = []
-        for (pos, nrm, uv, idx), mat in prims:
+        for prim in prims:
+            (pos, nrm, uv, idx), mat = prim[:2]
             ia = {"bufferView": self._view(struct.pack("<%dI" % len(idx), *idx), 34963), "componentType": 5125,
                   "count": len(idx), "type": "SCALAR"}
             self.g["accessors"].append(ia)
             indices = len(self.g["accessors"]) - 1
-            out.append({"attributes": {"POSITION": self._vec(pos), "NORMAL": self._vec(nrm), "TEXCOORD_0": self._vec(uv)},
-                        "indices": indices, "material": mat})
+            attributes = {"POSITION": self._vec(pos), "NORMAL": self._vec(nrm), "TEXCOORD_0": self._vec(uv)}
+            if len(prim) > 2:
+                # skinned: four joints (bytes) and weights per vertex
+                joints, weights = prim[2]
+                data = b"".join(struct.pack("<4B", *j) for j in joints)
+                self.g["accessors"].append({"bufferView": self._view(data, 34962), "componentType": 5121,
+                                            "count": len(joints), "type": "VEC4"})
+                attributes["JOINTS_0"] = len(self.g["accessors"]) - 1
+                attributes["WEIGHTS_0"] = self._vec(weights)
+            out.append({"attributes": attributes, "indices": indices, "material": mat})
         self.g["meshes"].append({"name": name, "primitives": out})
         return len(self.g["meshes"]) - 1
 
@@ -109,6 +119,32 @@ class Glb:
         if parent is None: self.g["scenes"][0]["nodes"].append(i)
         else: self.g["nodes"][parent].setdefault("children", []).append(i)
         return i
+
+    def _floats(self, values, kind):
+        # an accessor of float tuples (or scalars) with no buffer target, for skins and animations
+        n = 1 if kind == "SCALAR" else len(values[0])
+        flat = values if n == 1 else [x for v in values for x in v]
+        while len(self.bin) % 4: self.bin.append(0)
+        self.g["bufferViews"].append({"buffer": 0, "byteOffset": len(self.bin), "byteLength": 4 * len(flat)})
+        self.bin += struct.pack("<%df" % len(flat), *flat)
+        acc = {"bufferView": len(self.g["bufferViews"]) - 1, "componentType": 5126, "count": len(values), "type": kind}
+        if kind == "SCALAR":
+            acc["min"], acc["max"] = [min(values)], [max(values)]
+        self.g["accessors"].append(acc)
+        return len(self.g["accessors"]) - 1
+
+    def skin(self, joints, inverse_binds):
+        self.g.setdefault("skins", []).append({"joints": joints, "inverseBindMatrices": self._floats(inverse_binds, "MAT4")})
+        return len(self.g["skins"]) - 1
+
+    def animation(self, name, times, rotations):
+        # rotations: node -> one quaternion per time
+        a = {"name": name, "samplers": [], "channels": []}
+        t = self._floats(times, "SCALAR")
+        for node, quats in rotations.items():
+            a["samplers"].append({"input": t, "output": self._floats(quats, "VEC4"), "interpolation": "LINEAR"})
+            a["channels"].append({"sampler": len(a["samplers"]) - 1, "target": {"node": node, "path": "rotation"}})
+        self.g.setdefault("animations", []).append(a)
 
     def save(self, path):
         while len(self.bin) % 4: self.bin.append(0)
@@ -168,32 +204,112 @@ def moved(mesh, t):
     pos, nrm, uv, idx = mesh
     return [tuple(p[k] + t[k] for k in range(3)) for p in pos], nrm, uv, idx
 
+def tube(points, radii, sides=8):
+    # a tube through `points`, one ring per point (u once around, v along it)
+    pos, nrm, uv, idx = [], [], [], []
+    length = 0
+    for k, (c, r) in enumerate(zip(points, radii)):
+        d = [points[min(k + 1, len(points) - 1)][i] - points[max(k - 1, 0)][i] for i in range(3)]
+        dl = math.sqrt(sum(x * x for x in d))
+        d = [x / dl for x in d]
+        ref = (0, 0, 1) if abs(d[2]) < 0.9 else (1, 0, 0)
+        u = (d[1] * ref[2] - d[2] * ref[1], d[2] * ref[0] - d[0] * ref[2], d[0] * ref[1] - d[1] * ref[0])
+        ul = math.sqrt(sum(x * x for x in u))
+        u = [x / ul for x in u]
+        # u x w = -d: the rings wind as cylinder()'s
+        w = (u[1] * d[2] - u[2] * d[1], u[2] * d[0] - u[0] * d[2], u[0] * d[1] - u[1] * d[0])
+        if k:
+            length += math.sqrt(sum((c[i] - points[k - 1][i]) ** 2 for i in range(3)))
+        for i in range(sides + 1):
+            a = 2 * math.pi * i / sides
+            n = tuple(math.cos(a) * u[j] + math.sin(a) * w[j] for j in range(3))
+            pos.append(tuple(c[j] + r * n[j] for j in range(3)))
+            nrm.append(n)
+            uv.append((i / sides, length / (2 * math.pi * radii[0])))
+    n = sides + 1
+    for k in range(len(points) - 1):
+        for i in range(sides):
+            a = k * n + i
+            idx += [a, a + n, a + 1, a + 1, a + n, a + n + 1]
+    return pos, nrm, uv, idx
+
+def joined(meshes):
+    pos, nrm, uv, idx = [], [], [], []
+    for p, n, t, i in meshes:
+        idx += [x + len(pos) for x in i]
+        pos += p; nrm += n; uv += t
+    return pos, nrm, uv, idx
+
+def blend(a, b, t):
+    # four joint slots: joints a and b mixed by t (clamped to 0..1)
+    t = max(0.0, min(1.0, t))
+    return (a, b, 0, 0), (1 - t, t, 0.0, 0.0)
+
 def creature(path):
-    # a four-legged grazer facing +x: a body with locators for its neck, legs and tail; heads, legs and
-    # tails hang off them (legs grow down from their locators)
+    # A four-legged grazer facing +x, every part skinned to one shared skeleton: bodies, heads (with their
+    # necks), legs (all four) and tails. Its idle animation lowers the head to graze and swishes the tail
     rng = random.Random(3)
     g = Glb()
     hide = g.material("hide", (0.55, 0.45, 0.32))
-    down = axis_quat((1, 0, 0), 180)
-    for name, x, (bx, by, bz), leg in (("BODY_A", 0, (0.75, 0.45, 0.4), 0.7), ("BODY_B", 3, (1.0, 0.38, 0.35), 0.85)):
-        y = leg + by * 0.5
-        b = g.node(name, g.mesh(name, [(moved(stretched(blob(1, (0, 0, 0), 1, 0.06, rng), (bx, by, bz)), (0, y, 0)), hide)]),
-                   (x, 0, 0))
-        p = name[-1]
-        g.node(p + "_NECK", None, (bx * 0.85, y + by * 0.45, 0), axis_quat((0, 0, 1), -20), b)
-        g.node(p + "_TAIL", None, (-bx * 0.95, y + by * 0.2, 0), axis_quat((0, 0, 1), 120), b)
-        for i, (lx, lz) in enumerate(((0.55, 0.6), (0.55, -0.6), (-0.6, 0.6), (-0.6, -0.6))):
-            g.node("%s_LEG%d" % (p, i + 1), None, (bx * lx, y - by * 0.5, bz * lz), down, b)
-    # heads: along +x from the neck
-    for name, x, mesh in (("HEAD_A", 6, moved(stretched(blob(1, (0, 0, 0), 1, 0.08, rng), (0.4, 0.26, 0.24)), (0.3, 0.15, 0))),
-                          ("HEAD_B", 8, moved(stretched(blob(1, (0, 0, 0), 1, 0.12, rng), (0.32, 0.32, 0.3)), (0.22, 0.2, 0)))):
-        g.node(name, g.mesh(name, [(mesh, hide)]), (x, 0, 0))
-    # legs: from the hip down (local +y); the thick ones are shorter, so the body sits lower
-    for name, x, length, r0, r1 in (("LEG_A", 10, 0.8, 0.1, 0.06), ("LEG_B", 11, 0.95, 0.14, 0.1)):
-        g.node(name, g.mesh(name, [(cylinder(8, length, r0, r1), hide)]), (x, 0, 0))
-    for name, x, mesh in (("TAIL_A", 12, cylinder(6, 0.6, 0.06, 0.02)),
-                          ("TAIL_B", 13, moved(stretched(blob(1, (0, 0, 0), 1, 0.2, rng), (0.18, 0.3, 0.18)), (0, 0.25, 0)))):
-        g.node(name, g.mesh(name, [(mesh, hide)]), (x, 0, 0))
+    # joints: name, parent, model-space position (translations only, so the inverse binds are too)
+    joints = [("SKELETON", None, (0, 0, 0)), ("HIPS", 0, (-0.2, 0.9, 0)), ("SPINE", 1, (0.35, 0.95, 0)),
+              ("NECK", 2, (0.7, 1.05, 0)), ("HEAD", 3, (1.0, 1.32, 0)),
+              ("TAIL1", 1, (-0.75, 1.02, 0)), ("TAIL2", 5, (-1.0, 0.9, 0))]
+    legs = [("FL", 2, (0.45, 0.85, 0.2)), ("FR", 2, (0.45, 0.85, -0.2)),
+            ("BL", 1, (-0.5, 0.85, 0.2)), ("BR", 1, (-0.5, 0.85, -0.2))]
+    for name, parent, (x, y, z) in legs:
+        joints.append(("HIP_" + name, parent, (x, y, z)))
+        joints.append(("KNEE_" + name, len(joints) - 1, (x, 0.45, z)))
+    at = {name: k for k, (name, _, _) in enumerate(joints)}
+    nodes = []
+    for name, parent, p in joints:
+        local = p if parent is None else tuple(p[i] - joints[parent][2][i] for i in range(3))
+        nodes.append(g.node(name, None, local, None, None if parent is None else nodes[parent]))
+    skin = g.skin(nodes, [(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -p[0], -p[1], -p[2], 1) for _, _, p in joints])
+
+    def part(name, mesh, weigh):
+        js, ws = zip(*[weigh(p) for p in mesh[0]])
+        n = g.node(name, g.mesh(name, [(mesh, hide, (js, ws))]))
+        g.g["nodes"][n]["skin"] = skin
+
+    # bodies: the hips behind, the spine in front
+    for name, size in (("BODY_A", (0.8, 0.4, 0.38)), ("BODY_B", (1.0, 0.33, 0.33))):
+        body = moved(stretched(blob(1, (0, 0, 0), 1, 0.06, rng), size), (0, 0.98, 0))
+        part(name, body, lambda p: blend(at["HIPS"], at["SPINE"], (p[0] + 0.3) / 0.6))
+    # heads with their necks: the neck bends at NECK, the head follows HEAD
+    neck = [joints[at["NECK"]][2], (0.85, 1.18, 0), joints[at["HEAD"]][2]]
+    for name, size, r in (("HEAD_A", (0.3, 0.18, 0.17), 0.12), ("HEAD_B", (0.24, 0.24, 0.22), 0.15)):
+        head = moved(stretched(blob(1, (0, 0, 0), 1, 0.08, rng), size), (1.1, 1.3, 0))
+        mesh = joined([tube(neck, [r * 1.3, r * 1.1, r]), head])
+        part(name, mesh, lambda p: blend(at["NECK"], at["HEAD"], (p[0] - 0.8) / 0.2))
+    # legs: hip to foot, bending at the knee
+    for name, r0, r1 in (("LEGS_A", 0.1, 0.05), ("LEGS_B", 0.14, 0.09)):
+        meshes = []
+        for leg, _, (x, y, z) in legs:
+            points = [(x, y + 0.05, z), (x, 0.65, z), (x, 0.45, z), (x, 0.22, z), (x, 0.0, z)]
+            meshes.append(tube(points, [r0, r0 * 0.9, (r0 + r1) / 2, r1, r1]))
+
+        def weigh(p):
+            leg = ("F" if p[0] > 0 else "B") + ("L" if p[2] > 0 else "R")
+            return blend(at["HIP_" + leg], at["KNEE_" + leg], (0.55 - p[1]) / 0.2)
+        part(name, joined(meshes), weigh)
+    # tails: TAIL1 at the root, TAIL2 towards the tip
+    tail = [joints[at["TAIL1"]][2], joints[at["TAIL2"]][2], (-1.15, 0.6, 0)]
+    tuft = moved(stretched(blob(1, (0, 0, 0), 1, 0.2, rng), (0.12, 0.2, 0.12)), (-1.1, 0.72, 0))
+    for name, mesh in (("TAIL_A", tube(tail, [0.06, 0.04, 0.02], 6)),
+                       ("TAIL_B", joined([tube(tail[:2], [0.07, 0.05], 6), tuft]))):
+        part(name, mesh, lambda p: blend(at["TAIL1"], at["TAIL2"], (-0.8 - p[0]) / 0.2))
+    # idle: grazing (the neck down, the head nodding), the tail swishing, the spine breathing
+    times = [0.0, 0.8, 1.6, 2.4, 3.2, 4.0]
+    about_z = lambda deg: axis_quat((0, 0, 1), deg)
+    about_y = lambda deg: axis_quat((0, 1, 0), deg)
+    g.animation("idle", times, {
+        nodes[at["NECK"]]: [about_z(a) for a in (0, -35, -55, -55, -20, 0)],
+        nodes[at["HEAD"]]: [about_z(a) for a in (0, -10, 10, -5, 5, 0)],
+        nodes[at["SPINE"]]: [about_z(a) for a in (0, 2, 0, 2, 0, 0)],
+        nodes[at["TAIL1"]]: [about_y(a) for a in (0, 30, -30, 30, -30, 0)],
+        nodes[at["TAIL2"]]: [about_y(a) for a in (0, 25, -25, 25, -25, 0)],
+    })
     g.save(path)
 
 def save_png(path, size, texel):

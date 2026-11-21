@@ -5,7 +5,9 @@
 #include <cstring>
 #include <unordered_map>
 
+#include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/renderer/graphics_renderer.h"
 #include "engine/renderer/model/mesh.h"
 
 namespace {
@@ -81,9 +83,12 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
         glm::sqrt(glm::max(
             glm::max(glm::dot(model[0], model[0]), glm::dot(model[1], model[1])),
             glm::dot(model[2], model[2])));
-    const Single single{entity, &model, renderer.mesh_, renderer.material_};
+    const Single single{entity, &model, renderer.mesh_, renderer.material_,
+                        renderer.pose_};
+    // Skinned meshes have their own bones: never instanced
     const bool alone =
-        !instanced || std::find(apart.begin(), apart.end(), entity) != apart.end();
+        !instanced || renderer.pose_ ||
+        std::find(apart.begin(), apart.end(), entity) != apart.end();
 
     for (Fill& fill : fills) {
       if (!InFrustum(fill.planes, center, radius))
@@ -134,4 +139,16 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
 void DrawList::Bind(const Batch& batch) {
   bgfx::setInstanceDataBuffer(&batch.instances);
   batch.mesh->Bind();
+}
+
+bool DrawList::SetBones(const Mesh& mesh, const glm::mat4* pose) {
+  if (!pose || !mesh.Skinned())
+    return false;
+  const bgfx::UniformHandle bones =
+      static_cast<GraphicsRenderer&>(EngineContext::Renderer())
+          .CreateUniform("u_bones", bgfx::UniformType::Mat4, Mesh::max_bones);
+  glm::mat4 matrices[Mesh::max_bones];
+  mesh.SkinMatrices(pose, matrices);
+  bgfx::setUniform(bones, matrices, static_cast<uint16_t>(mesh.BoneCount()));
+  return true;
 }

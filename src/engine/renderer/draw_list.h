@@ -26,6 +26,7 @@ struct DrawList {
     const glm::mat4* model;
     const Mesh* mesh;
     MaterialHandle material;
+    const glm::mat4* pose;  // a skinned mesh's (MeshRendererComponent's)
   };
 
   std::vector<Batch> batches;
@@ -47,6 +48,10 @@ struct DrawList {
 
   // Binds the batch's instances and mesh for the next submit
   static void Bind(const Batch& batch);
+
+  // Sets u_bones from a skinned mesh's pose for the next submit; false when
+  // the mesh isn't posed (draw it unskinned)
+  static bool SetBones(const Mesh& mesh, const glm::mat4* pose);
 };
 
 #endif  // DRAW_LIST_H

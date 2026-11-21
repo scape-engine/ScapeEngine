@@ -1,5 +1,8 @@
 #include "model_instantiator.h"
 
+#include <algorithm>
+#include <cmath>
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -7,6 +10,7 @@
 #include "engine/ecs/ecs_collection.h"
 #include "engine/ecs/world.h"
 #include "engine/math/transformation.h"
+#include "engine/ecs/components/skeleton_pose_component.h"
 #include "engine/renderer/model/mesh.h"
 
 namespace ProcModel {
@@ -33,12 +37,30 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
     transform.modified_ = true;
   }
 
+  // A model with skinned meshes poses them on its root, from its first
+  // animation; the phase, from the entity, keeps herds out of step
+  // TODO: worldgen's pose values (PoseValues), blending the model's poses
+  const glm::mat4* pose = nullptr;
+  if (std::any_of(graph.gpu_meshes.begin(), graph.gpu_meshes.end(),
+                  [](const auto& mesh) { return mesh->Skinned(); })) {
+    auto& skeleton = ecs.Add<SkeletonPoseComponent>(result.root);
+    skeleton.skeleton = &graph.skeleton;
+    skeleton.clip = graph.animations.empty() ? nullptr : &graph.animations[0];
+    if (skeleton.clip)
+      skeleton.phase = skeleton.clip->duration *
+                       std::fmod(static_cast<float>(static_cast<uint32_t>(result.root)) *
+                                 0.618034f,
+                             1.0f);
+    SamplePose(graph.skeleton, skeleton.clip, skeleton.phase, skeleton.nodes);
+    pose = skeleton.nodes.data();
+  }
+
   // Part transforms are in model space (as the previews read them), so every
   // part sits directly under the root
   for (const auto& descriptor : resolved.descriptors) {
     result.part_entities.push_back(
         CreatePartEntity(descriptor, graph, result.root,
-                         materials ? *materials : graph.material_handles));
+                         materials ? *materials : graph.material_handles, pose));
   }
 
   return result;
@@ -47,7 +69,8 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
 Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
                                            const ModelGraph& graph,
                                            Entity parent,
-                                           const std::vector<MaterialHandle>& materials) {
+                                           const std::vector<MaterialHandle>& materials,
+                                           const glm::mat4* pose) {
   auto& ecs = ECS::Main();
   const auto material = [&](const Mesh& mesh) {
     const uint32_t index = mesh.MaterialIndex();
@@ -77,35 +100,33 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
   transform.euler_angles_ = glm::degrees(glm::eulerAngles(transform.rotation_));
   transform.modified_ = true;
 
-  // Attach mesh renderers
-  if (descriptor.mesh_indices.size() == 1) {
-    // Single mesh — attach directly to part entity
-    const Mesh* mesh = graph.GetMesh(descriptor.mesh_indices[0]);
-    if (mesh) {
-      auto& renderer = ecs.Add<MeshRendererComponent>(entity);
-      renderer.mesh_ = mesh;
-      renderer.enabled_ = true;
-      renderer.material_ = material(*mesh);
-    }
-  } else if (descriptor.mesh_indices.size() > 1) {
-    // Multiple meshes — create child entity per mesh
-    for (size_t i = 0; i < descriptor.mesh_indices.size(); ++i) {
-      const Mesh* mesh = graph.GetMesh(descriptor.mesh_indices[i]);
-      if (!mesh)
-        continue;
+  // Attach mesh renderers: a single mesh to the part itself, several to a
+  // child each. A skinned mesh ignores its node's transform (as glTF's): its
+  // bones place it, so it hangs from the model's root
+  const bool single = descriptor.mesh_indices.size() == 1;
+  for (size_t i = 0; i < descriptor.mesh_indices.size(); ++i) {
+    const Mesh* mesh = graph.GetMesh(descriptor.mesh_indices[i]);
+    if (!mesh)
+      continue;
 
+    Entity holder = entity;
+    if (!single || mesh->Skinned()) {
       std::string child_name =
           descriptor.descriptor_id + "_mesh_" + std::to_string(i);
-      auto [child, child_transform] = ecs.CreateEntity(child_name, entity);
+      auto [child, child_transform] =
+          ecs.CreateEntity(child_name, mesh->Skinned() ? parent : entity);
 
       // Identity transform — inherit parent's transform through hierarchy
       child_transform.modified_ = true;
-
-      auto& renderer = ecs.Add<MeshRendererComponent>(child);
-      renderer.mesh_ = mesh;
-      renderer.enabled_ = true;
-      renderer.material_ = material(*mesh);
+      holder = child;
     }
+
+    auto& renderer = ecs.Add<MeshRendererComponent>(holder);
+    renderer.mesh_ = mesh;
+    renderer.enabled_ = true;
+    renderer.material_ = material(*mesh);
+    if (mesh->Skinned())
+      renderer.pose_ = pose;
   }
 
   return entity;

@@ -22,6 +22,8 @@ void PrePass::Create() {
                                                  "fs_pre_pass.bin");
   instanced_program_ = EngineContext::Shader().LoadProgram(
       "pre_pass", "vs_pre_pass_instanced.bin", "fs_pre_pass.bin");
+  skinned_program_ = EngineContext::Shader().LoadProgram(
+      "pre_pass", "vs_pre_pass_skinned.bin", "fs_pre_pass.bin");
 
   if (!bgfx::isValid(program_)) {
     Logger::getInstance().Log(LogLevel::Error,
@@ -71,7 +73,9 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
     bgfx::setState(state);
-    bgfx::submit(ViewID::PRE_PASS, program_);
+    const bool skinned = bgfx::isValid(skinned_program_) &&
+                         DrawList::SetBones(*single.mesh, single.pose);
+    bgfx::submit(ViewID::PRE_PASS, skinned ? skinned_program_ : program_);
   }
 }
 

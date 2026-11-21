@@ -41,7 +41,7 @@ const Material* MaterialRegistry::Get(MaterialHandle handle) const {
 }
 
 bgfx::ProgramHandle MaterialRegistry::Bind(MaterialHandle handle,
-                                           bool instanced) {
+                                           bool instanced, bool skinned) {
   const Material* material = Get(handle);
   if (!material)
     material = &DefaultMaterial();
@@ -60,6 +60,8 @@ bgfx::ProgramHandle MaterialRegistry::Bind(MaterialHandle handle,
     bgfx::setTexture(slot.stage, slot.sampler, texture);
   }
 
+  if (skinned && bgfx::isValid(material->skinned_program))
+    return material->skinned_program;
   return instanced ? material->instanced_program : material->program;
 }
 

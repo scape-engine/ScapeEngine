@@ -114,8 +114,9 @@ private:
   void RenderMesh(TransformComponent& transform,
                   MeshRendererComponent& renderer);
   // One lit draw: of `model`, or of the instances bound beforehand
+  // `pose`: a skinned mesh's (DrawList::SetBones)
   void SubmitLit(const Mesh& mesh, MaterialHandle material,
-                 const glm::mat4* model);
+                 const glm::mat4* model, const glm::mat4* pose = nullptr);
   void RenderSelectedEntity(EntityContainer* entity);
   void RenderSelectedEntityOutline(EntityContainer* entity);
 
@@ -153,6 +154,7 @@ private:
   bgfx::ProgramHandle debug_program_;
   bgfx::ProgramHandle shadow_program_;
   bgfx::ProgramHandle shadow_instanced_program_;
+  bgfx::ProgramHandle shadow_skinned_program_ = BGFX_INVALID_HANDLE;
 
   // The frame's meshes, grouped for instanced draws: what the camera sees,
   // and what the shadow map sees

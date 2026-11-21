@@ -108,9 +108,8 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
   std::vector<Entity> creatures;
   // Every creature of a species on a planet is the same model: the species'
-  // seed, else one per model id and planet; the matrices hold their scale
-  // TODO: skinning, so creatures take worldgen's poses (PoseValues) and
-  // animate instead of standing in their bind pose
+  // seed, else one per model id and planet; the matrices hold their scale.
+  // Skinned models animate (ModelInstantiator)
   for (size_t spawn = 0;
        spawn < region.herds.size() && spawn < content.herd_ids.size();
        ++spawn) {

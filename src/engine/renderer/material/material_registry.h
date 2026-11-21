@@ -26,8 +26,10 @@ public:
 
   // Set the material's params and textures for the next draw, and return
   // the program to submit with (its instanced program for an instanced
-  // draw). Invalid handles use a default material
-  bgfx::ProgramHandle Bind(MaterialHandle handle, bool instanced = false);
+  // draw, its skinned one for a skinned draw). Invalid handles use a default
+  // material
+  bgfx::ProgramHandle Bind(MaterialHandle handle, bool instanced = false,
+                           bool skinned = false);
 
   // Unregister a material by handle
   void Unregister(MaterialHandle handle);

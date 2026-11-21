@@ -1,6 +1,10 @@
 vec3 a_position  : POSITION;
 float v_depth    : TEXCOORD0;
 
+// four bones and their weights (skinned draws)
+vec4 a_indices : BLENDINDICES;
+vec4 a_weight : BLENDWEIGHT;
+
 // the model matrix per instance (instanced draws)
 vec4 i_data0 : TEXCOORD31;
 vec4 i_data1 : TEXCOORD30;

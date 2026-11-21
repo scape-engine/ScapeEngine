@@ -7,6 +7,7 @@
 
 #include "engine/core/types/geometry_data.h"
 #include "engine/core/types/material_data.h"
+#include "engine/renderer/model/skeleton.h"
 
 //
 // SCENE_DATA_H
@@ -26,6 +27,9 @@ struct SceneData {
   SceneNode root;
   std::vector<Geometry::MeshData> mesh_data;
   std::vector<Content::MaterialData> materials;
+  // Every node, which skinned meshes' bones name, and the animations
+  Skeleton skeleton;
+  std::vector<AnimationClip> animations;
 };
 
 }  // namespace Content

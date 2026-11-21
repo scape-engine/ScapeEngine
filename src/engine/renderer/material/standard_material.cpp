@@ -13,6 +13,8 @@ Material StandardMaterial::Build(const Content::MaterialData& data) {
       "materials", "vs_lit.bin", "fs_lit.bin");
   material.instanced_program = EngineContext::Shader().LoadProgram(
       "materials", "vs_lit_instanced.bin", "fs_lit.bin");
+  material.skinned_program = EngineContext::Shader().LoadProgram(
+      "materials", "vs_lit_skinned.bin", "fs_lit.bin");
 
   // Factors, multiplied with the textures in the shader (fs_lit.sc)
   const auto param = [&](const char* name, const glm::vec4& value) {

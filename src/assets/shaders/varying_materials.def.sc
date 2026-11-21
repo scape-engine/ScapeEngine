@@ -10,6 +10,10 @@ vec2 a_texcoord0 : TEXCOORD0;
 vec3 a_tangent   : TANGENT;
 vec3 a_bitangent : BITANGENT;
 
+// four bones and their weights (skinned draws)
+vec4 a_indices : BLENDINDICES;
+vec4 a_weight : BLENDWEIGHT;
+
 // the model matrix per instance (instanced draws)
 vec4 i_data0 : TEXCOORD31;
 vec4 i_data1 : TEXCOORD30;

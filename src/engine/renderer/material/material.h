@@ -36,6 +36,9 @@ struct Material {
   // The same shading with the model matrix per instance (i_data0..3), for
   // instanced draws; invalid: the material only draws one mesh at a time
   bgfx::ProgramHandle instanced_program = BGFX_INVALID_HANDLE;
+  // The same shading skinned by u_bones (DrawList::SetBones); invalid: skinned
+  // meshes draw in their bind pose
+  bgfx::ProgramHandle skinned_program = BGFX_INVALID_HANDLE;
   std::vector<MaterialTexture> textures;  // stages below MATERIAL_STAGE_COUNT
   std::vector<MaterialParam> params;
 

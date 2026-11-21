@@ -43,6 +43,14 @@ public:
   // Return mesh material index related to parent model
   uint32_t MaterialIndex() const;
 
+  // Skinned meshes: a draw takes at most max_bones bones, each following a
+  // skeleton node
+  static constexpr uint32_t max_bones = 64;
+  bool Skinned() const { return bgfx::isValid(skin_vbo_); }
+  uint32_t BoneCount() const { return static_cast<uint32_t>(bone_nodes_.size()); }
+  // The bones' matrices from the nodes' model-space transforms
+  void SkinMatrices(const glm::mat4* pose, glm::mat4* out) const;
+
   // Sphere around the vertices, in mesh space (for culling)
   const glm::vec3& BoundsCenter() const { return bounds_center_; }
   float BoundsRadius() const { return bounds_radius_; }
@@ -50,6 +58,10 @@ public:
 private:
   bgfx::VertexBufferHandle vbo_ = BGFX_INVALID_HANDLE;
   bgfx::IndexBufferHandle ibo_ = BGFX_INVALID_HANDLE;
+  // Second stream of a skinned mesh: four bone slots and weights per vertex
+  bgfx::VertexBufferHandle skin_vbo_ = BGFX_INVALID_HANDLE;
+  std::vector<int> bone_nodes_;
+  std::vector<glm::mat4> bone_offsets_;
 
   uint32_t index_count_{0};  // TODO: remove this
 

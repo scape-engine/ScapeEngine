@@ -76,6 +76,8 @@ void SceneViewPipeline::Create() {
                                                    "fs_shadow.bin");
   shadow_instanced_program_ = Runtime::Shader()->LoadProgram(
       "shadow", "vs_shadow_instanced.bin", "fs_shadow.bin");
+  shadow_skinned_program_ = Runtime::Shader()->LoadProgram(
+      "shadow", "vs_shadow_skinned.bin", "fs_shadow.bin");
 
   BuildReferenceGrid(glm::mat4(1.0f));
   CreatePasses();
@@ -435,7 +437,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
                   single.entity) != selected_entities_.end())
       continue;
 
-    SubmitLit(*single.mesh, single.material, single.model);
+    SubmitLit(*single.mesh, single.material, single.model, single.pose);
   }
 
   // Render skybox (after opaque meshes so depth test rejects covered pixels)
@@ -566,7 +568,10 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
     bgfx::setState(state);
-    bgfx::submit(ViewID::SHADOW_PASS, shadow_program_);
+    const bool skinned = bgfx::isValid(shadow_skinned_program_) &&
+                         DrawList::SetBones(*single.mesh, single.pose);
+    bgfx::submit(ViewID::SHADOW_PASS,
+                 skinned ? shadow_skinned_program_ : shadow_program_);
   }
 }
 
@@ -641,11 +646,13 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   if (!renderer.mesh_)
     return;
 
-  SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_);
+  SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_,
+            renderer.pose_);
 }
 
 void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
-                                  const glm::mat4* model) {
+                                  const glm::mat4* model,
+                                  const glm::mat4* pose) {
   auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
   // Textures are per-draw in bgfx
@@ -656,8 +663,9 @@ void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
   }
 
   // Material params and textures, and the program to draw with
+  const bool skinned = DrawList::SetBones(mesh, pose);
   const bgfx::ProgramHandle material_program =
-      MaterialRegistry::Instance().Bind(material, model == nullptr);
+      MaterialRegistry::Instance().Bind(material, model == nullptr, skinned);
 
   // Scene textures read by the lit shaders
   SkyLight::BindTextures();

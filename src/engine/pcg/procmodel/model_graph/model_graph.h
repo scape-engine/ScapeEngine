@@ -11,6 +11,7 @@
 
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
+#include "engine/renderer/model/skeleton.h"
 
 #include "model_graph_node.h"
 
@@ -21,6 +22,9 @@ struct ModelGraph {
   ModelGraphNode root;
   std::vector<Geometry::MeshData> mesh_data;
   std::vector<Content::MaterialData> materials;
+  // The scene's nodes, which skinned meshes' bones name, and its animations
+  Skeleton skeleton;
+  std::vector<AnimationClip> animations;
 
   // Flat lookup for DescriptorResolver
   std::unordered_map<std::string, ModelGraphNode*> node_lookup;
