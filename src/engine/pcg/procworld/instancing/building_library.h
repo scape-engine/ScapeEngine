@@ -29,10 +29,9 @@ Worldgen::SceneTransform SceneTransformOf(const glm::mat4& local);
 // made from them, kept by class and seed. Scenes and models are glb paths
 // relative to the root. Safe to use from the region jobs.
 // L-system scenes attach parts at top-level locators whose names hold the
-// rule's locator type, with _IN_ (where a part attaches) or _OUT_ (where the
-// next one does)
-// TODO: structures and scenes stay until the planet reloads; evict the ones
-// no loaded region uses
+// rule's locator type and the style's in or out marker. At most
+// max_structures structures are kept; scenes stay until the planet reloads
+// (one set per style)
 class BuildingLibrary {
 public:
   BuildingLibrary(std::vector<Worldgen::BuildingStyle> styles,
@@ -42,6 +41,8 @@ public:
   // without a style
   std::shared_ptr<const std::vector<Worldgen::BuildingPiece>> Structure(
       int cls, uint64_t seed);
+
+  static constexpr size_t max_structures = 4096;
 
 private:
   const Worldgen::SceneNode* Scene(const std::string& file);

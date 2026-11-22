@@ -232,6 +232,22 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
   if (!_LoadContent(root_, generator.content_path, content, generator.error))
     return;
 
+  // The planet's buildings, when it has any
+  std::unique_ptr<BuildingLibrary> buildings;
+  if (!generator.planet_path.empty()) {
+    Worldgen::PlanetContent planet;
+    if (!_LoadContent(root_, generator.planet_path, planet, generator.error))
+      return;
+    if (planet.buildings.active) {
+      Worldgen::PlanetInput input;
+      input.seed = generator.seed;
+      content.buildings = Worldgen::BuildPlanet(planet, input).buildings;
+      content.buildings.radius = content.radius;  // the terrain's
+      buildings =
+          std::make_unique<BuildingLibrary>(planet.building_styles, root_);
+    }
+  }
+
   glm::ivec3 cell = generator.cell;
   if (cell == glm::ivec3(0))
     cell = glm::ivec3(0, static_cast<int>(content.radius) + 16, 0);
@@ -245,10 +261,16 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
   const size_t creatures =
       RegionInstancer::InstanceHerds(ecs, region, content, volume, root_)
           .size();
+  const size_t built =
+      buildings ? RegionInstancer::InstanceBuildings(ecs, region, *buildings,
+                                                     volume, root_, nullptr)
+                      .size()
+                : 0;
   generator.build_ms = _Milliseconds(start);
 
   generator.vertex_count = region.mesh.size();
-  generator.instance_count = result.object_entities.size() + creatures;
+  generator.instance_count =
+      result.object_entities.size() + creatures + built;
   if (result.terrain_mesh)
     meshes_[volume] = std::move(result.terrain_mesh);
 
@@ -328,7 +350,6 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->terrain = built.terrain;
       if (generator.planet_radius > 0.0f)
         content->radius = generator.planet_radius;
-      // TODO: buildings in a single region (RegionGenerator)
       if (planet.buildings.active) {
         content->buildings = built.buildings;
         content->buildings.radius = content->radius;  // the terrain's
@@ -490,7 +511,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           RegionInstancer::Instance(ecs, region, content, entity,
                                     looks_[volume].material, root_,
                                     skirt_depth, &state.textures);
-      if (state.buildings)
+      if (state.buildings && cell.level <= generator.building_level)
         RegionInstancer::InstanceBuildings(ecs, region, *state.buildings,
                                            entity, root_, &state.textures);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
@@ -537,7 +558,10 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     const int level = w.cell.level;
     // The region's buildings are made here too, off the main thread
     state.building[_CellKey(w.cell)] = std::async(
-        std::launch::async, [content, buildings = state.buildings,
+        std::launch::async, [content,
+                             buildings = level <= generator.building_level
+                                             ? state.buildings
+                                             : nullptr,
                              x = centre[0], y = centre[1], z = centre[2],
                              level] {
           Worldgen::Region region =

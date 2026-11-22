@@ -202,6 +202,16 @@ void PCGGraphEditorPanel::DrawRegionProperties() {
                               ImGuiInputTextFlags_EnterReturnsTrue);
   ImGui::TextDisabled("Planet-space cell centre; zero: above the north pole");
 
+  std::snprintf(path, sizeof(path), "%s", region.planet_path.c_str());
+  if (ImGui::InputText("Planet", path, sizeof(path),
+                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+    region.planet_path = path;
+    changed = true;
+  }
+  ImGui::TextDisabled("JSON planet content, optional: its buildings");
+  ImGui::InputScalar("Seed", ImGuiDataType_U64, &region.seed);
+  changed |= ImGui::IsItemDeactivatedAfterEdit();
+
   changed |= ImGui::Button("Regenerate");
 
   DrawTerrainLook(region.look);
@@ -306,6 +316,7 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
                    1.0e6f, "%.0f m");
   ImGui::TextDisabled("Regions farther are not loaded; 0: no limit");
   changed |= ImGui::SliderInt("Object Level", &planet.object_level, -1, 5);
+  changed |= ImGui::SliderInt("Building Level", &planet.building_level, -1, 9);
   changed |= ImGui::SliderInt("Herd Level", &planet.herd_level, -1, 5);
   ImGui::TextDisabled("Creatures come from regions of this level; -1: none");
   ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);

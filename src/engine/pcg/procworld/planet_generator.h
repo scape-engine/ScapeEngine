@@ -32,6 +32,8 @@ public:
   float view_distance = 8192.0f;
   // Objects are placed on regions up to this level
   int object_level = 0;
+  // Buildings are placed on regions up to this level; -1: none
+  int building_level = 3;
   // Creature herds come from the regions of this level over the loaded
   // regions this fine or finer (the game's: 1); -1: no herds
   int herd_level = 1;

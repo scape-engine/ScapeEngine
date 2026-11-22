@@ -24,6 +24,9 @@ public:
   std::string content_path;
   // Cell centre in planet space; zero: above the north pole (0, radius + 16, 0)
   glm::ivec3 cell{0};
+  // Planet content (JSON, project-relative), optional: its buildings, seeded
+  std::string planet_path;
+  uint64_t seed = 1;
   // The terrain's tile colours and material settings
   TerrainMaterialData look = DefaultTerrainLook();
 

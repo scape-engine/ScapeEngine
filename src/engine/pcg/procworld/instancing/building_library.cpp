@@ -73,13 +73,11 @@ std::unique_ptr<Worldgen::SceneNode> LoadGlbScene(
 BuildingLibrary::BuildingLibrary(std::vector<Worldgen::BuildingStyle> styles,
                                  std::filesystem::path root)
     : styles_(std::move(styles)), root_(std::move(root)) {
+  // Templates and locator names come with the styles
   files_.scene = [this](const std::string& file) { return Scene(file); };
-  // TODO: L-system templates
   files_.lsystem = [](const std::string&) {
     return static_cast<const Worldgen::LSystem::File*>(nullptr);
   };
-  files_.in_locator = "_IN_";
-  files_.out_locator = "_OUT_";
 }
 
 const Worldgen::SceneNode* BuildingLibrary::Scene(const std::string& file) {
@@ -103,6 +101,10 @@ BuildingLibrary::Structure(int cls, uint64_t seed) {
           ? Worldgen::BuildStructure(styles_[cls], seed, files_)
           : std::vector<Worldgen::BuildingPiece>());
   std::lock_guard lock(structures_mutex_);
+  // Instanced buildings keep no hold on their pieces, so a full cache can
+  // simply start over
+  if (structures_.size() >= max_structures)
+    structures_.clear();
   return structures_.emplace(std::pair{cls, seed}, pieces).first->second;
 }
 

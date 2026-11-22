@@ -3,6 +3,7 @@
 #include <cstring>
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "engine/animation/animation.h"
 #include "engine/core/logger.h"
@@ -21,10 +22,8 @@ static const Model* _LoadModel(const std::filesystem::path& path) {
     return it->second.get();
 
   // ! Synchronous loading
-  std::shared_ptr<Model> model = Model::Load(key);
-  if (!model)
-    return nullptr;
-  return cache.emplace(key, std::move(model)).first->second.get();
+  // Failures are cached too (as null), so a missing model loads once
+  return cache.emplace(key, Model::Load(key)).first->second.get();
 }
 
 // Each shape's mesh is created once and shared by its entities
@@ -83,8 +82,11 @@ Entity ModelEntityFactory::InstanceModel(ECS& ecs, const std::string& source,
                                          const std::filesystem::path& root) {
   const Model* model = _LoadModel(root / source);
   if (!model || model->NLoadedMeshes() == 0) {
-    Logger::getInstance().Log(LogLevel::Error,
-                              "[ModelEntityFactory] No meshes in " + source);
+    // Once per source: a model can be placed many times
+    static std::unordered_set<std::string> reported;
+    if (reported.insert(source).second)
+      Logger::getInstance().Log(LogLevel::Error,
+                                "[ModelEntityFactory] No meshes in " + source);
     return entt::null;
   }
 

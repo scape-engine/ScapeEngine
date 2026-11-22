@@ -158,6 +158,8 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
         {"type", "Region"},
         {"content", region.content_path},
         {"cell", {region.cell.x, region.cell.y, region.cell.z}},
+        {"planet", region.planet_path},
+        {"seed", region.seed},
         {"look", _WriteLook(region.look)}};
   }
   if (generator &&
@@ -171,6 +173,7 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"split_distance", planet.split_distance},
                         {"view_distance", planet.view_distance},
                         {"object_level", planet.object_level},
+                        {"building_level", planet.building_level},
                         {"herd_level", planet.herd_level},
                         {"worker_jobs", planet.worker_jobs},
                         {"planet", planet.planet_path},
@@ -204,6 +207,8 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     planet->view_distance =
         it->value("view_distance", planet->view_distance);
     planet->object_level = it->value("object_level", planet->object_level);
+    planet->building_level =
+        it->value("building_level", planet->building_level);
     planet->herd_level = it->value("herd_level", planet->herd_level);
     planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
     planet->planet_path = it->value("planet", planet->planet_path);
@@ -225,6 +230,8 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
 
   auto region = std::make_unique<ProcWorld::RegionGenerator>();
   region->content_path = it->value("content", std::string());
+  region->planet_path = it->value("planet", region->planet_path);
+  region->seed = it->value("seed", region->seed);
   _ReadLook(*it, region->look);
   if (auto cell = it->find("cell"); cell != it->end())
     region->cell = {cell->at(0).get<int>(), cell->at(1).get<int>(),
