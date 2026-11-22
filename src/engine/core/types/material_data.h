@@ -6,6 +6,12 @@
 
 namespace Content {
 
+// How a surface covers what is behind it (glTF alphaMode): Mask cuts it away
+// where alpha is under the cutoff, Blend mixes it in by alpha, Additive adds
+// its colour (glTF has no additive mode: the loader reads an unlit Blend
+// material as one, e.g. an engine glow)
+enum class MaterialBlend { Opaque, Mask, Blend, Additive };
+
 struct MaterialData {
   std::string name;
   bool is_pbr{false};
@@ -26,6 +32,10 @@ struct MaterialData {
   // Emission
   glm::vec3 emissive{0.0f};
   float emissive_strength{1.0f};
+
+  MaterialBlend blend{MaterialBlend::Opaque};
+  float alpha_cutoff{0.5f};  // Mask
+  bool unlit{false};         // the base colour as it is, no lighting
 };
 
 }  // namespace Content

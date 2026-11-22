@@ -65,11 +65,15 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
                          BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
                          BGFX_STATE_CULL_CW;
   for (const DrawList::Batch& batch : draws.batches) {
+    if (DrawList::BlendOf(batch.material) != Content::MaterialBlend::Opaque)
+      continue;
     DrawList::Bind(batch);
     bgfx::setState(state);
     bgfx::submit(ViewID::PRE_PASS, instanced_program_);
   }
   for (const DrawList::Single& single : draws.singles) {
+    if (DrawList::BlendOf(single.material) != Content::MaterialBlend::Opaque)
+      continue;
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
     bgfx::setState(state);

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "engine/core/types/material_data.h"
 #include "engine/renderer/texture/texture_registry.h"
 
 // A texture a material binds to one stage of its program
@@ -41,8 +42,12 @@ struct Material {
   bgfx::ProgramHandle skinned_program = BGFX_INVALID_HANDLE;
   std::vector<MaterialTexture> textures;  // stages below MATERIAL_STAGE_COUNT
   std::vector<MaterialParam> params;
+  // Only Opaque draws in the depth passes (pre-pass, shadows); Blend and
+  // Additive draw after the opaque scene, without writing depth
+  // TODO: masked depth and shadows (the depth programs sample no alpha)
+  Content::MaterialBlend blend = Content::MaterialBlend::Opaque;
 
-  // TODO: render state (blend/alpha mode, culling for double-sided)
+  // TODO: culling for double-sided
 };
 
 #endif  // MATERIAL_H

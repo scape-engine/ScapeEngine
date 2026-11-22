@@ -23,8 +23,13 @@ Material StandardMaterial::Build(const Content::MaterialData& data) {
   };
   material.params = {
       param("u_meshColor", data.base_color),
+      // z: the mask's alpha cutoff (0: none), w: 1 when unlit
       param("u_materialParams",
-            glm::vec4(data.metallic, data.roughness, 0.0f, 0.0f)),
+            glm::vec4(data.metallic, data.roughness,
+                      data.blend == Content::MaterialBlend::Mask
+                          ? data.alpha_cutoff
+                          : 0.0f,
+                      data.unlit ? 1.0f : 0.0f)),
       param("u_emissive",
             glm::vec4(data.emissive * data.emissive_strength, 0.0f)),
   };
@@ -50,7 +55,9 @@ Material StandardMaterial::Build(const Content::MaterialData& data) {
               white),
   };
 
+  material.blend = data.blend;
+
   // TODO: normal scale, occlusion strength, KHR_texture_transform, UV sets,
-  // alpha mode and cutoff, double-sided
+  // double-sided
   return material;
 }

@@ -17,7 +17,8 @@ $input v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent
 // Material (StandardMaterial, stages 0-4). Unset textures are bound to
 // neutral defaults: white, or a flat normal for the normal map
 uniform vec4 u_meshColor;       // base color factor
-uniform vec4 u_materialParams;  // x = metallic factor, y = roughness factor
+uniform vec4 u_materialParams;  // x = metallic factor, y = roughness factor,
+                                // z = alpha cutoff (0: none), w = 1: unlit
 uniform vec4 u_emissive;        // rgb = emissive factor * strength
 
 SAMPLER2D(s_albedo, 0);               // base color (sRGB)
@@ -54,19 +55,21 @@ void main()
 
     // Material inputs: factors multiplied by their textures
     vec4 baseColor = texture2D(s_albedo, v_texcoord0) * u_meshColor;
+    if (baseColor.a < u_materialParams.z) discard;
     vec4 metallicRoughness = texture2D(s_metallicRoughnessMap, v_texcoord0);
     float roughness = clamp(u_materialParams.y * metallicRoughness.g, 0.04, 1.0);
     float metallic = clamp(u_materialParams.x * metallicRoughness.b, 0.0, 1.0);
     float occlusion = texture2D(s_occlusionMap, v_texcoord0).r;
     vec3 emissive = texture2D(s_emissiveMap, v_texcoord0).rgb * u_emissive.rgb;
 
-    vec3 result = LitSurface(N, V, v_worldPos, gl_FragCoord.xy, baseColor.rgb,
-                             metallic, roughness, occlusion);
+    vec3 result = u_materialParams.w > 0.5
+        ? baseColor.rgb
+        : LitSurface(N, V, v_worldPos, gl_FragCoord.xy, baseColor.rgb,
+                     metallic, roughness, occlusion);
 
     result += emissive;
 
-    // Output with gamma correction
-    // TODO: alpha modes (opaque, mask, blend)
+    // Output with gamma correction; the draw's blend state reads the alpha
     result = toGamma(result);
     gl_FragColor = vec4(result, baseColor.a);
 }

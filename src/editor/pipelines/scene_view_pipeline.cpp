@@ -428,19 +428,30 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   }
 
   // Render each entity except selected ones (rendered with outline in the
-  // selection node)
-  for (const DrawList::Batch& batch : draws_.batches) {
-    DrawList::Bind(batch);
-    SubmitLit(*batch.mesh, batch.material, nullptr);
-  }
-  for (const DrawList::Single& single : draws_.singles) {
-    if (std::find(selected_entities_.begin(), selected_entities_.end(),
-                  single.entity) != selected_entities_.end())
-      continue;
-
-    SubmitLit(*single.mesh, single.material, single.model, single.pose,
-              single.pose_count);
-  }
+  // selection node): the opaque ones, then the sky, then blended ones over
+  // them (the view draws in submit order)
+  const auto submit = [&](bool blended) {
+    const auto wanted = [&](MaterialHandle material) {
+      const Content::MaterialBlend blend = DrawList::BlendOf(material);
+      return blended == (blend == Content::MaterialBlend::Blend ||
+                         blend == Content::MaterialBlend::Additive);
+    };
+    for (const DrawList::Batch& batch : draws_.batches) {
+      if (!wanted(batch.material))
+        continue;
+      DrawList::Bind(batch);
+      SubmitLit(*batch.mesh, batch.material, nullptr);
+    }
+    for (const DrawList::Single& single : draws_.singles) {
+      if (!wanted(single.material) ||
+          std::find(selected_entities_.begin(), selected_entities_.end(),
+                    single.entity) != selected_entities_.end())
+        continue;
+      SubmitLit(*single.mesh, single.material, single.model, single.pose,
+                single.pose_count);
+    }
+  };
+  submit(false);
 
   // Render skybox (after opaque meshes so depth test rejects covered pixels)
   if (show_skybox_ && context.globals.skybox) {
@@ -448,6 +459,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
                                    projMatrix,
                                    /*useInverseViewProj=*/true);
   }
+  submit(true);
 
   // Terrain
   /* if (context.globals.terrain) {
@@ -562,11 +574,15 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
   const uint64_t state =
       BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
   for (const DrawList::Batch& batch : shadow_draws_.batches) {
+    if (DrawList::BlendOf(batch.material) != Content::MaterialBlend::Opaque)
+      continue;
     DrawList::Bind(batch);
     bgfx::setState(state);
     bgfx::submit(ViewID::SHADOW_PASS, shadow_instanced_program_);
   }
   for (const DrawList::Single& single : shadow_draws_.singles) {
+    if (DrawList::BlendOf(single.material) != Content::MaterialBlend::Opaque)
+      continue;
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
     bgfx::setState(state);
@@ -691,8 +707,18 @@ void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
     bgfx::setTransform(glm::value_ptr(*model));
   mesh.Bind();
 
-  // Set culling/state
+  // Set culling/state; blended surfaces test depth without writing it
   uint64_t render_state = BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW;
+  switch (DrawList::BlendOf(material)) {
+    case Content::MaterialBlend::Blend:
+      render_state = (render_state & ~BGFX_STATE_WRITE_Z) | BGFX_STATE_BLEND_ALPHA;
+      break;
+    case Content::MaterialBlend::Additive:
+      render_state = (render_state & ~BGFX_STATE_WRITE_Z) | BGFX_STATE_BLEND_ADD;
+      break;
+    default:
+      break;
+  }
 
   // Enable wireframe
   if (wireframe_) {

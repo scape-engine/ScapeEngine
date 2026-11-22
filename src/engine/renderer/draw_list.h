@@ -56,6 +56,10 @@ struct DrawList {
   // Binds the batch's instances and mesh for the next submit
   static void Bind(const Batch& batch);
 
+  // The material's blend mode (Opaque for a missing one): depth passes draw
+  // only Opaque, the scene draws Blend and Additive after the rest
+  static Content::MaterialBlend BlendOf(MaterialHandle material);
+
   // Sets u_bones from a skinned mesh's pose for the next submit; false when
   // the mesh isn't posed (draw it unskinned)
   static bool SetBones(const Mesh& mesh, const glm::mat4* pose,

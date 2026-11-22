@@ -246,6 +246,11 @@ void DrawList::Bind(const Batch& batch) {
   batch.mesh->Bind();
 }
 
+Content::MaterialBlend DrawList::BlendOf(MaterialHandle material) {
+  const Material* found = MaterialRegistry::Instance().Get(material);
+  return found ? found->blend : Content::MaterialBlend::Opaque;
+}
+
 bool DrawList::SetBones(const Mesh& mesh, const glm::mat4* pose,
                         uint32_t pose_count) {
   if (!pose || !mesh.Skinned())
