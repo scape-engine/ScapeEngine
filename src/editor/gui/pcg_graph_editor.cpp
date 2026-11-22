@@ -4,6 +4,7 @@
 #include <string>
 
 #include "editor/events.h"
+#include "editor/gui/components/inspectable_components.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/ecs/components/volume_component.h"
@@ -376,6 +377,42 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   changed |= ImGui::Button("Regenerate");
 
   DrawTerrainLook(planet.look);
+
+  // Applies from the next frame, no rebuild needed
+  if (ImGui::CollapsingHeader("Creatures")) {
+    ProcWorld::HerdSettings& herd = planet.creatures;
+    ImGui::Checkbox("Roam", &herd.roam);
+    ImGui::DragFloat("Walk Speed", &herd.walk_speed, 0.05f, 0.0f, 50.0f,
+                     "%.2f m/s");
+    ImGui::DragFloat("Turn Rate", &herd.turn_rate, 1.0f, 1.0f, 1080.0f,
+                     "%.0f deg/s");
+    ImGui::DragFloat("Roam Radius", &herd.roam_radius, 0.5f, 0.0f, 1000.0f,
+                     "%.1f m");
+    ImGui::TextDisabled("Walks end this near where a creature was placed");
+    ImGui::DragFloatRange2("Rest", &herd.rest_min, &herd.rest_max, 0.1f, 0.0f,
+                           600.0f, "%.1f s");
+    ImGui::DragFloat("Nav Reach", &herd.nav_reach, 0.1f, 0.0f, 100.0f,
+                     "%.1f m");
+    ImGui::TextDisabled("Points find navmesh polygons this near");
+    ImGui::DragFloat("Roam Distance", &herd.roam_distance, 5.0f, 0.0f, 1.0e5f,
+                     "%.0f m");
+    ImGui::TextDisabled("Only creatures this near the viewer roam");
+    char clip[128];
+    std::snprintf(clip, sizeof(clip), "%s", herd.walk_clip.c_str());
+    if (ImGui::InputText("Walk Clip", clip, sizeof(clip)))
+      herd.walk_clip = clip;
+    std::snprintf(clip, sizeof(clip), "%s", herd.rest_clip.c_str());
+    if (ImGui::InputText("Rest Clip", clip, sizeof(clip)))
+      herd.rest_clip = clip;
+    ImGui::TextDisabled("The first clip whose name holds this, in any case");
+    ImGui::DragFloat("Fade", &herd.fade, 0.01f, 0.0f, 5.0f, "%.2f s");
+    ImGui::DragFloat3("Forward", &herd.forward.x, 0.01f, -1.0f, 1.0f);
+    ImGui::TextDisabled("The axis the models face along (glTF: +z)");
+    ImGui::Checkbox("Match Stride", &herd.match_stride);
+    ImGui::TextDisabled("The walk clip plays as fast as its feet move");
+    ImGui::SeparatorText("Animation");
+    InspectableComponents::DrawAnimatorSettings(herd.animation);
+  }
 
   ImGui::Separator();
   if (!planet.error.empty())

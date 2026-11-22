@@ -16,6 +16,10 @@ void DrawPointLightComponent(Entity entity, PointLightComponent& point_light);
 void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight);
 void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight);
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
+void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator);
+
+// Sampling and foot planting settings, also drawn for a planet's creatures
+void DrawAnimatorSettings(AnimatorSettings& settings);
 // TODO: velocity component, box collider, sphere collider, rigidbody, audio
 // listener, audio source
 

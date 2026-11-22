@@ -142,6 +142,60 @@ static void _ReadLook(const nlohmann::json& in, TerrainMaterialData& look) {
                        noise->at(2).get<float>(), noise->at(3).get<float>()};
 }
 
+static nlohmann::json _WriteCreatures(const ProcWorld::HerdSettings& herd) {
+  const AnimatorSettings& a = herd.animation;
+  return {{"roam", herd.roam},
+          {"walk_speed", herd.walk_speed},
+          {"turn_rate", herd.turn_rate},
+          {"roam_radius", herd.roam_radius},
+          {"rest_min", herd.rest_min},
+          {"rest_max", herd.rest_max},
+          {"nav_reach", herd.nav_reach},
+          {"roam_distance", herd.roam_distance},
+          {"walk_clip", herd.walk_clip},
+          {"rest_clip", herd.rest_clip},
+          {"fade", herd.fade},
+          {"forward", herd.forward},
+          {"match_stride", herd.match_stride},
+          {"animation",
+           {{"plant_feet", a.plant_feet},
+            {"plant_distance", a.plant_distance},
+            {"plant_reach", a.plant_reach},
+            {"full_rate_distance", a.full_rate_distance},
+            {"max_step", a.max_step}}}};
+}
+
+// Missing values keep the defaults
+static void _ReadCreatures(const nlohmann::json& in,
+                           ProcWorld::HerdSettings& herd) {
+  auto it = in.find("creatures");
+  if (it == in.end())
+    return;
+  herd.roam = it->value("roam", herd.roam);
+  herd.walk_speed = it->value("walk_speed", herd.walk_speed);
+  herd.turn_rate = it->value("turn_rate", herd.turn_rate);
+  herd.roam_radius = it->value("roam_radius", herd.roam_radius);
+  herd.rest_min = it->value("rest_min", herd.rest_min);
+  herd.rest_max = it->value("rest_max", herd.rest_max);
+  herd.nav_reach = it->value("nav_reach", herd.nav_reach);
+  herd.roam_distance = it->value("roam_distance", herd.roam_distance);
+  herd.walk_clip = it->value("walk_clip", herd.walk_clip);
+  herd.rest_clip = it->value("rest_clip", herd.rest_clip);
+  herd.fade = it->value("fade", herd.fade);
+  herd.forward = it->value("forward", herd.forward);
+  herd.match_stride = it->value("match_stride", herd.match_stride);
+  auto animation = it->find("animation");
+  if (animation == it->end())
+    return;
+  AnimatorSettings& a = herd.animation;
+  a.plant_feet = animation->value("plant_feet", a.plant_feet);
+  a.plant_distance = animation->value("plant_distance", a.plant_distance);
+  a.plant_reach = animation->value("plant_reach", a.plant_reach);
+  a.full_rate_distance =
+      animation->value("full_rate_distance", a.full_rate_distance);
+  a.max_step = animation->value("max_step", a.max_step);
+}
+
 // A volume and its generator settings (resources are runtime only)
 static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
   nlohmann::json out = {{"bounds_min", volume.bounds_min},
@@ -182,7 +236,8 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"biome", planet.biome},
                         {"subtype", planet.subtype},
                         {"size", planet.size},
-                        {"look", _WriteLook(planet.look)}};
+                        {"look", _WriteLook(planet.look)},
+                        {"creatures", _WriteCreatures(planet.creatures)}};
   }
   if (generator &&
       generator->GetGeneratorType() == PCG::GeneratorType::Craft) {
@@ -228,6 +283,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     planet->subtype = it->value("subtype", planet->subtype);
     planet->size = it->value("size", planet->size);
     _ReadLook(*it, planet->look);
+    _ReadCreatures(*it, planet->creatures);
     auto [id, resource] =
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(
             "Planet");

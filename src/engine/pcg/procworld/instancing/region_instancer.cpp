@@ -11,6 +11,7 @@
 #include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/pcg/pcg_engine.h"
+#include "engine/pcg/procworld/herd_movement.h"
 #include "engine/pcg/procworld/region_mesher.h"
 #include "engine/scene/model_entity_factory.h"
 
@@ -129,6 +130,14 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
         glm::dot(up, up) > 0.0f ? up : glm::vec3(0, 1, 0));
     ecs.Reg().emplace_or_replace<GroundComponent>(source, ground);
   }
+  // Its navmesh for them to roam on (HerdMovement), in the planet's space
+  if (!region.herds.empty() && region.navmesh.polygons > 0) {
+    auto& herd = ecs.Reg().get_or_emplace<HerdComponent>(source);
+    herd.path_ = std::make_shared<Worldgen::NavMesh::PathfinderMesh>(
+        region.navmesh.path);
+    herd.origin_ =
+        glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
+  }
   // Every creature of a species on a planet is the same model: the species'
   // seed, else one per model id and planet; the matrices hold their scale.
   // Skinned models animate (ModelInstantiator)
@@ -157,6 +166,19 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
       if (auto* animator = ecs.Reg().try_get<AnimatorComponent>(entity);
           animator && ground)
         animator->ground_ = source;
+      // Resting from a random share of the longest rest, so they set out
+      // apart
+      auto& roam = ecs.Add<RoamComponent>(entity);
+      roam.home_ = glm::vec3(rows[12], rows[13], rows[14]);
+      roam.random_ = (static_cast<uint32_t>(kind_seed ^ (kind_seed >> 32)) ^
+                      static_cast<uint32_t>(at * 2654435761u)) |
+                     1u;
+      if (const auto* herd = ecs.Reg().try_get<HerdComponent>(source))
+        roam.rest_ = herd->settings_.rest_max *
+                     ((roam.random_ >> 8) * (1.0f / 16777216.0f));
+      glm::vec3 hit;
+      if (ground && ground->Under(roam.home_, hit))
+        roam.height_ = glm::dot(roam.home_ - hit, ground->Up());
       creatures.push_back(entity);
     }
   }

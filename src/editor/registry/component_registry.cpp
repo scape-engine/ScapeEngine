@@ -130,6 +130,10 @@ void Create() {
   RegisterComponent<VolumeComponent>(
       "Volume", InspectableComponents::DrawVolumeComponent, std::nullopt, true);
 
+  RegisterComponent<AnimatorComponent>(
+      "Animator", InspectableComponents::DrawAnimatorComponent, std::nullopt,
+      false);
+
   // TODO: velocity blur component, box collider, sphere collider, rigidbody,
   // audio listener, audio source
 }

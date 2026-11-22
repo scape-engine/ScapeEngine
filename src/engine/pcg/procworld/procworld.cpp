@@ -638,6 +638,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
       ecs.Add<ProceduralInstanceComponent>(entity, volume);
+      ecs.Add<HerdComponent>(entity).settings_ = generator.creatures;
       RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
                                      root_, &state.textures);
       state.herds[it->first] = entity;
@@ -645,8 +646,11 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     it = state.herd_building.erase(it);
   }
   std::erase_if(state.herds, [&](auto& entry) {
-    if (herd_cells.count(entry.first))
+    if (herd_cells.count(entry.first)) {
+      if (auto* herd = ecs.Reg().try_get<HerdComponent>(entry.second))
+        herd->settings_ = generator.creatures;
       return false;
+    }
     ecs.DestroyEntity(entry.second);
     return true;
   });

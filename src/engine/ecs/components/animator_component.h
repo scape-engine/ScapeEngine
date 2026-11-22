@@ -12,10 +12,22 @@ using Entity = entt::entity;
 
 /* ──────────────────────────────── ANIMATOR ─────────────────────────────── */
 
+// How an animator samples its pose and plants its feet, by its distance from
+// the viewer (Animation::SetViewer)
+struct AnimatorSettings {
+  bool plant_feet{true};
+  float plant_distance{60.0f};  // feet plant within this of the viewer
+  float plant_reach{0.5f};  // a foot moves at most this share of its leg
+  // Farther than this, poses are sampled every few frames (one more per this
+  // distance), up to every `max_step`th
+  float full_rate_distance{20.0f};
+  int max_step{8};
+};
+
 // Plays an animated model's clips: Animation::Update advances `time` and
 // samples `pose`, which the skinned meshes naming this entity
 // (MeshRendererComponent::animator_) follow
-// TODO: editor inspector (clip, speed, play) and saving it with the scene
+// TODO: save it with the scene
 struct AnimatorComponent {
   // The model's, owned by its cache, which outlives the entity
   const SkeletalData* data_{nullptr};
@@ -24,6 +36,7 @@ struct AnimatorComponent {
   float speed_{1.0f};
   bool playing_{true};
   bool loop_{true};
+  AnimatorSettings settings_;
 
   // The clip fading out under `clip_` (Animation::Play; -1: none), its time,
   // and how long the fade lasts and has run

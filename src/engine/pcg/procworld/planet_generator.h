@@ -5,6 +5,7 @@
 #include <string>
 
 #include "engine/pcg/generator_base.h"
+#include "engine/pcg/procworld/herd_movement.h"
 #include "engine/pcg/procworld/terrain_look.h"
 
 namespace ProcWorld {
@@ -37,6 +38,8 @@ public:
   // Creature herds come from the regions of this level over the loaded
   // regions this fine or finer (the game's: 1); -1: no herds
   int herd_level = 1;
+  // How the creatures roam and animate; edits apply from the next frame
+  HerdSettings creatures;
   // Regions building at once on worker threads, nearest first; 0: one per
   // core but one
   int worker_jobs = 0;

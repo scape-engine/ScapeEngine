@@ -249,7 +249,8 @@ def blend(a, b, t):
 
 def creature(path):
     # A four-legged grazer facing +x, every part skinned to one shared skeleton: bodies, heads (with their
-    # necks), legs (all four) and tails. Its idle animation lowers the head to graze and swishes the tail
+    # necks), legs (all four) and tails. Its idle animation lowers the head to graze and swishes the tail; its
+    # walk is a trot
     rng = random.Random(3)
     g = Glb()
     hide = g.material("hide", (0.55, 0.45, 0.32))
@@ -325,6 +326,19 @@ def creature(path):
         nodes[at["TAIL1"]]: [about_y(a) for a in (0, 30, -30, 30, -30, 0)],
         nodes[at["TAIL2"]]: [about_y(a) for a in (0, 25, -25, 25, -25, 0)],
     })
+    # walk: a trot, the diagonal pairs (front left with hind right) swinging together; a leg's foot moves back
+    # under the body planted, then forward with its knee folded
+    times = [0.0, 0.2, 0.4, 0.6, 0.8]
+    swing = {"A": (20, 0, -20, 0, 20), "B": (-20, 0, 20, 0, -20)}
+    fold = {"A": (0, 0, 0, 1, 0), "B": (0, 1, 0, 0, 0)}
+    walk = {nodes[at["NECK"]]: [about_z(a) for a in (0, -4, 0, -4, 0)],
+            nodes[at["HEAD"]]: [about_z(a) for a in (0, 3, 0, 3, 0)],
+            nodes[at["TAIL1"]]: [about_y(a) for a in (0, 12, 0, -12, 0)]}
+    for leg, pair in (("FL", "A"), ("BR", "A"), ("FR", "B"), ("BL", "B")):
+        knee = -60 if leg[0] == "F" else 60
+        walk[nodes[at["HIP_" + leg]]] = [about_z(a) for a in swing[pair]]
+        walk[nodes[at["KNEE_" + leg]]] = [about_z(knee * f) for f in fold[pair]]
+    g.animation("walk", times, walk)
     g.save(path)
 
 def save_png(path, size, texel):

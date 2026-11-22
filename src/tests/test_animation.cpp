@@ -105,9 +105,15 @@ static void TestAnimatedModel() {
   const auto meshes = Content::MeshLoader::Load(
       "examples/example-project/models/creature.glb", &skeletal);
   assert(!meshes.empty() && !skeletal.Empty());
-  assert(skeletal.clips.size() == 1 && skeletal.clips[0].duration > 0.0f);
-  assert(skeletal.runtime_skeleton && skeletal.runtime_clips.size() == 1 &&
+  assert(skeletal.clips.size() == 2 && skeletal.clips[0].duration > 0.0f);
+  assert(skeletal.runtime_skeleton && skeletal.runtime_clips.size() == 2 &&
          skeletal.runtime_clips[0]);
+  // The trot swings legs 0.8 m long 20 degrees either way in 0.8 s: about
+  // 0.68 m/s ahead (+x), nothing sideways
+  const int walk = skeletal.clips[0].name == "walk" ? 0 : 1;
+  const float stride = StrideSpeed(skeletal, walk, glm::vec3(1, 0, 0));
+  assert(stride > 0.6f && stride < 0.76f);
+  assert(StrideSpeed(skeletal, walk, glm::vec3(0, 0, 1)) < 0.05f);
   for (const auto& mesh : meshes) {
     assert(!mesh.bone_nodes.empty());
     assert(mesh.joints.size() == mesh.vertices.size());

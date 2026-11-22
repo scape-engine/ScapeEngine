@@ -383,3 +383,30 @@ void SamplePose(const SkeletalData& data, int clip, float time, bool loop,
           : 0.0f;
   sampler.Sample(data, {{clip, ratio, 1.0f}}, globals);
 }
+
+float StrideSpeed(const SkeletalData& data, int clip, const glm::vec3& forward,
+                  int samples) {
+  if (clip < 0 || clip >= static_cast<int>(data.clips.size()) ||
+      data.legs.empty() || data.clips[clip].duration <= 0.0f || samples < 2)
+    return 0.0f;
+  // Each foot's reach ahead over the cycle: the ground a planted foot
+  // passes under the body in one stride
+  PoseSampler sampler;
+  std::vector<glm::mat4> pose;
+  std::vector<float> low(data.legs.size(), INFINITY),
+      high(data.legs.size(), -INFINITY);
+  const AnimationClip& c = data.clips[clip];
+  for (int i = 0; i < samples; ++i) {
+    const float time = c.duration * i / samples;
+    sampler.Sample(data, {{clip, ClipRatio(c, time, true), 1.0f}}, pose);
+    for (size_t leg = 0; leg < data.legs.size(); ++leg) {
+      const float z = glm::dot(glm::vec3(pose[data.legs[leg].end][3]), forward);
+      low[leg] = std::min(low[leg], z);
+      high[leg] = std::max(high[leg], z);
+    }
+  }
+  float sum = 0.0f;
+  for (size_t leg = 0; leg < data.legs.size(); ++leg)
+    sum += high[leg] - low[leg];
+  return sum / data.legs.size() / c.duration;
+}

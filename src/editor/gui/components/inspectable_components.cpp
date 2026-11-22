@@ -17,6 +17,7 @@
 
 #include "im_components.h"
 
+#include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"  // ! should be removed?
 #include "engine/pcg/generator_resource.h"  // ! should be removed?
 #include "engine/pcg/procworld/craft_generator.h"
@@ -396,6 +397,56 @@ void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight) {
 
   if (removed)
     _EcsRemove<SkyLightComponent>(entity);
+}
+
+void DrawAnimatorSettings(AnimatorSettings& settings) {
+  IMComponents::Input("Plant Feet", settings.plant_feet);
+  ImGui::DragFloat("Plant Distance", &settings.plant_distance, 1.0f, 0.0f,
+                   1.0e4f, "%.0f m");
+  ImGui::SliderFloat("Plant Reach", &settings.plant_reach, 0.0f, 1.0f);
+  ImGui::TextDisabled("A foot moves at most this share of its leg");
+  ImGui::DragFloat("Full Rate Distance", &settings.full_rate_distance, 1.0f,
+                   1.0f, 1.0e4f, "%.0f m");
+  ImGui::SliderInt("Max Step", &settings.max_step, 1, 32);
+  ImGui::TextDisabled("Farther ones sample every few frames, up to this");
+}
+
+void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator) {
+  bool removed = false;
+
+  if (_BeginComponent("Animator", 0, &animator.playing_, &removed)) {
+    _Headline("Clip");
+
+    if (animator.data_ && !animator.data_->clips.empty()) {
+      const auto& clips = animator.data_->clips;
+      const bool valid =
+          animator.clip_ >= 0 && animator.clip_ < static_cast<int>(clips.size());
+      if (ImGui::BeginCombo("Clip",
+                            valid ? clips[animator.clip_].name.c_str()
+                                  : "Bind pose")) {
+        for (int i = 0; i < static_cast<int>(clips.size()); ++i)
+          if (ImGui::Selectable(clips[i].name.c_str(), i == animator.clip_))
+            Animation::Play(animator, i, animator.fade_length_);
+        ImGui::EndCombo();
+      }
+      if (valid)
+        ImGui::SliderFloat("Time", &animator.time_, 0.0f,
+                           clips[animator.clip_].duration, "%.2f s");
+    } else {
+      ImGui::TextDisabled("The model has no clips");
+    }
+    IMComponents::Input("Speed", animator.speed_, 0.01f);
+    IMComponents::Input("Loop", animator.loop_);
+
+    _SpacingS();
+    _Headline("Sampling");
+    DrawAnimatorSettings(animator.settings_);
+
+    _EndComponent();
+  }
+
+  if (removed)
+    _EcsRemove<AnimatorComponent>(entity);
 }
 
 void DrawPointLightComponent(Entity entity, PointLightComponent& point_light) {

@@ -109,4 +109,10 @@ class PoseSampler {
 void SamplePose(const SkeletalData& data, int clip, float time, bool loop,
                 std::vector<glm::mat4>& globals);
 
+// How fast clip `clip` walks at speed 1, in model units per second: the
+// feet's mean reach along `forward` (model space) over a cycle, by its
+// duration, from `samples` poses. 0: no legs or no such clip
+float StrideSpeed(const SkeletalData& data, int clip, const glm::vec3& forward,
+                  int samples = 32);
+
 #endif  // SKELETON_H

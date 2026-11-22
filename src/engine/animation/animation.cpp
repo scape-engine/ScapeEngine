@@ -22,6 +22,10 @@ void SetViewer(const glm::vec3& position) {
   _viewer = position;
 }
 
+const glm::vec3& Viewer() {
+  return _viewer;
+}
+
 static float _Ratio(const AnimatorComponent& animator, int clip, float time) {
   const auto& clips = animator.data_->clips;
   return clip >= 0 && clip < static_cast<int>(clips.size())
@@ -49,14 +53,17 @@ static void _Sample(AnimatorComponent& animator) {
 // the deepest fall so every leg reaches
 static void _Plant(ECS& ecs, Entity entity, AnimatorComponent& animator) {
   const SkeletalData& data = *animator.data_;
-  if (data.legs.empty() || animator.ground_ == entt::null)
+  const AnimatorSettings& settings = animator.settings_;
+  if (!settings.plant_feet || data.legs.empty() ||
+      animator.ground_ == entt::null)
     return;
   auto& registry = ecs.Reg();
   const auto* ground = registry.try_get<GroundComponent>(animator.ground_);
   const auto* own = registry.try_get<TransformComponent>(entity);
   const auto* base = registry.try_get<TransformComponent>(animator.ground_);
   if (!ground || !ground->mesh_ || !own || !base ||
-      glm::distance(glm::vec3(own->model_[3]), _viewer) > plant_distance)
+      glm::distance(glm::vec3(own->model_[3]), _viewer) >
+          settings.plant_distance)
     return;
   // Model space to the ground's, and back
   const glm::mat4 to_ground = glm::inverse(base->model_) * own->model_;
@@ -82,7 +89,8 @@ static void _Plant(ECS& ecs, Entity entity, AnimatorComponent& animator) {
     if (!ground->mesh_->Under(flat, hit))
       continue;
     const float reach =
-        0.5f * glm::length(glm::vec3(animator.pose_[leg.start][3]) - foot);
+        settings.plant_reach *
+        glm::length(glm::vec3(animator.pose_[leg.start][3]) - foot);
     rises[i] = std::clamp((to_model * glm::vec4(hit - flat, 0.0f)).y - standing,
                           -reach, reach);
     drop = std::min(drop, rises[i]);
@@ -134,11 +142,12 @@ void Update(ECS& ecs, float dt) {
     }
     // Far ones sample every few frames, each animator on frames of its own
     if (const auto* transform = ecs.Reg().try_get<TransformComponent>(entity)) {
+      const AnimatorSettings& settings = animator.settings_;
       const int step = std::clamp(
           static_cast<int>(glm::distance(glm::vec3(transform->model_[3]),
                                          _viewer) /
-                           full_rate_distance),
-          1, 8);
+                           std::max(settings.full_rate_distance, 1e-3f)),
+          1, std::max(settings.max_step, 1));
       if ((_frame + static_cast<uint32_t>(entity)) % step != 0)
         return;
     }

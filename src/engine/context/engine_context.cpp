@@ -36,6 +36,7 @@
 #include "engine/diagnostics/frame_stats.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/pcg_engine.h"
+#include "engine/pcg/procworld/herd_movement.h"
 #include "engine/renderer/graphics_renderer.h"
 #include "engine/renderer/shaders/shader_manager.h"
 #include "platform/input/input.h"
@@ -109,7 +110,8 @@ void NextFrame() {
 
   Time::Step(delta_time);
 
-  // Skinned models' poses, before anything draws them
+  // Creatures move, then skinned models' poses, before anything draws them
+  ProcWorld::HerdMovement::Update(ECS::Main(), Time::Deltaf());
   Animation::Update(ECS::Main(), Time::Deltaf());
 
   if (resource_manager_) {
