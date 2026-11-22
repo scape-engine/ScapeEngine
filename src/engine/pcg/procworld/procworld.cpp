@@ -297,11 +297,13 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
   const size_t creatures =
       RegionInstancer::InstanceHerds(ecs, region, content, volume, root_)
           .size();
-  const size_t built =
-      buildings ? RegionInstancer::InstanceBuildings(ecs, region, *buildings,
-                                                     volume, root_, nullptr)
-                      .size()
-                : 0;
+  size_t built = 0;
+  if (buildings) {
+    const auto pieces =
+        RegionInstancer::GatherBuildings(region, *buildings, root_);
+    RegionInstancer::InstanceBuildings(ecs, pieces, volume, root_, nullptr);
+    built = pieces.buildings;
+  }
   generator.build_ms = _Milliseconds(start);
 
   generator.vertex_count = region.mesh.size();
@@ -375,7 +377,7 @@ void Subsystem::Make(Entity volume, CraftGenerator& generator,
   if (!state.work.read.empty()) {
     const auto read = state.work.read.begin();
     if (read->second) {
-      read->second->GetGraph().UploadMeshes(craft_budget_ms);
+      read->second->GetGraph().UploadMeshes(frame_budget_ms);
       if (!read->second->GetGraph().Uploaded()) {
         generator.build_ms += _Milliseconds(start);
         return;
@@ -391,7 +393,7 @@ void Subsystem::Make(Entity volume, CraftGenerator& generator,
     return;
   }
   while (state.made < state.plans.size() &&
-         _Milliseconds(start) < craft_budget_ms) {
+         _Milliseconds(start) < frame_budget_ms) {
     const size_t at = state.made++;
     const Entity entity = CraftInstancer::Make(
         ecs, state.plans[at], state.work.instances[at], volume, root_);
@@ -589,7 +591,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       ++it;
       continue;
     }
-    const Worldgen::Region region = it->second.get();
+    const Worldgen::Region region = it->second.get().region;
     if (herd_cells.count(it->first)) {
       const Worldgen::PlanetCell cell = _CellOf(it->first);
       auto [entity, transform] = ecs.CreateEntity(
@@ -613,14 +615,18 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     return true;
   });
 
-  // Finished builds: instance the ones still wanted
+  // Finished builds: instance the ones still wanted, within the frame budget
+  const auto start = Clock::now();
   for (auto it = state.building.begin(); it != state.building.end();) {
+    if (_Milliseconds(start) >= frame_budget_ms)
+      break;
     if (it->second.wait_for(std::chrono::seconds(0)) !=
         std::future_status::ready) {
       ++it;
       continue;
     }
-    const Worldgen::Region region = it->second.get();
+    const RegionBuild build = it->second.get();
+    const Worldgen::Region& region = build.region;
     const Worldgen::PlanetCell cell = _CellOf(it->first);
     if (is_wanted.count(it->first)) {
       const Worldgen::RegionContent& content =
@@ -640,9 +646,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           RegionInstancer::Instance(ecs, region, content, entity,
                                     looks_[volume].material, root_,
                                     skirt_depth, &state.textures);
-      if (state.buildings && cell.level <= generator.building_level)
-        RegionInstancer::InstanceBuildings(ecs, region, *state.buildings,
-                                           entity, root_, &state.textures);
+      RegionInstancer::InstanceBuildings(ecs, build.pieces, entity, root_,
+                                         &state.textures);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
     }
     it = state.building.erase(it);
@@ -692,13 +697,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                              ? state.buildings
                                              : nullptr,
                              x = centre[0], y = centre[1], z = centre[2],
-                             level] {
-          Worldgen::Region region =
-              Worldgen::BuildRegion(*content, x, y, z, level);
+                             level, root = root_] {
+          RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
           if (buildings)
-            for (const Worldgen::RegionBuilding& b : region.buildings)
-              buildings->Structure(b.cls, b.seed);
-          return region;
+            build.pieces = RegionInstancer::GatherBuildings(build.region,
+                                                            *buildings, root);
+          return build;
         });
     started++;
   }
@@ -714,7 +718,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     state.herd_building[key] = std::async(
         std::launch::async, [content = state.herd_content, x = centre[0],
                              y = centre[1], z = centre[2], level = cell.level] {
-          return Worldgen::BuildRegion(*content, x, y, z, level);
+          return RegionBuild{Worldgen::BuildRegion(*content, x, y, z, level)};
         });
   }
 

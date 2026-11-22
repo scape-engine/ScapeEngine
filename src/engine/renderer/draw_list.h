@@ -14,12 +14,17 @@ class Mesh;
 
 // The frame's meshes, grouped for drawing: meshes sharing a mesh and a
 // material that has an instanced program are drawn once per pass, their model
-// matrices in an instance buffer; the rest are drawn one by one
+// matrices in an instance buffer, as is each InstancedMeshComponent part (from
+// the component's buffer); the rest are drawn one by one
 struct DrawList {
   struct Batch {
     const Mesh* mesh;
     MaterialHandle material;
     bgfx::InstanceDataBuffer instances;  // valid for the frame it was built
+    // Else an InstancedMeshComponent's buffer and the part's run of it
+    bgfx::VertexBufferHandle buffer = BGFX_INVALID_HANDLE;
+    uint32_t first = 0;
+    uint32_t count = 0;
   };
   struct Single {
     Entity entity;

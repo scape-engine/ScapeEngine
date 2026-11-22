@@ -4,6 +4,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "engine/context/engine_context.h"
+#include "engine/content/cache/material_cache.h"
+#include "engine/content/cache/mesh_cache.h"
+#include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/region_mesher.h"
@@ -138,31 +141,72 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
   return creatures;
 }
 
-std::vector<Entity> RegionInstancer::InstanceBuildings(
-    ECS& ecs, const Worldgen::Region& region, BuildingLibrary& library,
-    Entity source, const std::filesystem::path& root,
-    const Worldgen::TextureInput* planet) {
-  std::vector<Entity> buildings;
+RegionInstancer::BuildingPieces RegionInstancer::GatherBuildings(
+    const Worldgen::Region& region, BuildingLibrary& library,
+    const std::filesystem::path& root) {
+  BuildingPieces pieces;
   for (const Worldgen::RegionBuilding& building : region.buildings) {
-    const auto pieces = library.Structure(building.cls, building.seed);
-    if (pieces->empty())
+    const auto structure = library.Structure(building.cls, building.seed);
+    if (structure->empty())
       continue;
-    auto [entity, transform] =
-        ecs.CreateEntity("Building " + std::to_string(building.cls), source);
-    _SetTransform(transform, building.matrix);
-    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    pieces.buildings++;
+    const glm::mat4 place = glm::make_mat4(building.matrix.data());
     uint64_t seed = building.seed;
-    for (const Worldgen::BuildingPiece& piece : *pieces) {
-      const Entity part =
-          CreateObject(ecs, piece.model, entity, ++seed, root, planet);
-      if (part == entt::null)
+    for (const Worldgen::BuildingPiece& piece : *structure) {
+      // rows read as glm columns
+      const glm::mat4 matrix = place * glm::make_mat4(piece.matrix.data());
+      ++seed;
+      if (_StartsWith(piece.model, procmodel_prefix)) {
+        pieces.objects.push_back({piece.model, seed, matrix});
         continue;
-      _SetTransform(ecs.Get<TransformComponent>(part), piece.matrix);
-      ecs.Add<ProceduralInstanceComponent>(part, source);
+      }
+      auto [it, added] = pieces.models.try_emplace(piece.model);
+      it->second.push_back(matrix);
+      if (added && !_StartsWith(piece.model, primitive_prefix)) {
+        const std::string key = ModelEntityFactory::ModelKey(piece.model, root);
+        Content::MeshCache::Instance().Get(key);
+        Content::MaterialCache::Instance().Get(key);
+      }
     }
-    buildings.push_back(entity);
   }
-  return buildings;
+  return pieces;
+}
+
+std::vector<Entity> RegionInstancer::InstanceBuildings(
+    ECS& ecs, const BuildingPieces& pieces, Entity source,
+    const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
+  std::vector<Entity> entities;
+  if (!pieces.models.empty()) {
+    auto [entity, transform] = ecs.CreateEntity("Building pieces", source);
+    auto& set = ecs.Add<InstancedMeshComponent>(entity);
+    for (const auto& [model, matrices] : pieces.models) {
+      const uint32_t first = static_cast<uint32_t>(set.locals_.size());
+      set.locals_.insert(set.locals_.end(), matrices.begin(), matrices.end());
+      for (const auto& [mesh, material] :
+           ModelEntityFactory::Meshes(model, root)) {
+        InstancedMeshComponent::Part part;
+        part.mesh = mesh;
+        part.material = material;
+        part.first = first;
+        part.count = static_cast<uint32_t>(matrices.size());
+        set.parts_.push_back(part);
+      }
+    }
+    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    entities.push_back(entity);
+  }
+  for (const BuildingPieces::Object& object : pieces.objects) {
+    const Entity entity =
+        CreateObject(ecs, object.id, source, object.seed, root, planet);
+    if (entity == entt::null)
+      continue;
+    std::array<float, 16> rows;
+    std::memcpy(rows.data(), glm::value_ptr(object.matrix), sizeof(rows));
+    _SetTransform(ecs.Get<TransformComponent>(entity), rows);
+    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    entities.push_back(entity);
+  }
+  return entities;
 }
 
 }  // namespace ProcWorld

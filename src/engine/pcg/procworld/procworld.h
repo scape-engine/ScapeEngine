@@ -17,6 +17,7 @@
 #include "api/region.h"
 #include "engine/pcg/procworld/instancing/building_library.h"
 #include "engine/pcg/procworld/instancing/craft_instancer.h"
+#include "engine/pcg/procworld/instancing/region_instancer.h"
 
 namespace ProcWorld {
 
@@ -52,18 +53,23 @@ private:
     Entity entity = entt::null;
     std::unique_ptr<Mesh> terrain_mesh;
   };
+  // A region built on a worker, with its buildings' pieces
+  struct RegionBuild {
+    Worldgen::Region region;
+    RegionInstancer::BuildingPieces pieces;
+  };
   struct PlanetState {
     // Shared with the jobs building from it, so a reload leaves them intact
     std::shared_ptr<const Worldgen::RegionContent> content;
     std::shared_ptr<const Worldgen::RegionContent> bare_content;  // no objects
     std::unordered_map<uint64_t, LoadedRegion> regions;  // by cell key
-    std::unordered_map<uint64_t, std::future<Worldgen::Region>> building;
+    std::unordered_map<uint64_t, std::future<RegionBuild>> building;
     // Herds come from regions of the herd level, apart from the terrain
     // (whose level changes under them): their content has no objects, the
     // terrain's no herds
     std::shared_ptr<const Worldgen::RegionContent> herd_content;
     std::unordered_map<uint64_t, Entity> herds;  // by cell key
-    std::unordered_map<uint64_t, std::future<Worldgen::Region>> herd_building;
+    std::unordered_map<uint64_t, std::future<RegionBuild>> herd_building;
     // The planet's tile colours (sRGB); alpha 0: the look's colour
     std::array<glm::vec4, TerrainMaterialData::tile_count> tile_colours{};
     // The planet's seed and palettes, for the models' procedural textures
@@ -88,8 +94,9 @@ private:
     CraftWork work;
     size_t made = 0;
   };
-  // Main-thread time a frame spends making craft
-  static constexpr float craft_budget_ms = 2.0f;
+  // Main-thread time a frame spends making a volume's entities (craft, a
+  // planet's finished regions)
+  static constexpr float frame_budget_ms = 2.0f;
 
   void Build(Entity volume, RegionGenerator& generator);
   void Build(Entity volume, CraftGenerator& generator);
@@ -115,7 +122,7 @@ private:
   std::unordered_map<Entity, PlanetState> planets_;
   // Builds no longer wanted, kept until they finish (a future from
   // std::async blocks when destroyed)
-  std::vector<std::future<Worldgen::Region>> discarded_;
+  std::vector<std::future<RegionBuild>> discarded_;
   std::unordered_map<Entity, CraftState> crafts_;
   std::vector<std::future<CraftWork>> discarded_craft_;
   std::unordered_map<Entity, TerrainLook> looks_;

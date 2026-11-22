@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cstring>
 #include <unordered_map>
 
 #include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/renderer/graphics_renderer.h"
 #include "engine/renderer/model/mesh.h"
 
@@ -30,6 +32,10 @@ struct BatchKeyHash {
 
 constexpr uint16_t instance_stride = sizeof(glm::mat4);
 
+// Instanced meshes smaller than this share of the view's height are not drawn
+// TODO: mesh LODs, so distant instances thin out instead of popping
+constexpr float min_screen_size = 0.01f;
+
 // The frustum's planes (inside where dot(xyz, p) + w >= 0). The near plane
 // takes depth from -1, so it holds for 0..1 and -1..1 projections alike (a
 // little loose for 0..1)
@@ -50,6 +56,60 @@ bool InFrustum(const std::array<glm::vec4, 6>& planes, const glm::vec3& center,
   return true;
 }
 
+// Whether a sphere of this size anywhere in a bigger one projects under
+// min_screen_size: the projection's y scale over the depth (w) of the bigger
+// sphere's nearest point. An orthographic w is 1 everywhere
+bool TooSmall(const glm::mat4& view_projection, const glm::vec3& center,
+              float radius, float size) {
+  const glm::mat4 t = glm::transpose(view_projection);
+  const float w = glm::dot(t[3], glm::vec4(center, 1.0f)) -
+                  radius * glm::length(glm::vec3(t[3]));
+  return w > 0.0f &&
+         size * glm::length(glm::vec3(t[1])) < min_screen_size * w;
+}
+
+// An instanced mesh's world matrices, its parts' bounds and its buffer from
+// the entity's model matrix
+void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
+  static bgfx::VertexLayout layout;
+  if (layout.getStride() == 0)
+    layout.begin()
+        .add(bgfx::Attrib::TexCoord4, 4, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float)
+        .end();
+  set.model_ = model;
+  set.worlds_.resize(set.locals_.size());
+  for (size_t i = 0; i < set.locals_.size(); ++i)
+    set.worlds_[i] = model * set.locals_[i];
+  for (InstancedMeshComponent::Part& part : set.parts_) {
+    glm::vec3 low(FLT_MAX), high(-FLT_MAX);
+    float reach = 0.0f;
+    for (uint32_t i = part.first; i < part.first + part.count; ++i) {
+      const glm::mat4& world = set.worlds_[i];
+      const glm::vec3 center =
+          world * glm::vec4(part.mesh->BoundsCenter(), 1.0f);
+      low = glm::min(low, center);
+      high = glm::max(high, center);
+      reach = glm::max(
+          reach,
+          part.mesh->BoundsRadius() *
+              glm::sqrt(glm::max(glm::max(glm::dot(world[0], world[0]),
+                                          glm::dot(world[1], world[1])),
+                                 glm::dot(world[2], world[2]))));
+    }
+    part.center = (low + high) * 0.5f;
+    part.radius = glm::length(high - low) * 0.5f + reach;
+    part.reach = reach;
+  }
+  set.buffer_ = InstancedMeshComponent::Buffer();
+  set.buffer_.handle = bgfx::createVertexBuffer(
+      bgfx::copy(set.worlds_.data(),
+                 static_cast<uint32_t>(set.worlds_.size() * sizeof(glm::mat4))),
+      layout);
+}
+
 }  // namespace
 
 void DrawList::Build(std::initializer_list<Frustum> frusta,
@@ -63,6 +123,7 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
   struct Fill {
     DrawList* list;
     std::array<glm::vec4, 6> planes;
+    glm::mat4 view_projection;
     std::vector<Group> groups;
     std::unordered_map<BatchKey, size_t, BatchKeyHash> group_of;
   };
@@ -70,7 +131,8 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
   for (const Frustum& frustum : frusta) {
     frustum.list->batches.clear();
     frustum.list->singles.clear();
-    fills.push_back({frustum.list, FrustumPlanes(frustum.view_projection)});
+    fills.push_back({frustum.list, FrustumPlanes(frustum.view_projection),
+                     frustum.view_projection});
   }
 
   for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
@@ -119,6 +181,40 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
     }
   }
 
+  // Instanced meshes: one cull and one draw for all of a part's instances
+  // (one by one without an instanced program)
+  for (auto [entity, transform, set] :
+       ECS::Main().View<TransformComponent, InstancedMeshComponent>().each()) {
+    if (!set.enabled_ || set.locals_.empty())
+      continue;
+    if (set.model_ != transform.model_ ||
+        set.worlds_.size() != set.locals_.size())
+      Upload(set, transform.model_);
+    for (const InstancedMeshComponent::Part& part : set.parts_) {
+      if (!part.mesh || part.count == 0)
+        continue;
+      const Material* material = registry.Get(part.material);
+      const bool batched = instanced && material &&
+                           bgfx::isValid(material->instanced_program) &&
+                           bgfx::isValid(set.buffer_.handle);
+      for (Fill& fill : fills) {
+        if (!InFrustum(fill.planes, part.center, part.radius) ||
+            TooSmall(fill.view_projection, part.center, part.radius,
+                     part.reach))
+          continue;
+        if (batched) {
+          fill.list->batches.push_back({part.mesh, part.material, {},
+                                        set.buffer_.handle, part.first,
+                                        part.count});
+          continue;
+        }
+        for (uint32_t i = part.first; i < part.first + part.count; ++i)
+          fill.list->singles.push_back(
+              {entity, &set.worlds_[i], part.mesh, part.material, nullptr, 0});
+      }
+    }
+  }
+
   // Each shared group's matrices into an instance buffer; lone meshes and what
   // the frame's buffer can't hold draw one by one
   for (Fill& fill : fills) {
@@ -143,7 +239,10 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
 }
 
 void DrawList::Bind(const Batch& batch) {
-  bgfx::setInstanceDataBuffer(&batch.instances);
+  if (bgfx::isValid(batch.buffer))
+    bgfx::setInstanceDataBuffer(batch.buffer, batch.first, batch.count);
+  else
+    bgfx::setInstanceDataBuffer(&batch.instances);
   batch.mesh->Bind();
 }
 

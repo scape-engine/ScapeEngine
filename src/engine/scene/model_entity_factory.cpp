@@ -17,7 +17,7 @@ static constexpr const char* primitive_prefix = "primitive:";
 // swapped often
 static const Model* _LoadModel(const std::filesystem::path& path) {
   static std::unordered_map<std::string, std::shared_ptr<Model>> cache;
-  const std::string key = path.lexically_normal().string();
+  const std::string key = path.lexically_normal().string();  // ModelKey
   if (auto it = cache.find(key); it != cache.end())
     return it->second.get();
 
@@ -113,6 +113,28 @@ Entity ModelEntityFactory::InstanceModel(ECS& ecs, const std::string& source,
       renderer.animator_ = entity;
   }
   return entity;
+}
+
+std::vector<std::pair<const Mesh*, MaterialHandle>> ModelEntityFactory::Meshes(
+    const std::string& source, const std::filesystem::path& root) {
+  std::vector<std::pair<const Mesh*, MaterialHandle>> meshes;
+  MeshRendererComponent renderer;
+  renderer.source_ = source;
+  const Model* model = source.rfind(primitive_prefix, 0) == 0
+                           ? nullptr
+                           : _LoadModel(root / source);
+  const uint32_t count = model ? model->NLoadedMeshes() : 1;
+  for (uint32_t i = 0; i < count; ++i) {
+    renderer.mesh_index_ = i;
+    if (_Bind(renderer, root))
+      meshes.emplace_back(renderer.mesh_, renderer.material_);
+  }
+  return meshes;
+}
+
+std::string ModelEntityFactory::ModelKey(const std::string& source,
+                                         const std::filesystem::path& root) {
+  return (root / source).lexically_normal().string();
 }
 
 void ModelEntityFactory::AttachPrimitive(ECS& ecs, Entity entity,

@@ -9,8 +9,13 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "engine/ecs/world.h"
+#include "engine/renderer/material/material_registry.h"
+
+class Mesh;
 
 class ModelEntityFactory {
 public:
@@ -22,6 +27,16 @@ public:
   // Adds a mesh renderer with a primitive shape ("cube", "sphere", ...)
   static void AttachPrimitive(ECS& ecs, Entity entity,
                               const std::string& shape);
+
+  // A source's meshes with their materials, loading the model on first use;
+  // none if it can't be loaded
+  static std::vector<std::pair<const Mesh*, MaterialHandle>> Meshes(
+      const std::string& source, const std::filesystem::path& root);
+
+  // The cache key of a model source (its normalised path under the root):
+  // MeshCache and MaterialCache entries read under it serve its first load
+  static std::string ModelKey(const std::string& source,
+                              const std::filesystem::path& root);
 
   // Resolves the mesh and material of every mesh renderer that has a source
   // but no mesh

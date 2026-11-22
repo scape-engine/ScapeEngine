@@ -1,8 +1,11 @@
 #ifndef REGION_INSTANCER_H
 #define REGION_INSTANCER_H
 
+#include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "engine/ecs/world.h"
@@ -45,11 +48,31 @@ public:
       const std::filesystem::path& root,
       const Worldgen::TextureInput* planet = nullptr);
 
-  // One entity per building of the region, as children of the source, with
-  // its structure's pieces (sources as above) as its children
+  // A region's building pieces by source, as matrices in the region
+  struct BuildingPieces {
+    std::map<std::string, std::vector<glm::mat4>> models;  // and primitives
+    struct Object {
+      std::string id;
+      uint64_t seed;
+      glm::mat4 matrix;
+    };
+    std::vector<Object> objects;  // procmodels: their seeds pick their parts
+    size_t buildings = 0;
+  };
+
+  // The region's buildings' pieces (sources as above). Any thread: it also
+  // reads their models' data, so instancing them only uploads
+  static BuildingPieces GatherBuildings(const Worldgen::Region& region,
+                                        BuildingLibrary& library,
+                                        const std::filesystem::path& root);
+
+  // The pieces as children of the source: one entity whose
+  // InstancedMeshComponent draws every model piece, a part per model mesh; one
+  // entity per procmodel piece
+  // TODO: instance procmodel pieces too
   static std::vector<Entity> InstanceBuildings(
-      ECS& ecs, const Worldgen::Region& region, BuildingLibrary& library,
-      Entity source, const std::filesystem::path& root,
+      ECS& ecs, const BuildingPieces& pieces, Entity source,
+      const std::filesystem::path& root,
       const Worldgen::TextureInput* planet = nullptr);
 
   // One instance of a source (as above, the seed picks a procmodel's parts),
