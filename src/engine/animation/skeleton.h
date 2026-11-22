@@ -37,22 +37,38 @@ struct AnimationClip {
   std::vector<Channel> channels;
 };
 
-// What an animated model brings: its skeleton and clips, and both as ozz
-// samples them (BuildRuntime)
+// A leg as foot planting bends it: the foot (`end`) and the two joints
+// above it, nodes of the skeleton
+struct Leg {
+  int start = -1, mid = -1, end = -1;
+};
+
+// What an animated model brings: its skeleton, clips and legs (FindLegs),
+// and the skeleton and clips as ozz samples them (BuildRuntime)
 struct SkeletalData {
   Skeleton skeleton;
   std::vector<AnimationClip> clips;
+  std::vector<Leg> legs;
 
-  // Shared by copies; a clip that could not be built is null (bind pose)
+  // Shared by copies; a clip that could not be built is null (bind pose).
+  // The ozz skeleton holds the posed nodes only: each joint's node, and each
+  // node's joint (-1: nothing follows it, so it keeps its bind transform)
   std::shared_ptr<const ozz::animation::Skeleton> runtime_skeleton;
   std::vector<std::shared_ptr<const ozz::animation::Animation>> runtime_clips;
+  std::vector<int> runtime_nodes, runtime_joints;
 
   bool Empty() const { return skeleton.names.empty(); }
 };
 
-// Builds the ozz skeleton and clips from `skeleton` and `clips`; false (and
-// none) when the tree does not fit ozz (over its joint limit)
-bool BuildRuntime(SkeletalData& data);
+// Builds the ozz skeleton and clips from `skeleton` and `clips`, over the
+// nodes meshes follow (`posed`; none: every node) and their ancestors; false
+// (and none) when they do not fit ozz (over its joint limit)
+bool BuildRuntime(SkeletalData& data, const std::vector<int>& posed = {});
+
+// The legs among `bones` (the skinned meshes' joints) in the bind pose: the
+// lowest tenth of the bones' height holds the feet, each the highest bone
+// there along its chain, with its parent and grandparent bones above it
+void FindLegs(SkeletalData& data, const std::vector<int>& bones);
 
 // A clip's sampling point in [0, 1] at `time` (looped, else held at its ends)
 float ClipRatio(const AnimationClip& clip, float time, bool loop);
@@ -75,6 +91,12 @@ class PoseSampler {
   // or all out of range: the bind pose)
   void Sample(const SkeletalData& data, const std::vector<Layer>& layers,
               std::vector<glm::mat4>& globals);
+
+  // After Sample: moves the whole pose by `shift`, then bends each leg so
+  // its foot moves by `lifts[leg]` on top (model space, one per data.legs)
+  void Plant(const SkeletalData& data, const glm::vec3& shift,
+             const std::vector<glm::vec3>& lifts,
+             std::vector<glm::mat4>& globals);
 
  private:
   struct Buffers;

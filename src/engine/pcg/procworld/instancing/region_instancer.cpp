@@ -6,6 +6,8 @@
 #include "engine/context/engine_context.h"
 #include "engine/content/cache/material_cache.h"
 #include "engine/content/cache/mesh_cache.h"
+#include "engine/ecs/components/animator_component.h"
+#include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/pcg/pcg_engine.h"
@@ -110,6 +112,23 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     const Worldgen::RegionContent& content, Entity source,
     const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
   std::vector<Entity> creatures;
+  // The region's terrain as ground for the creatures' feet, in the source's
+  // space (region-local, as the herd matrices); up is away from the planet's
+  // centre
+  std::shared_ptr<const GroundMesh> ground;
+  if (!region.herds.empty() && !region.mesh.empty()) {
+    std::vector<glm::vec3> triangles(region.mesh.size());
+    glm::vec3 normal;
+    for (size_t i = 0; i < region.mesh.size(); ++i)
+      Worldgen::Polygonizer::DecodeVertex(region.mesh[i],
+                                          glm::value_ptr(triangles[i]),
+                                          glm::value_ptr(normal));
+    const glm::vec3 up(region.origin[0], region.origin[1], region.origin[2]);
+    ground = std::make_shared<GroundMesh>(
+        std::move(triangles),
+        glm::dot(up, up) > 0.0f ? up : glm::vec3(0, 1, 0));
+    ecs.Reg().emplace_or_replace<GroundComponent>(source, ground);
+  }
   // Every creature of a species on a planet is the same model: the species'
   // seed, else one per model id and planet; the matrices hold their scale.
   // Skinned models animate (ModelInstantiator)
@@ -135,6 +154,9 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
         break;  // the source is missing: skip the rest of this kind
       _SetTransform(ecs.Get<TransformComponent>(entity), rows);
       ecs.Add<ProceduralInstanceComponent>(entity, source);
+      if (auto* animator = ecs.Reg().try_get<AnimatorComponent>(entity);
+          animator && ground)
+        animator->ground_ = source;
       creatures.push_back(entity);
     }
   }

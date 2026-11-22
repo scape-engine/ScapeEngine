@@ -1,11 +1,14 @@
 #ifndef ANIMATOR_COMPONENT_H
 #define ANIMATOR_COMPONENT_H
 
+#include <entt/entt.hpp>
 #include <glm/glm.hpp>
 #include <memory>
 #include <vector>
 
 #include "engine/animation/skeleton.h"
+
+using Entity = entt::entity;
 
 /* ──────────────────────────────── ANIMATOR ─────────────────────────────── */
 
@@ -28,6 +31,9 @@ struct AnimatorComponent {
   float fade_clip_time_{0.0f};
   float fade_length_{0.0f};
   float fade_elapsed_{0.0f};
+
+  // The entity whose GroundComponent its feet stand on (none: as animated)
+  Entity ground_{entt::null};
 
   // Its sampling buffers, and each skeleton node's model-space transform
   std::shared_ptr<PoseSampler> sampler_;

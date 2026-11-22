@@ -28,6 +28,7 @@ add_files(
 	-- GEOMETRY FILES -------
 	"geometry/meshing/*.cpp",
 	"geometry/projection/*.cpp",
+	"geometry/ground/*.cpp",
 
 	-- renderer files
 	"renderer/*.cpp",

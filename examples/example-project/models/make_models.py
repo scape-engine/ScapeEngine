@@ -261,7 +261,9 @@ def creature(path):
             ("BL", 1, (-0.5, 0.85, 0.2)), ("BR", 1, (-0.5, 0.85, -0.2))]
     for name, parent, (x, y, z) in legs:
         joints.append(("HIP_" + name, parent, (x, y, z)))
-        joints.append(("KNEE_" + name, len(joints) - 1, (x, 0.45, z)))
+        # knees a little bent (front ones forward, hind ones back), so a leg has a bend to fold along
+        joints.append(("KNEE_" + name, len(joints) - 1, (x + (0.05 if x > 0 else -0.05), 0.45, z)))
+        joints.append(("FOOT_" + name, len(joints) - 1, (x, 0.05, z)))
     at = {name: k for k, (name, _, _) in enumerate(joints)}
     nodes = []
     for name, parent, p in joints:
@@ -284,7 +286,7 @@ def creature(path):
         head = moved(stretched(blob(1, (0, 0, 0), 1, 0.08, rng), size), (1.1, 1.3, 0))
         mesh = joined([tube(neck, [r * 1.3, r * 1.1, r]), head])
         part(name, mesh, lambda p: blend(at["NECK"], at["HEAD"], (p[0] - 0.8) / 0.2))
-    # legs: hip to foot, bending at the knee
+    # legs: hip to foot, bending at the knee; the hoof follows the foot joint (where foot planting puts it)
     for name, r0, r1 in (("LEGS_A", 0.1, 0.05), ("LEGS_B", 0.14, 0.09)):
         meshes = []
         for leg, _, (x, y, z) in legs:
@@ -293,6 +295,8 @@ def creature(path):
 
         def weigh(p):
             leg = ("F" if p[0] > 0 else "B") + ("L" if p[2] > 0 else "R")
+            if p[1] < 0.35:
+                return blend(at["KNEE_" + leg], at["FOOT_" + leg], (0.12 - p[1]) / 0.1)
             return blend(at["HIP_" + leg], at["KNEE_" + leg], (0.55 - p[1]) / 0.2)
         part(name, joined(meshes), weigh)
     # tails: TAIL1 at the root, TAIL2 towards the tip

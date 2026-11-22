@@ -1,5 +1,7 @@
 #include "mesh_loader.h"
 
+#include <algorithm>
+
 #include <assimp/DefaultIOSystem.h>
 #include <assimp/config.h>
 #include <assimp/postprocess.h>
@@ -136,6 +138,26 @@ bool HasBones(const aiScene* scene) {
   return false;
 }
 
+// The skeleton nodes the meshes follow (their bones, or a rigid mesh's node)
+std::vector<int> PosedNodes(const std::vector<Geometry::MeshData>& meshes) {
+  std::vector<int> nodes;
+  for (const Geometry::MeshData& mesh : meshes)
+    nodes.insert(nodes.end(), mesh.bone_nodes.begin(), mesh.bone_nodes.end());
+  return nodes;
+}
+
+// The skeleton nodes the meshes' bones name
+std::vector<int> BoneNodes(const aiScene* scene, const Skeleton& skeleton) {
+  std::vector<int> nodes;
+  for (unsigned int i = 0; i < scene->mNumMeshes; ++i)
+    for (unsigned int b = 0; b < scene->mMeshes[i]->mNumBones; ++b)
+      nodes.push_back(
+          skeleton.Find(scene->mMeshes[i]->mBones[b]->mName.C_Str()));
+  std::sort(nodes.begin(), nodes.end());
+  nodes.erase(std::unique(nodes.begin(), nodes.end()), nodes.end());
+  return nodes;
+}
+
 // An animated model's meshes, flat, all in model space and all skinned: a
 // mesh without bones follows its own node rigidly. `index` counts nodes in
 // the order AddNodes adds them
@@ -262,10 +284,11 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path,
     for (unsigned int i = 0; i < scene->mNumAnimations; ++i)
       skeletal->clips.push_back(
           ConvertAnimation(scene->mAnimations[i], skeletal->skeleton));
-    if (!BuildRuntime(*skeletal))
+    if (!BuildRuntime(*skeletal, PosedNodes(mesh_data)))
       Logger::getInstance().Log(LogLevel::Warning,
                                 "[MeshLoader] Too many nodes to animate: " +
                                     path);
+    FindLegs(*skeletal, BoneNodes(scene, skeletal->skeleton));
   } else {
     ProcessNode(scene->mRootNode, scene, mesh_data);
   }
@@ -306,9 +329,10 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
     data.skeletal.clips.push_back(
         ConvertAnimation(scene->mAnimations[i], data.skeletal.skeleton));
   if ((!data.skeletal.clips.empty() || HasBones(scene)) &&
-      !BuildRuntime(data.skeletal))
+      !BuildRuntime(data.skeletal, PosedNodes(data.mesh_data)))
     Logger::getInstance().Log(
         LogLevel::Warning, "[MeshLoader] Too many nodes to animate: " + path);
+  FindLegs(data.skeletal, BoneNodes(scene, data.skeletal.skeleton));
   // The meshes' material indices index these
   data.materials = MaterialLoader::LoadFromScene(path);
 

@@ -35,6 +35,7 @@
 
 #include "resources/decorators/drop_shadows.h"
 
+#include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
@@ -685,6 +686,8 @@ void EditorUI::UpdateMovement() {
   // Planets load their regions around the scene view camera
   // TODO: the game camera while playing
   EngineContext::PCG().GetProcWorld().SetViewer(CameraTransform.position_);
+  // and creatures near it plant their feet
+  Animation::SetViewer(CameraTransform.position_);
 }
 
 ImGuiID EditorUI::GenerateId() {

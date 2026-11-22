@@ -17,6 +17,13 @@ AnimatorComponent* AddAnimator(ECS& ecs, Entity entity,
 // out over `fade` seconds (0: at once). The clip it already plays: no change
 void Play(AnimatorComponent& animator, int clip, float fade = 0.0f);
 
+// Where the scene is viewed from: only animators within `plant_distance` of
+// it plant their feet, and past `full_rate_distance` poses are sampled every
+// few frames (one more per that distance, up to every 8th)
+void SetViewer(const glm::vec3& position);
+inline constexpr float plant_distance = 60.0f;
+inline constexpr float full_rate_distance = 20.0f;
+
 // Advances every playing animator by `dt` seconds and samples its pose
 void Update(ECS& ecs, float dt);
 

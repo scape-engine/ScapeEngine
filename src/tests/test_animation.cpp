@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "engine/animation/skeleton.h"
+#include "engine/geometry/ground/ground_mesh.h"
 #include "engine/content/loaders/mesh_loader.h"
 
 namespace Tests {
@@ -56,6 +57,47 @@ static void TestSamplePose() {
   assert(Near(child(), half));
 }
 
+// A slope y = x / 2 as two triangles: the ground under points on it, above
+// and below it, none past its edge
+static void TestGroundMesh() {
+  const GroundMesh ground({{-2, -1, -2}, {2, 1, -2}, {2, 1, 2},
+                           {-2, -1, -2}, {2, 1, 2}, {-2, -1, 2}},
+                          glm::vec3(0, 1, 0));
+  glm::vec3 hit;
+  assert(ground.Under(glm::vec3(1, 5, 0.5f), hit) &&
+         Near(hit, glm::vec3(1, 0.5f, 0.5f)));
+  assert(ground.Under(glm::vec3(-1, -3, 0), hit) &&
+         Near(hit, glm::vec3(-1, -0.5f, 0)));
+  assert(!ground.Under(glm::vec3(3, 0, 0), hit));
+}
+
+// A leg under a root: hip, a knee bent forward and the foot on the ground.
+// Found among the bones, then planted: the foot lifted, and the body dropped
+// with the foot kept where it stood
+static void TestPlantLeg() {
+  SkeletalData data;
+  data.skeleton.names = {"root", "hip", "knee", "foot"};
+  data.skeleton.parents = {-1, 0, 1, 2};
+  data.skeleton.locals = {
+      glm::translate(glm::mat4(1.0f), glm::vec3(0, 1, 0)), glm::mat4(1.0f),
+      glm::translate(glm::mat4(1.0f), glm::vec3(0.1f, -0.5f, 0)),
+      glm::translate(glm::mat4(1.0f), glm::vec3(-0.1f, -0.5f, 0))};
+  assert(BuildRuntime(data));
+  FindLegs(data, {1, 2, 3});
+  assert(data.legs.size() == 1 && data.legs[0].start == 1 &&
+         data.legs[0].mid == 2 && data.legs[0].end == 3);
+
+  std::vector<glm::mat4> pose;
+  PoseSampler sampler;
+  const auto at = [&](int node) { return glm::vec3(pose[node][3]); };
+  sampler.Sample(data, {}, pose);
+  sampler.Plant(data, glm::vec3(0.0f), {glm::vec3(0, 0.2f, 0)}, pose);
+  assert(Near(at(3), glm::vec3(0, 0.2f, 0)) && Near(at(1), glm::vec3(0, 1, 0)));
+  sampler.Sample(data, {}, pose);
+  sampler.Plant(data, glm::vec3(0, -0.1f, 0), {glm::vec3(0, 0.1f, 0)}, pose);
+  assert(Near(at(3), glm::vec3(0)) && Near(at(1), glm::vec3(0, 0.9f, 0)));
+}
+
 // An animated glb on the plain model path keeps its skeleton and clips, and
 // every mesh comes skinned to it
 static void TestAnimatedModel() {
@@ -82,6 +124,8 @@ static void TestAnimatedModel() {
 
 void TestAnimation() {
   TestSamplePose();
+  TestGroundMesh();
+  TestPlantLeg();
   TestAnimatedModel();
   std::cout << "Animation: OK" << std::endl;
 }
