@@ -301,14 +301,23 @@ def creature(path):
     for name, mesh in (("TAIL_A", tube(tail, [0.06, 0.04, 0.02], 6)),
                        ("TAIL_B", joined([tube(tail[:2], [0.07, 0.05], 6), tuft]))):
         part(name, mesh, lambda p: blend(at["TAIL1"], at["TAIL2"], (-0.8 - p[0]) / 0.2))
-    # idle: grazing (the neck down, the head nodding), the tail swishing, the spine breathing
+    # idle: grazing (the neck down, the head nodding), the tail swishing, the spine breathing, a front leg
+    # stepping forward to graze and back, a hind leg shuffling and the weight shifting between the sides.
+    # +z swings a foot forward (+x); front knees fold back (-z), hind knees forward (+z)
     times = [0.0, 0.8, 1.6, 2.4, 3.2, 4.0]
+    about_x = lambda deg: axis_quat((1, 0, 0), deg)
     about_z = lambda deg: axis_quat((0, 0, 1), deg)
     about_y = lambda deg: axis_quat((0, 1, 0), deg)
     g.animation("idle", times, {
         nodes[at["NECK"]]: [about_z(a) for a in (0, -35, -55, -55, -20, 0)],
         nodes[at["HEAD"]]: [about_z(a) for a in (0, -10, 10, -5, 5, 0)],
         nodes[at["SPINE"]]: [about_z(a) for a in (0, 2, 0, 2, 0, 0)],
+        nodes[at["HIPS"]]: [about_x(a) for a in (0, 3, 3, -3, -3, 0)],
+        nodes[at["HIP_FL"]]: [about_z(a) for a in (0, 35, 18, 30, 0, 0)],
+        nodes[at["KNEE_FL"]]: [about_z(a) for a in (0, -75, 0, -80, 0, 0)],
+        nodes[at["HIP_FR"]]: [about_z(a) for a in (0, -5, -5, 0, 0, 0)],
+        nodes[at["HIP_BR"]]: [about_z(a) for a in (0, 0, 0, -25, 8, 0)],
+        nodes[at["KNEE_BR"]]: [about_z(a) for a in (0, 0, 0, 60, 0, 0)],
         nodes[at["TAIL1"]]: [about_y(a) for a in (0, 30, -30, 30, -30, 0)],
         nodes[at["TAIL2"]]: [about_y(a) for a in (0, 25, -25, 25, -25, 0)],
     })
