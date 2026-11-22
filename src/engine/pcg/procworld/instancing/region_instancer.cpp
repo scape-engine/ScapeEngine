@@ -18,10 +18,10 @@ static bool _StartsWith(const std::string& text, const char* prefix) {
   return text.rfind(prefix, 0) == 0;
 }
 
-// One instance of an object; entt::null if its source can't be made
-static Entity _CreateObject(ECS& ecs, const std::string& id, Entity source,
-                            uint64_t seed, const std::filesystem::path& root,
-                            const Worldgen::TextureInput* planet) {
+Entity RegionInstancer::CreateObject(ECS& ecs, const std::string& id,
+                                     Entity source, uint64_t seed,
+                                     const std::filesystem::path& root,
+                                     const Worldgen::TextureInput* planet) {
   if (_StartsWith(id, primitive_prefix)) {
     auto [entity, transform] = ecs.CreateEntity(id, source);
     ModelEntityFactory::AttachPrimitive(
@@ -91,7 +91,7 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
   for (const Worldgen::ObjectInstances& instances : region.objects) {
     const std::string& id = content.objects[instances.object].id;
     for (const std::array<float, 16>& matrix : instances.matrices) {
-      const Entity entity = _CreateObject(ecs, id, source, ++seed, root, planet);
+      const Entity entity = CreateObject(ecs, id, source, ++seed, root, planet);
       if (entity == entt::null)
         break;  // the source is missing: skip the rest of this kind
       _SetTransform(ecs.Get<TransformComponent>(entity), matrix);
@@ -127,7 +127,7 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
           rows[row * 4 + k] = matrices[at + row * 3 + k];
       rows[15] = 1.0f;
       const Entity entity =
-          _CreateObject(ecs, id, source, kind_seed, root, planet);
+          CreateObject(ecs, id, source, kind_seed, root, planet);
       if (entity == entt::null)
         break;  // the source is missing: skip the rest of this kind
       _SetTransform(ecs.Get<TransformComponent>(entity), rows);
@@ -154,7 +154,7 @@ std::vector<Entity> RegionInstancer::InstanceBuildings(
     uint64_t seed = building.seed;
     for (const Worldgen::BuildingPiece& piece : *pieces) {
       const Entity part =
-          _CreateObject(ecs, piece.model, entity, ++seed, root, planet);
+          CreateObject(ecs, piece.model, entity, ++seed, root, planet);
       if (part == entt::null)
         continue;
       _SetTransform(ecs.Get<TransformComponent>(part), piece.matrix);

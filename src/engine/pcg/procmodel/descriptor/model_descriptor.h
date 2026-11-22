@@ -17,6 +17,9 @@ struct PartDescriptor {
   std::string id;
   std::string name;
   float weight;
+  // Parts sharing a key are placed once per model: a group offering a key
+  // already placed is skipped. Empty: none
+  std::string key;
 };
 
 struct LocatorOperation {
@@ -29,6 +32,11 @@ struct SelectionGroup {
   std::vector<PartDescriptor> parts;
   bool required = true;
   std::vector<std::string> parent;  // Empty = root group
+
+  // Under a part, the groups of one list are picked together from one seed;
+  // its lists are picked in order, each from its own seed (root groups are
+  // one list)
+  int list = 0;
 
   // transform nodes; if unset = variant-only
   std::optional<std::vector<std::string>> locators;

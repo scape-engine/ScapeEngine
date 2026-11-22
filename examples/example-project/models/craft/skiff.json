@@ -1,0 +1,24 @@
+{
+  "model_id": "skiff",
+  "domain": "craft",
+  "path": "skiff.glb",
+  "max_depth": 2,
+  "selection_groups": [
+    {
+      "group_id": "hull",
+      "parts": [{ "id": "SKIFF_HULL_A", "weight": 1.0 }, { "id": "SKIFF_HULL_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "fins_a",
+      "parent": ["SKIFF_HULL_A"],
+      "locators": ["SKIFF_HULL_A_L1", "SKIFF_HULL_A_L2", "SKIFF_HULL_A_L3"],
+      "parts": [{ "id": "FIN_A", "weight": 1.0 }, { "id": "FIN_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "fins_b",
+      "parent": ["SKIFF_HULL_B"],
+      "locators": ["SKIFF_HULL_B_L1", "SKIFF_HULL_B_L2", "SKIFF_HULL_B_L3"],
+      "parts": [{ "id": "FIN_A", "weight": 1.0 }, { "id": "FIN_B", "weight": 1.0 }]
+    }
+  ]
+}

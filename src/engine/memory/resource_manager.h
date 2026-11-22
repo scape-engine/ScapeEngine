@@ -49,6 +49,19 @@ public:
     return std::make_pair(id, std::static_pointer_cast<T>(resource));
   }
 
+  // Add a resource built elsewhere (e.g. read on a worker thread)
+  template <typename T>
+  ResourceID Add(const std::string& name, ResourceRef<T> resource) {
+    static_assert(std::is_base_of<Resource, T>::value,
+                  "Type must inherit from Resource");
+
+    ResourceID id = ++id_counter_;
+    resource->resource_id_ = id;
+    resource->resource_name_ = name;
+    resources_.emplace(id, std::move(resource));
+    return id;
+  }
+
   // Get resource by ID
   ResourceRef<Resource> GetResource(ResourceID id) {
     auto it = resources_.find(id);

@@ -10,6 +10,7 @@
 #include "engine/ecs/world.h"
 #include "engine/memory/resource.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/procworld/craft_generator.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
 
@@ -115,6 +116,9 @@ void PCGGraphEditorPanel::Render() {
     if (resource &&
         resource->GetGeneratorType() == PCG::GeneratorType::Planet)
       DrawPlanetProperties();
+    else if (resource &&
+             resource->GetGeneratorType() == PCG::GeneratorType::Craft)
+      DrawCraftProperties();
     else
       DrawRegionProperties();
     ImGui::End();
@@ -223,6 +227,51 @@ void PCGGraphEditorPanel::DrawRegionProperties() {
   else
     ImGui::Text("%zu vertices, %zu objects, %.1f ms", region.vertex_count,
                 region.instance_count, region.build_ms);
+
+  if (changed)
+    RequestRebuild();
+}
+
+//
+//  CRAFT PROPERTIES
+//
+void PCGGraphEditorPanel::DrawCraftProperties() {
+  auto resource = EngineContext::resourceManager()
+                      .GetResourceAs<PCG::GeneratorResource>(
+                          active_generator_id_);
+  if (!resource || !resource->Get() ||
+      resource->GetGeneratorType() != PCG::GeneratorType::Craft) {
+    ImGui::TextDisabled("The generator no longer exists");
+    return;
+  }
+  auto& craft = static_cast<ProcWorld::CraftGenerator&>(*resource->Get());
+
+  ImGui::Text("Craft generator (ID %u)", active_generator_id_);
+  ImGui::Separator();
+
+  bool changed = false;
+  char path[512];
+  std::snprintf(path, sizeof(path), "%s", craft.content_path.c_str());
+  if (ImGui::InputText("Content", path, sizeof(path),
+                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+    craft.content_path = path;
+    changed = true;
+  }
+  ImGui::TextDisabled("JSON craft content, relative to the project");
+  ImGui::InputScalar("Seed", ImGuiDataType_U64, &craft.seed);
+  changed |= ImGui::IsItemDeactivatedAfterEdit();
+  changed |= ImGui::Checkbox("Lawless", &craft.lawless);
+  ImGui::TextDisabled("Some craft change class at the content's chances");
+
+  changed |= ImGui::Button("Regenerate");
+
+  ImGui::Separator();
+  if (!craft.error.empty())
+    ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s",
+                       craft.error.c_str());
+  else
+    ImGui::Text("%zu craft, %zu missing, %.1f ms", craft.craft_count,
+                craft.missing_count, craft.build_ms);
 
   if (changed)
     RequestRebuild();

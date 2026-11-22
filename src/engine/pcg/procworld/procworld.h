@@ -16,15 +16,18 @@
 #include "api/procedural_texture.h"
 #include "api/region.h"
 #include "engine/pcg/procworld/instancing/building_library.h"
+#include "engine/pcg/procworld/instancing/craft_instancer.h"
 
 namespace ProcWorld {
 
 class RegionGenerator;
 class PlanetGenerator;
+class CraftGenerator;
 
 // Builds worldgen terrain for the volumes whose generator is a
 // RegionGenerator (one region) or a PlanetGenerator (regions around the
-// viewer): terrain and objects become child entities of the volume entity
+// viewer), and craft for a CraftGenerator: terrain, objects and craft become
+// child entities of the volume entity
 class Subsystem {
 public:
   Subsystem() = default;
@@ -69,7 +72,28 @@ private:
     std::shared_ptr<BuildingLibrary> buildings;
   };
 
+  // A craft volume's fleet: picked on a worker thread, then made a few craft
+  // per frame within the frame budget
+  // A worker's part of a craft build: the procmodels it read, by descriptor
+  // path (null if one can't load), and each plan's parts
+  struct CraftWork {
+    std::unordered_map<std::string,
+                       std::shared_ptr<ProcModel::ProcModelResource>>
+        read;
+    std::vector<std::optional<ProcModel::InstanceData>> instances;
+  };
+  struct CraftState {
+    std::vector<CraftInstancer::CraftPlan> plans;
+    std::future<CraftWork> generating;
+    CraftWork work;
+    size_t made = 0;
+  };
+  // Main-thread time a frame spends making craft
+  static constexpr float craft_budget_ms = 2.0f;
+
   void Build(Entity volume, RegionGenerator& generator);
+  void Build(Entity volume, CraftGenerator& generator);
+  void Make(Entity volume, CraftGenerator& generator, CraftState& state);
   void Stream(Entity volume, PlanetGenerator& generator, PlanetState& state,
               bool reload);
   // Destroys the entities made from the volume, and their meshes
@@ -92,6 +116,8 @@ private:
   // Builds no longer wanted, kept until they finish (a future from
   // std::async blocks when destroyed)
   std::vector<std::future<Worldgen::Region>> discarded_;
+  std::unordered_map<Entity, CraftState> crafts_;
+  std::vector<std::future<CraftWork>> discarded_craft_;
   std::unordered_map<Entity, TerrainLook> looks_;
   std::filesystem::path root_;
   glm::vec3 viewer_{0.0f};

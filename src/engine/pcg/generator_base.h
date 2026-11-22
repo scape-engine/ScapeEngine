@@ -16,6 +16,7 @@ enum class GeneratorType {
   Graph,   // Node graph
   Region,  // Worldgen region: terrain and objects (ProcWorld)
   Planet,  // Worldgen planet: regions around the viewer (ProcWorld)
+  Craft,   // Worldgen craft: a fleet in the volume's bounds (ProcWorld)
 };
 
 inline const char* GetGeneratorTypeName(GeneratorType type) {
@@ -28,6 +29,8 @@ inline const char* GetGeneratorTypeName(GeneratorType type) {
       return "Region";
     case GeneratorType::Planet:
       return "Planet";
+    case GeneratorType::Craft:
+      return "Craft";
     default:
       return "Unknown";
   }

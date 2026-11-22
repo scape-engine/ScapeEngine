@@ -130,6 +130,7 @@ private:
   void DrawToolbar();
   void DrawRegionProperties();
   void DrawPlanetProperties();
+  void DrawCraftProperties();
   // Tile colours and material settings; they apply without a rebuild
   void DrawTerrainLook(TerrainMaterialData& look);
   // Marks the volumes using the open generator for a rebuild

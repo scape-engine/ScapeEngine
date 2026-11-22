@@ -8,7 +8,13 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <filesystem>
+#include <set>
+
+#include <nlohmann/json.hpp>
+
 #include "content_json.h"
+#include "engine/pcg/procmodel/descriptor/model_descriptor_parser.h"
 #include "engine/pcg/procworld/instancing/building_library.h"
 
 namespace Tests {
@@ -75,10 +81,40 @@ static void TestExampleStyles() {
   std::cout << "Buildings: OK (" << solved << "/20 outposts)" << std::endl;
 }
 
+// The example craft: a fleet of six weighted craft and a patrol, each
+// taking a rover or a skiff, whose descriptors parse
+static void TestExampleCraft() {
+  std::ifstream file(std::string(project) + "/worldgen/craft.json");
+  std::stringstream text;
+  text << file.rdbuf();
+  Worldgen::CraftContent content;
+  assert(Worldgen::Json::LoadCraftContent(text.str(), content));
+  std::set<std::string> models;
+  for (uint64_t seed = 1; seed <= 20; ++seed) {
+    const auto fleet = Worldgen::BuildFleet(content, seed, false);
+    assert(fleet.size() == 7 && fleet.back().slot.hint == "PATROL");
+    for (const Worldgen::FleetEntry& entry : fleet)
+      models.insert(Worldgen::BuildCraft(content, entry.slot, entry.seed).model);
+  }
+  assert(models == std::set<std::string>({"procmodel:models/craft/rover.json",
+                                          "procmodel:models/craft/skiff.json"}));
+  for (const std::string& model : models) {
+    const std::filesystem::path path =
+        std::filesystem::path(project) / model.substr(model.find(':') + 1);
+    std::ifstream descriptor(path);
+    ProcModel::ModelDescriptor d;
+    assert(ProcModel::ModelDescriptorParser::FromJson(
+        nlohmann::json::parse(descriptor), d));
+    assert(std::filesystem::exists(path.parent_path() / d.path));
+  }
+  std::cout << "Craft: OK (" << models.size() << " models)" << std::endl;
+}
+
 void TestBuildings() {
   TestSceneTransform();
   TestGlbScenes();
   TestExampleStyles();
+  TestExampleCraft();
 }
 
 }  // namespace Tests

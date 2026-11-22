@@ -37,6 +37,10 @@
       // Array of part IDs whose selection activates this group.
       // Empty or omitted = root group (always considered first).
 
+      "list": 0,
+      // Under a part, groups of one list are picked together from one seed;
+      // its lists go in order, each from its own seed. Root groups: one list.
+
       "unique_per_locator": false,
       // If true, each locator re-samples a part style independently
       // (organic content — branches, leaves). If false, one part is picked
@@ -66,8 +70,11 @@
         {
           "id": "string (required) — matches a node name in the GLTF",
           "name": "string (optional) — display name, defaults to id",
-          "weight": 1.0
+          "weight": 1.0,
           // Relative pick weight (worldgen counts it in thousandths; 0 never picks).
+          "key": "string (optional)"
+          // Parts sharing a key are placed once per model: a group offering
+          // a key already placed is skipped, without a draw.
         }
       ]
     }

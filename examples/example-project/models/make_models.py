@@ -1,9 +1,10 @@
-# Writes the example project's test models (tree.glb, rock.glb, creature.glb, buildings/*.glb) beside this script: parts as named
+# Writes the example project's test models (tree.glb, rock.glb, creature.glb, buildings/*.glb, craft/*.glb) beside this script: parts as named
 # nodes, with locator children or (the creature's) skinned to a shared skeleton, for the procmodel descriptors
 # tree.json, rock.json and creature.json. Also the layer
 # images of their procedural textures (textures/*.png), which bark, stone and hide .texture.json
 # describe. The buildings are an outpost's parts and WFC module scenes, and a watchtower's L-system levels
-# (worldgen/planet.json's building styles).
+# (worldgen/planet.json's building styles). The craft are a rover and a skiff, each a body with locators for its
+# wheels or fins (craft/rover.json and craft/skiff.json; worldgen/craft.json's fleet).
 import json, math, os, random, struct, sys, zlib
 
 def quat_mul(a, b):
@@ -480,6 +481,34 @@ def watchtower(folder):
     save("tower_top", [((-1.9, 0, -1.9), (1.9, 0.3, 1.9), wood), ((-2.1, 2.6, -2.1), (2.1, 2.8, 2.1), wood)] + posts
          + [((-1.9, 0.3, z - 0.05), (1.9, 1.2, z + 0.05), wood) for z in (-1.85, 1.85)], True, 0)
 
+def craft(folder):
+    # parts sit apart along x; locators turn a wheel's or fin's +y outward
+    paint, dark = (0.62, 0.2, 0.16), (0.12, 0.12, 0.13)
+    def model(name, bodies, extras, spots):
+        g = Glb()
+        mats = {"paint": g.material("paint", paint), "dark": g.material("dark", dark)}
+        x = 0
+        for body, boxes in bodies:
+            b = g.node(body, g.mesh(body, [(box(lo, hi), mats[m]) for lo, hi, m in boxes]), (x, 0, 0))
+            for i, (t, r) in enumerate(spots(body)):
+                g.node("%s_L%d" % (body, i + 1), None, t, r, b)
+            x += 6
+        for part, prims in extras:
+            g.node(part, g.mesh(part, [(p, mats[m]) for p, m in prims]), (x, 0, 0))
+            x += 3
+        g.save(os.path.join(folder, name + ".glb"))
+    # a wheel at each corner (x ahead, z to the side), its axle (+y) turned outward
+    wheels = lambda half, side: [((x, 0.45, s * side), axis_quat((1, 0, 0), s * 90)) for x in (-half, half) for s in (-1, 1)]
+    rover_spots = lambda body: wheels(1.0, 1.0) if body.endswith("A") else wheels(1.3, 1.2)
+    model("rover", [("ROVER_BODY_A", [((-1.6, 0.5, -0.9), (1.6, 1.3, 0.9), "paint"), ((-0.6, 1.3, -0.7), (0.9, 1.9, 0.7), "dark")]),
+                    ("ROVER_BODY_B", [((-1.9, 0.5, -1.1), (1.9, 1.1, 1.1), "paint"), ((-1.4, 1.1, -0.9), (0.2, 2.0, 0.9), "paint")])],
+          [("WHEEL_A", [(cylinder(12, 0.35, 0.45, 0.45), "dark")]), ("WHEEL_B", [(cylinder(6, 0.5, 0.5, 0.5), "dark")])], rover_spots)
+    fin_spots = lambda body: [((-1.5, 0.9, s * 0.8), axis_quat((1, 0, 0), s * 60)) for s in (-1, 1)] + [((-1.8, 1.2, 0), None)]
+    model("skiff", [("SKIFF_HULL_A", [((-2.0, 0.4, -0.7), (2.4, 1.2, 0.7), "paint"), ((0.2, 1.2, -0.5), (1.6, 1.7, 0.5), "dark")]),
+                    ("SKIFF_HULL_B", [((-2.4, 0.5, -0.5), (2.8, 1.0, 0.5), "paint"), ((-0.6, 1.0, -0.4), (1.0, 1.4, 0.4), "dark")])],
+          [("FIN_A", [(box((-0.4, 0, -0.05), (0.4, 1.0, 0.05)), "paint")]), ("FIN_B", [(box((-0.6, 0, -0.05), (0.2, 0.7, 0.05)), "dark")])],
+          fin_spots)
+
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
 tree(out + "/tree.glb")
 rock(out + "/rock.glb")
@@ -489,4 +518,6 @@ os.makedirs(out + "/buildings", exist_ok=True)
 building_parts(out + "/buildings")
 building_modules(out + "/buildings")
 watchtower(out + "/buildings")
-print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/creature.glb", out + "/textures", out + "/buildings")
+os.makedirs(out + "/craft", exist_ok=True)
+craft(out + "/craft")
+print("wrote", out + "/tree.glb", out + "/rock.glb", out + "/creature.glb", out + "/textures", out + "/buildings", out + "/craft")

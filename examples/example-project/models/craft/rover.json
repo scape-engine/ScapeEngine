@@ -1,0 +1,24 @@
+{
+  "model_id": "rover",
+  "domain": "craft",
+  "path": "rover.glb",
+  "max_depth": 2,
+  "selection_groups": [
+    {
+      "group_id": "body",
+      "parts": [{ "id": "ROVER_BODY_A", "weight": 1.0 }, { "id": "ROVER_BODY_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "wheels_a",
+      "parent": ["ROVER_BODY_A"],
+      "locators": ["ROVER_BODY_A_L1", "ROVER_BODY_A_L2", "ROVER_BODY_A_L3", "ROVER_BODY_A_L4"],
+      "parts": [{ "id": "WHEEL_A", "weight": 2.0 }, { "id": "WHEEL_B", "weight": 1.0 }]
+    },
+    {
+      "group_id": "wheels_b",
+      "parent": ["ROVER_BODY_B"],
+      "locators": ["ROVER_BODY_B_L1", "ROVER_BODY_B_L2", "ROVER_BODY_B_L3", "ROVER_BODY_B_L4"],
+      "parts": [{ "id": "WHEEL_A", "weight": 1.0 }, { "id": "WHEEL_B", "weight": 2.0 }]
+    }
+  ]
+}

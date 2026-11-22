@@ -16,6 +16,7 @@ bool ModelDescriptorParser::ParseSelectionGroup(const nlohmann::json& j,
   out.group_id = j["group_id"].get<std::string>();
   out.required = j.value("required", true);
   out.unique_per_locator = j.value("unique_per_locator", false);
+  out.list = j.value("list", 0);
 
   // parent: accept array or omitted
   if (j.contains("parent")) {
@@ -57,6 +58,7 @@ bool ModelDescriptorParser::ParseSelectionGroup(const nlohmann::json& j,
     part.id = part_json["id"].get<std::string>();
     part.name = part_json.value("name", part.id);
     part.weight = part_json.value("weight", 1.0f);
+    part.key = part_json.value("key", "");
     out.parts.push_back(std::move(part));
   }
   return !out.parts.empty();

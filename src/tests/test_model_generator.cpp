@@ -2,12 +2,21 @@
 #undef NDEBUG
 #include <cassert>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <set>
+#include <unordered_map>
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "engine/content/loaders/mesh_loader.h"
+#include "engine/pcg/procmodel/descriptor/model_descriptor_parser.h"
+#include "engine/pcg/procmodel/generator/descriptor_resolver.h"
 #include "engine/pcg/procmodel/generator/model_generator.h"
+#include "engine/pcg/procmodel/model_graph/model_graph_builder.h"
+
+#include "content/model_parts.h"
 
 namespace Tests {
 
@@ -107,7 +116,101 @@ void TestModelGenerator() {
   }
   assert(counts.size() == 2);  // both one and two branches are kept
 
+  // Two lists under the trunk pick as worldgen picks a part's two child
+  // lists, each from its own seed
+  for (const char* name : {"A1", "A2", "B1", "B2"})
+    graph.root.children.push_back(_Node(name, glm::vec3(0.0f)));
+  graph.node_lookup.clear();
+  _Index(graph, graph.root, glm::mat4(1.0f));
+  ProcModel::ModelDescriptor listed;
+  listed.model_id = "lists";
+  ProcModel::SelectionGroup a, b;
+  a.group_id = "a";
+  a.parent = {"TRUNK"};
+  a.parts = {{"A1", "A1", 1.0f}, {"A2", "A2", 1.0f}};
+  b.group_id = "b";
+  b.parent = {"TRUNK"};
+  b.list = 1;
+  b.parts = {{"B1", "B1", 1.0f}, {"B2", "B2", 1.0f}};
+  listed.selection_groups = {trunks, a, b};
+  listed.selection_groups[0].parts.pop_back();
+
+  Worldgen::PartList root;
+  Worldgen::Part trunk_part{"TR", 1000};
+  for (const std::string side : {"A", "B"}) {
+    Worldgen::PartList child;
+    child.types.push_back({false, {{side + "1", 1000}, {side + "2", 1000}}});
+    trunk_part.children.push_back(child);
+  }
+  root.types.push_back({false, {trunk_part}});
+  const Worldgen::PartLoader load = [&root](const char*) { return &root; };
+
+  std::set<std::string> pairs;
+  for (uint64_t seed = 1; seed <= 50; ++seed) {
+    auto out = ProcModel::ModelGenerator::Generate(graph, listed, pipeline,
+                                                   registry, seed, 1);
+    assert(out);
+    std::set<std::string> got;
+    for (const auto& part : out->model.descriptors)
+      got.insert(part.descriptor_id.substr(0, 2));
+    const auto want = Worldgen::PickPartsSingle(load, "", seed, true);
+    assert(got == std::set<std::string>(want.begin(), want.end()) &&
+           got.size() == 3);
+    pairs.insert(*got.begin() + *std::next(got.begin()));
+  }
+  assert(pairs.size() == 4);  // the lists pick apart
+
   std::cout << "Model generator: OK" << std::endl;
+}
+
+// tests picks <descriptor> <seed in hex>...: per seed a line of the picked
+// part ids, each followed by a space
+int PrintPicks(int argc, char** argv) {
+  if (argc < 2) {
+    std::cerr << "usage: tests picks <descriptor> <seed in hex>..."
+              << std::endl;
+    return 1;
+  }
+  const std::filesystem::path path = argv[0];
+  ProcModel::ModelDescriptor d;
+  std::ifstream file(path);
+  if (!file ||
+      !ProcModel::ModelDescriptorParser::FromJson(nlohmann::json::parse(file),
+                                                  d))
+    return 1;
+  const Content::SceneData scene =
+      Content::MeshLoader::LoadScene((path.parent_path() / d.path).string());
+  ProcModel::ModelGraph graph =
+      ProcModel::ModelGraphBuilder::Build(scene, d.path);
+  if (!ProcModel::DescriptorResolver::Resolve(graph, d).success)
+    return 1;
+  std::unordered_map<std::string, const ProcModel::SelectionGroup*> groups;
+  for (const auto& g : d.selection_groups)
+    groups[g.group_id] = &g;
+  PCG::LinearPipeline pipeline;
+  PCG::OperationRegistry registry;
+  for (int i = 1; i < argc; ++i) {
+    const auto out = ProcModel::ModelGenerator::Generate(
+        graph, d, pipeline, registry, std::stoull(argv[i], nullptr, 16), 1);
+    if (!out) {
+      std::cout << "failed" << std::endl;
+      continue;
+    }
+    // a placed part's id starts its descriptor id
+    for (const auto& placed : out->model.descriptors)
+      for (const auto& part : groups.at(placed.group_id)->parts) {
+        const std::string& id = placed.descriptor_id;
+        const size_t n = part.id.size();
+        if (id.compare(0, n, part.id) == 0 &&
+            (id.size() == n || id.compare(n, 4, "_at_") == 0 ||
+             id.compare(n, 7, "_under_") == 0)) {
+          std::cout << part.id << ' ';
+          break;
+        }
+      }
+    std::cout << std::endl;
+  }
+  return 0;
 }
 
 }  // namespace Tests

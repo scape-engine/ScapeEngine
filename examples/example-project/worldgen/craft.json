@@ -1,0 +1,14 @@
+{
+  "groups": [["rover", "skiff"], ["skiff"]],
+  "models": [
+    { "id": "rover", "role": 0, "class_id": 0, "file": "procmodel:models/craft/rover.json" },
+    { "id": "skiff", "role": 0, "class_id": 0, "file": "procmodel:models/craft/skiff.json" },
+    { "id": "skiff", "role": 1, "class_id": 0, "file": "procmodel:models/craft/skiff.json" }
+  ],
+  "fleet": {
+    "class_weights": [1.0],
+    "weighted_count": 6,
+    "weighted": { "group": 0, "role": 0 },
+    "fixed": [{ "group": 1, "role": 1, "hint": "PATROL" }]
+  }
+}

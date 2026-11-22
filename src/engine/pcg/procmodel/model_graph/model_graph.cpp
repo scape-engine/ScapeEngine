@@ -1,17 +1,28 @@
 #include "model_graph.h"
 
+#include <chrono>
+
 namespace ProcModel {
 
-bool ModelGraph::UploadMeshes() {
-  gpu_meshes.reserve(mesh_data.size());
-  for (const auto& md : mesh_data) {
-    gpu_meshes.emplace_back(std::make_unique<Mesh>(md));
+bool ModelGraph::UploadMeshes(float budget_ms) {
+  using Clock = std::chrono::steady_clock;
+  const auto start = Clock::now();
+  if (gpu_meshes.empty()) {
+    gpu_meshes.reserve(mesh_data.size());
+    material_handles.clear();
+    for (const auto& material : materials)
+      material_handles.push_back(
+          MaterialRegistry::Instance().Register(material));
   }
-  material_handles.clear();
-  for (const auto& material : materials) {
-    material_handles.push_back(MaterialRegistry::Instance().Register(material));
+  while (gpu_meshes.size() < mesh_data.size()) {
+    gpu_meshes.emplace_back(
+        std::make_unique<Mesh>(mesh_data[gpu_meshes.size()]));
+    if (budget_ms > 0.0f &&
+        std::chrono::duration<float, std::milli>(Clock::now() - start)
+                .count() >= budget_ms)
+      break;
   }
-  return !gpu_meshes.empty();
+  return !mesh_data.empty();
 }
 
 const Mesh* ModelGraph::GetMesh(int index) const {

@@ -34,7 +34,10 @@ struct ModelGraph {
   // their material index
   std::vector<MaterialHandle> material_handles;
 
-  bool UploadMeshes();
+  // Uploads the meshes not uploaded yet; with a budget it stops once that
+  // passes, to go on in a later call. False if the model has no meshes
+  bool UploadMeshes(float budget_ms = 0.0f);
+  bool Uploaded() const { return gpu_meshes.size() == mesh_data.size(); }
   const Mesh* GetMesh(int index) const;
 
   // ? Check if it can be declared like GetMesh()

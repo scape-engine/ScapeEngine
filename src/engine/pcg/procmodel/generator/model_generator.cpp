@@ -4,6 +4,7 @@
 #include <cmath>
 #include <queue>
 #include <random>
+#include <set>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
@@ -58,19 +59,22 @@ const std::vector<std::string>& Locators(const SelectionGroup& group) {
   return group.locators && !group.locators->empty() ? *group.locators : none;
 }
 
-// The groups a part instance activates, as a worldgen part list: one type
-// per pick (per locator when the group picks per locator), and under each
-// part the lists its own instances activate, down to max_depth
+// The groups of one list a part instance activates (the root: all root
+// groups), as a worldgen part list: one type per pick (per locator when the
+// group picks per locator), and under each part the lists its own instances
+// activate, in list order, down to max_depth
 struct PickTree {
   const ModelDescriptor& descriptor;
   size_t parts = 0;
   static constexpr size_t part_limit = 200000;
 
   Worldgen::PartList Build(const std::string& activator_key,
-                           const std::string& activator_part_id, int depth) {
+                           const std::string& activator_part_id, int depth,
+                           int list_index = 0) {
     Worldgen::PartList list;
     for (const auto& group : descriptor.selection_groups) {
-      if (!Activates(group, activator_part_id))
+      if (!Activates(group, activator_part_id) ||
+          (!activator_part_id.empty() && group.list != list_index))
         continue;
       const auto& locators = Locators(group);
       if (group.unique_per_locator) {
@@ -92,18 +96,24 @@ struct PickTree {
     for (const auto& part : group.parts) {
       Worldgen::Part p;
       p.id = slot + ":" + part.id;
+      p.key = part.key;
       // worldgen weighs in integers
       p.weight = part.weight > 0.0f
                      ? std::max(1, static_cast<int>(
                                        std::lround(part.weight * 1000.0f)))
                      : 0;
       if (depth + 1 < descriptor.max_depth && ++parts < part_limit) {
-        for (const auto& locator : instances) {
-          Worldgen::PartList child =
-              Build(InstanceKey(p.id, locator), part.id, depth + 1);
-          if (!child.types.empty())
-            p.children.push_back(std::move(child));
-        }
+        std::set<int> lists;
+        for (const auto& g : descriptor.selection_groups)
+          if (Activates(g, part.id) && !g.parent.empty())
+            lists.insert(g.list);
+        for (const auto& locator : instances)
+          for (const int index : lists) {
+            Worldgen::PartList child =
+                Build(InstanceKey(p.id, locator), part.id, depth + 1, index);
+            if (!child.types.empty())
+              p.children.push_back(std::move(child));
+          }
       }
       type.parts.push_back(std::move(p));
     }

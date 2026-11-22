@@ -17,6 +17,7 @@
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/procworld/craft_generator.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
 
@@ -183,6 +184,15 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"size", planet.size},
                         {"look", _WriteLook(planet.look)}};
   }
+  if (generator &&
+      generator->GetGeneratorType() == PCG::GeneratorType::Craft) {
+    const auto& craft =
+        static_cast<const ProcWorld::CraftGenerator&>(*generator->Get());
+    out["generator"] = {{"type", "Craft"},
+                        {"content", craft.content_path},
+                        {"seed", craft.seed},
+                        {"lawless", craft.lawless}};
+  }
   return out;
 }
 
@@ -221,6 +231,19 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(
             "Planet");
     resource->SetGenerator(std::move(planet));
+    volume.generator_id = id;
+    volume.dirty = true;
+    return;
+  }
+  if (type == "Craft") {
+    auto craft = std::make_unique<ProcWorld::CraftGenerator>();
+    craft->content_path = it->value("content", std::string());
+    craft->seed = it->value("seed", craft->seed);
+    craft->lawless = it->value("lawless", craft->lawless);
+    auto [id, resource] =
+        EngineContext::resourceManager().Create<PCG::GeneratorResource>(
+            "Craft");
+    resource->SetGenerator(std::move(craft));
     volume.generator_id = id;
     volume.dirty = true;
     return;

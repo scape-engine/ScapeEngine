@@ -51,6 +51,12 @@ public:
       ECS& ecs, const Worldgen::Region& region, BuildingLibrary& library,
       Entity source, const std::filesystem::path& root,
       const Worldgen::TextureInput* planet = nullptr);
+
+  // One instance of a source (as above, the seed picks a procmodel's parts),
+  // a child of the source entity; entt::null if it can't be made
+  static Entity CreateObject(ECS& ecs, const std::string& id, Entity source,
+                             uint64_t seed, const std::filesystem::path& root,
+                             const Worldgen::TextureInput* planet = nullptr);
 };
 
 }  // namespace ProcWorld

@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "engine/context/engine_context.h"
+#include "engine/pcg/pcg_engine.h"
 #include "engine/core/logger.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/volume_component.h"
@@ -15,6 +16,8 @@
 
 #include "api/planet_grid.h"
 #include "content_json.h"
+#include "craft_generator.h"
+#include "instancing/craft_instancer.h"
 #include "instancing/region_instancer.h"
 #include "planet_generator.h"
 #include "region_generator.h"
@@ -38,7 +41,12 @@ static bool _Parse(const std::string& text, Worldgen::PlanetContent& content,
   return Worldgen::Json::LoadPlanetContent(text, content, error);
 }
 
-// Reads region or planet content from a JSON file; false with `error` set on
+static bool _Parse(const std::string& text, Worldgen::CraftContent& content,
+                   std::string* error) {
+  return Worldgen::Json::LoadCraftContent(text, content, error);
+}
+
+// Reads region, planet or craft content from a JSON file; false with `error` set on
 // failure
 template <class Content>
 static bool _LoadContent(const std::filesystem::path& root,
@@ -144,6 +152,22 @@ void Subsystem::Update() {
     return build.wait_for(std::chrono::seconds(0)) ==
            std::future_status::ready;
   });
+  std::erase_if(discarded_craft_, [](const auto& build) {
+    return build.wait_for(std::chrono::seconds(0)) ==
+           std::future_status::ready;
+  });
+  std::erase_if(crafts_, [&](auto& entry) {
+    const Entity volume = entry.first;
+    if (ecs.Reg().valid(volume) && ecs.Has<VolumeComponent>(volume) &&
+        is_type(generator_of(ecs.Get<VolumeComponent>(volume)),
+                PCG::GeneratorType::Craft))
+      return false;
+    if (ecs.Reg().valid(volume))
+      Clear(volume);
+    else if (entry.second.generating.valid())
+      discarded_craft_.push_back(std::move(entry.second.generating));
+    return true;
+  });
 
   // Volumes destroyed or given another generator since
   std::erase_if(meshes_, [&](const auto& entry) {
@@ -193,6 +217,13 @@ void Subsystem::Update() {
       Look(entity, look);
       Stream(entity, planet, state, volume.dirty);
       volume.dirty = false;
+    } else if (is_type(generator, PCG::GeneratorType::Craft)) {
+      auto& craft = static_cast<CraftGenerator&>(*generator);
+      if (volume.dirty)
+        Build(entity, craft);
+      volume.dirty = false;
+      if (auto it = crafts_.find(entity); it != crafts_.end())
+        Make(entity, craft, it->second);
     }
   }
 }
@@ -208,6 +239,11 @@ void Subsystem::Clear(Entity volume) {
       ecs.DestroyEntity(child);
   }
   meshes_.erase(volume);
+  if (auto it = crafts_.find(volume); it != crafts_.end()) {
+    if (it->second.generating.valid())
+      discarded_craft_.push_back(std::move(it->second.generating));
+    it->second = {};  // emptied, not erased: Update may be erasing it
+  }
   if (auto it = planets_.find(volume); it != planets_.end()) {
     it->second.regions.clear();
     for (auto& [key, build] : it->second.building)
@@ -281,6 +317,99 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
                           std::to_string(generator.instance_count) +
                           " objects, " +
                           std::to_string(generator.build_ms) + " ms");
+}
+
+void Subsystem::Build(Entity volume, CraftGenerator& generator) {
+  auto& ecs = ECS::Main();
+  Clear(volume);
+  generator.error.clear();
+  generator.craft_count = generator.missing_count = 0;
+  generator.build_ms = 0.0f;
+
+  Worldgen::CraftContent content;
+  if (!_LoadContent(root_, generator.content_path, content, generator.error))
+    return;
+
+  const auto start = Clock::now();
+  const VolumeComponent& bounds = ecs.Get<VolumeComponent>(volume);
+  CraftState& state = crafts_[volume];
+  state.plans = CraftInstancer::Plan(
+      content, Worldgen::BuildFleet(content, generator.seed, generator.lawless),
+      bounds.bounds_min, bounds.bounds_max, root_, generator.missing_count);
+  // The procmodels not loaded yet are read here, and uploaded by Make
+  state.generating = std::async(
+      std::launch::async, [plans = state.plans]() mutable {
+        CraftWork work;
+        const auto& procmodel = EngineContext::PCG().GetProcModel();
+        for (CraftInstancer::CraftPlan& plan : plans) {
+          if (!plan.descriptor.empty() && !plan.archetype) {
+            auto it = work.read.find(plan.descriptor);
+            if (it == work.read.end())
+              it = work.read
+                       .emplace(plan.descriptor,
+                                procmodel.ReadArchetype(plan.descriptor))
+                       .first;
+            plan.archetype = it->second;
+          }
+          work.instances.push_back(CraftInstancer::Generate(plan));
+        }
+        return work;
+      });
+  generator.build_ms = _Milliseconds(start);
+}
+
+void Subsystem::Make(Entity volume, CraftGenerator& generator,
+                     CraftState& state) {
+  if (state.generating.valid()) {
+    if (state.generating.wait_for(std::chrono::seconds(0)) !=
+        std::future_status::ready)
+      return;
+    state.work = state.generating.get();
+  }
+  if (state.made == state.plans.size())
+    return;
+
+  auto& ecs = ECS::Main();
+  const auto start = Clock::now();
+  // The procmodels read, their meshes uploaded within the budget
+  if (!state.work.read.empty()) {
+    const auto read = state.work.read.begin();
+    if (read->second) {
+      read->second->GetGraph().UploadMeshes(craft_budget_ms);
+      if (!read->second->GetGraph().Uploaded()) {
+        generator.build_ms += _Milliseconds(start);
+        return;
+      }
+    }
+    const auto archetype = EngineContext::PCG().GetProcModel().AddArchetype(
+        read->first, std::move(read->second));
+    for (CraftInstancer::CraftPlan& plan : state.plans)
+      if (plan.descriptor == read->first)
+        plan.archetype = archetype;
+    state.work.read.erase(read);
+    generator.build_ms += _Milliseconds(start);
+    return;
+  }
+  while (state.made < state.plans.size() &&
+         _Milliseconds(start) < craft_budget_ms) {
+    const size_t at = state.made++;
+    const Entity entity = CraftInstancer::Make(
+        ecs, state.plans[at], state.work.instances[at], volume, root_);
+    if (entity == entt::null)
+      generator.missing_count++;
+    else
+      generator.craft_count++;
+  }
+  generator.build_ms += _Milliseconds(start);
+  if (state.made == state.plans.size())
+    Logger::getInstance().Log(
+        LogLevel::Info, "[ProcWorld] " + generator.content_path + ": " +
+                            std::to_string(generator.craft_count) +
+                            " craft, " +
+                            std::to_string(generator.missing_count) +
+                            " missing, " +
+                            std::to_string(generator.build_ms) +
+                            " ms on the main thread");
 }
 
 // Whether two cells of one face overlap (either holds the other)

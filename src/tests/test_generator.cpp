@@ -513,10 +513,14 @@ void TestTerrainTiles();
 void TestModelGenerator();
 void TestAnimation();
 void TestBuildings();
+int PrintPicks(int argc, char** argv);
 }
 
-// Entry point for running tests standalone
-int main() {
+// Entry point for running tests standalone; "picks" prints a procmodel's
+// picks instead
+int main(int argc, char** argv) {
+  if (argc > 1 && std::string(argv[1]) == "picks")
+    return Tests::PrintPicks(argc - 2, argv + 2);
   Tests::TestShapes();
   Tests::TestSceneSerializer();
   Tests::TestTerrainTiles();

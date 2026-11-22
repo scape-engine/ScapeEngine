@@ -43,27 +43,26 @@ void Subsystem::Init() {
 
 ResourceID Subsystem::LoadArchetype(const std::string& descriptor_path) {
   auto cache_it = procmodel_cache_.find(descriptor_path);
-  if (cache_it != procmodel_cache_.end())
-    return cache_it->second;
+  if (cache_it == procmodel_cache_.end() &&
+      AddArchetype(descriptor_path, ReadArchetype(descriptor_path)))
+    cache_it = procmodel_cache_.find(descriptor_path);
+  return cache_it != procmodel_cache_.end() ? cache_it->second : 0;
+}
 
-  auto& resource_mgr = EngineContext::resourceManager();
-
-  auto [id, resource] =
-      resource_mgr.Create<ProcModel::ProcModelResource>(descriptor_path);
+std::shared_ptr<ProcModelResource> Subsystem::ReadArchetype(
+    const std::string& descriptor_path) const {
+  auto resource = std::make_shared<ProcModelResource>();
 
   auto json_opt = Content::ReadJsonFile(descriptor_path);
-  if (!json_opt) {
-    resource_mgr.Release(id);
-    return 0;
-  }
+  if (!json_opt)
+    return nullptr;
 
   if (!ProcModel::ModelDescriptorParser::FromJson(*json_opt,
                                                   resource->GetDescriptor())) {
     Logger::getInstance().Log(
         LogLevel::Error, "[ProcModel::Subsystem] Failed to parse descriptor: " +
                              descriptor_path);
-    resource_mgr.Release(id);
-    return 0;
+    return nullptr;
   }
 
   // A relative model path is beside the descriptor (else as given)
@@ -88,27 +87,18 @@ ResourceID Subsystem::LoadArchetype(const std::string& descriptor_path) {
     Logger::getInstance().Log(
         LogLevel::Error,
         "[ProcModel::Subsystem] Failed to load scene: " + descriptor.path);
-    resource_mgr.Release(id);
-    return 0;
+    return nullptr;
   }
 
   resource->GetGraph() =
       ProcModel::ModelGraphBuilder::Build(scene, descriptor.path);
-
-  if (!resource->GetGraph().UploadMeshes()) {
-    Logger::getInstance().Log(LogLevel::Error,
-                              "[ProcModel::Subsystem] Failed to upload meshes");
-    resource_mgr.Release(id);
-    return 0;
-  }
 
   auto resolve_result = ProcModel::DescriptorResolver::Resolve(
       resource->GetGraph(), resource->GetDescriptor());
   if (!resolve_result.success) {
     Logger::getInstance().Log(
         LogLevel::Error, "[ProcModel::Subsystem] Descriptor resolution failed");
-    resource_mgr.Release(id);
-    return 0;
+    return nullptr;
   }
 
   {
@@ -126,15 +116,38 @@ ResourceID Subsystem::LoadArchetype(const std::string& descriptor_path) {
             LogLevel::Error,
             "[ProcModel::Subsystem] Pipeline compilation: " + err);
       }
-      resource_mgr.Release(id);
-      return 0;
+      return nullptr;
     }
     resource->GetPipeline() = std::move(*compiled);
   }
+  return resource;
+}
 
-  resource->SetResolved(true);
-  procmodel_cache_[descriptor_path] = id;
-  return id;
+std::shared_ptr<const ProcModelResource> Subsystem::AddArchetype(
+    const std::string& descriptor_path,
+    std::shared_ptr<ProcModelResource> read) {
+  if (auto loaded = LoadedArchetype(descriptor_path))
+    return loaded;
+  if (!read)
+    return nullptr;
+  if (!read->GetGraph().UploadMeshes()) {
+    Logger::getInstance().Log(LogLevel::Error,
+                              "[ProcModel::Subsystem] Failed to upload meshes");
+    return nullptr;
+  }
+  read->SetResolved(true);
+  procmodel_cache_[descriptor_path] =
+      EngineContext::resourceManager().Add(descriptor_path, read);
+  return read;
+}
+
+std::shared_ptr<const ProcModelResource> Subsystem::LoadedArchetype(
+    const std::string& descriptor_path) const {
+  const auto it = procmodel_cache_.find(descriptor_path);
+  if (it == procmodel_cache_.end())
+    return nullptr;
+  return EngineContext::resourceManager()
+      .GetResourceAs<ProcModel::ProcModelResource>(it->second);
 }
 
 std::optional<ProcModel::InstanceData> Subsystem::GenerateInstance(
@@ -222,13 +235,38 @@ ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
     return {};
   }
 
-  // Instantiate into ECS
+  return Instantiate(descriptor_path, *resource, *resolved, parent, planet);
+}
+
+std::shared_ptr<const ProcModelResource> Subsystem::Archetype(
+    const std::string& descriptor_path) {
+  const ResourceID id = LoadArchetype(descriptor_path);
+  if (id == 0)
+    return nullptr;
+  auto resource = EngineContext::resourceManager()
+                      .GetResourceAs<ProcModel::ProcModelResource>(id);
+  if (!resource || !resource->IsResolved())
+    return nullptr;
+  return resource;
+}
+
+std::optional<ProcModel::InstanceData> Subsystem::Generate(
+    const ProcModelResource& archetype, uint64_t seed) const {
+  return ProcModel::ModelGenerator::Generate(
+      archetype.GetGraph(), archetype.GetDescriptor(), archetype.GetPipeline(),
+      operation_registry_, seed, 10);
+}
+
+ModelInstantiator::InstantiateResult Subsystem::Instantiate(
+    const std::string& descriptor_path, const ProcModelResource& archetype,
+    const ProcModel::InstanceData& instance, Entity parent,
+    const Worldgen::TextureInput* planet) {
   const std::vector<MaterialHandle>* materials =
-      planet ? TexturedMaterials(descriptor_path, resource->GetDescriptor(),
-                                 resource->GetGraph(), *planet)
+      planet ? TexturedMaterials(descriptor_path, archetype.GetDescriptor(),
+                                 archetype.GetGraph(), *planet)
              : nullptr;
   return ProcModel::ModelInstantiator::Instantiate(
-      resolved->model, resource->GetGraph(), parent, materials);
+      instance.model, archetype.GetGraph(), parent, materials);
 }
 
 static uint64_t _Hash(uint64_t hash, const void* data, size_t size) {
