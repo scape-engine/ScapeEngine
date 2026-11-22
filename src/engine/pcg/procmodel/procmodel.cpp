@@ -9,6 +9,7 @@
 #include "engine/core/logger.h"
 
 #include "engine/content/cache/image_cache.h"
+#include "engine/content/loaders/image_loader.h"
 #include "engine/content/io/json.h"
 #include "engine/content/loaders/mesh_loader.h"
 #include "engine/context/engine_context.h"
@@ -235,7 +236,9 @@ ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
     return {};
   }
 
-  return Instantiate(descriptor_path, *resource, *resolved, parent, planet);
+  return Instantiate(*resolved, *resource, parent,
+                     planet ? TexturedMaterials(descriptor_path, *resource, *planet)
+                            : nullptr);
 }
 
 std::shared_ptr<const ProcModelResource> Subsystem::Archetype(
@@ -258,13 +261,8 @@ std::optional<ProcModel::InstanceData> Subsystem::Generate(
 }
 
 ModelInstantiator::InstantiateResult Subsystem::Instantiate(
-    const std::string& descriptor_path, const ProcModelResource& archetype,
-    const ProcModel::InstanceData& instance, Entity parent,
-    const Worldgen::TextureInput* planet) {
-  const std::vector<MaterialHandle>* materials =
-      planet ? TexturedMaterials(descriptor_path, archetype.GetDescriptor(),
-                                 archetype.GetGraph(), *planet)
-             : nullptr;
+    const ProcModel::InstanceData& instance, const ProcModelResource& archetype,
+    Entity parent, const std::vector<MaterialHandle>* materials) {
   return ProcModel::ModelInstantiator::Instantiate(
       instance.model, archetype.GetGraph(), parent, materials);
 }
@@ -292,130 +290,228 @@ static Worldgen::TextureImage _RebuildNormal(Worldgen::TextureImage image) {
   return image;
 }
 
+// Halved (2x2 averages) until no side passes `max_size` (0: as it is)
+static Worldgen::TextureImage _Shrink(Worldgen::TextureImage image,
+                                      int max_size) {
+  while (max_size > 0 && std::max(image.width, image.height) > max_size &&
+         image.width > 1 && image.height > 1) {
+    const int w = image.width / 2, h = image.height / 2;
+    std::vector<uint8_t> out(static_cast<size_t>(w) * h * 4);
+    for (int y = 0; y < h; ++y)
+      for (int x = 0; x < w; ++x)
+        for (int c = 0; c < 4; ++c) {
+          const auto at = [&](int dx, int dy) {
+            return image.rgba[(static_cast<size_t>(2 * y + dy) * image.width +
+                               2 * x + dx) * 4 + c];
+          };
+          out[(static_cast<size_t>(y) * w + x) * 4 + c] = static_cast<uint8_t>(
+              (at(0, 0) + at(1, 0) + at(0, 1) + at(1, 1) + 2) / 4);
+        }
+    image = {w, h, std::move(out)};
+  }
+  return image;
+}
+
+// The descriptor and the input's seed and palettes
+static std::string _TextureKey(const std::string& descriptor_path,
+                               const Worldgen::TextureInput& input) {
+  uint64_t key = _Hash(0xcbf29ce484222325ull, &input.seed, sizeof(input.seed));
+  key = _Hash(key, input.palettes.data(),
+              input.palettes.size() * sizeof(Worldgen::PlanetPalette));
+  return descriptor_path + "|" + std::to_string(key);
+}
+
 const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
-    const std::string& descriptor_path, const ModelDescriptor& descriptor,
-    const ModelGraph& graph, const Worldgen::TextureInput& planet) {
+    const std::string& descriptor_path, const ProcModelResource& archetype,
+    const Worldgen::TextureInput& planet) {
+  const ModelDescriptor& descriptor = archetype.GetDescriptor();
   if (descriptor.textures.empty() || planet.palettes.empty())
     return nullptr;
-
   // Made once per kind of model and planet, so they all share the textures
-  uint64_t planet_key =
-      _Hash(0xcbf29ce484222325ull, &planet.seed, sizeof(planet.seed));
-  planet_key = _Hash(planet_key, planet.palettes.data(),
-                     planet.palettes.size() * sizeof(Worldgen::PlanetPalette));
-  auto [it, added] = model_materials_.try_emplace(
-      descriptor_path + "|" + std::to_string(planet_key));
-  std::vector<MaterialHandle>& materials = it->second;
-  if (!added)
-    return &materials;
-  materials = graph.material_handles;
-
   Worldgen::TextureInput input = planet;
   input.seed = _Hash(planet.seed, descriptor.model_id.data(),
                      descriptor.model_id.size());
-  auto& images = Content::ImageCache::Instance();
-  for (size_t i = 0; i < graph.materials.size() && i < materials.size(); ++i) {
-    const Content::MaterialData& authored = graph.materials[i];
-    const auto path = descriptor.textures.find(authored.name);
-    if (path == descriptor.textures.end())
-      continue;
-    const Worldgen::TextureContent* content = LoadTextureContent(path->second);
+  if (auto it = model_materials_.find(_TextureKey(descriptor_path, input));
+      it != model_materials_.end())
+    return &it->second;
+  return ApplyTextures(descriptor_path, archetype,
+                       PrepareTextures(descriptor_path, descriptor, input));
+}
+
+Subsystem::TextureSet Subsystem::PrepareTextures(
+    const std::string& descriptor_path, const ModelDescriptor& descriptor,
+    const Worldgen::TextureInput& input, int max_size,
+    TextureClaims* claims) {
+  TextureSet set;
+  set.key = _TextureKey(descriptor_path, input);
+  if (descriptor.textures.empty() || input.palettes.empty())
+    return set;
+  for (const auto& [material, path] : descriptor.textures) {
+    const Worldgen::TextureContent* content = LoadTextureContent(path);
     if (!content)
       continue;
-
-    // Equal choices give equal names: one image for all the planets they fit
+    // Equal choices give equal names: one image for all the inputs they fit.
+    // The maps don't take the colours: equal picks share them
     const Worldgen::ProceduralTexture texture =
         Worldgen::BuildProceduralTexture(*content, input);
-    const std::string key = "proctexture:" + path->second + "#" + texture.name;
+    uint64_t picks = 0xcbf29ce484222325ull;
+    for (const Worldgen::TextureChoice& choice : texture.choices)
+      for (const std::string* name :
+           {&choice.layer, &choice.group, &choice.option_name})
+        picks = _Hash(picks, name->data(), name->size() + 1);
+    const std::string key = "proctexture:" + path + "#" + texture.name;
+    const std::string maps = "proctexture:" + path + "#" +
+                             std::to_string(picks) + "@" +
+                             std::to_string(max_size);
     const std::filesystem::path folder =
-        std::filesystem::path(path->second).parent_path();
+        std::filesystem::path(path).parent_path();
+    // The layers at most `max_size` too: compositing costs by the texel
     const auto load = [&](const std::string& file) {
-      return LoadLayerImage((folder / file).string());
+      return LoadLayerImage((folder / file).string(), max_size);
     };
-    // The image under `key`, made once; false when it has nothing to show
-    const auto put = [&](const std::string& image_key, auto make) {
-      if (images.Contains(image_key))
-        return images.Get(image_key).Valid();
-      Worldgen::TextureImage image = make();
-      Content::ImageData data;
-      if (image.width > 0 && image.width <= 0xffff && image.height <= 0xffff) {
-        data.width = static_cast<uint16_t>(image.width);
-        data.height = static_cast<uint16_t>(image.height);
-        data.pixels = std::move(image.rgba);
-      }
-      const bool valid = data.Valid();
-      images.Put(image_key, std::move(data));
-      return valid;
+    // The image under `image_key` unless another set claimed it
+    const auto make = [&](const std::string& image_key, auto composite) {
+      TextureSet::Image image{image_key, {}};
+      if (claims && !claims->Claim(image_key))
+        return image;
+      image.image = _Shrink(composite(), max_size);
+      return image;
     };
-    if (!put(key, [&] { return Worldgen::CompositeTexture(texture, load); }))
-      continue;  // nothing loaded: keep the authored material
 
-    auto [material, made] = textured_materials_.try_emplace(
-        descriptor_path + "|" + authored.name + "|" + key);
-    if (made) {
-      Content::MaterialData textured = authored;
-      textured.albedo_map = key;
-      textured.base_color = glm::vec4(1.0f);  // the texture holds the colour
-      // The maps the layers have; masks in the shader's metallic-roughness
-      // layout (g roughness, b metallic)
-      if (put(key + "#normal", [&] {
-            return _RebuildNormal(Worldgen::CompositeMap(
-                texture, Worldgen::TextureMap::Normal, load));
-          }))
-        textured.normal_map = key + "#normal";
-      if (put(key + "#masks", [&] {
-            return Worldgen::CompositeMap(texture, Worldgen::TextureMap::Masks,
-                                          load);
-          }))
-        textured.metallic_roughness_map = key + "#masks";
-      if (put(key + "#occlusion", [&] {
-            return Worldgen::CompositeMap(
-                texture, Worldgen::TextureMap::Occlusion, load);
-          }))
-        textured.ao_map = key + "#occlusion";
-      material->second = MaterialRegistry::Instance().Register(textured);
-      Logger::getInstance().Log(
-          LogLevel::Info,
-          "[ProcModel::Subsystem] " + descriptor.model_id + " " +
-              authored.name + ": texture " + texture.name +
-              (textured.normal_map.empty() ? "" : ", normal") +
-              (textured.metallic_roughness_map.empty() ? "" : ", masks") +
-              (textured.ao_map.empty() ? "" : ", occlusion"));
-    }
-    materials[i] = material->second;
+    TextureSet::Material made;
+    made.albedo = make(key + "@" + std::to_string(max_size), [&] {
+      return Worldgen::CompositeTexture(texture, load);
+    });
+    made.normal = make(maps + "#normal", [&] {
+      return _RebuildNormal(
+          Worldgen::CompositeMap(texture, Worldgen::TextureMap::Normal, load));
+    });
+    made.masks = make(maps + "#masks", [&] {
+      return Worldgen::CompositeMap(texture, Worldgen::TextureMap::Masks, load);
+    });
+    made.occlusion = make(maps + "#occlusion", [&] {
+      return Worldgen::CompositeMap(texture, Worldgen::TextureMap::Occlusion,
+                                    load);
+    });
+    made.name = material;
+    set.materials.push_back(std::move(made));
   }
+  return set;
+}
+
+void Subsystem::StoreTextureImages(TextureSet& set) {
+  auto& images = Content::ImageCache::Instance();
+  for (TextureSet::Material& made : set.materials)
+    for (TextureSet::Image* image :
+         {&made.albedo, &made.normal, &made.masks, &made.occlusion}) {
+      // An empty one is left to the set that claimed it, or has nothing
+      if (image->image.width > 0 && image->image.width <= 0xffff &&
+          image->image.height <= 0xffff && !images.Contains(image->key)) {
+        Content::ImageData data;
+        data.width = static_cast<uint16_t>(image->image.width);
+        data.height = static_cast<uint16_t>(image->image.height);
+        data.pixels = std::move(image->image.rgba);
+        images.Put(image->key, std::move(data));
+      }
+      image->image = {};
+    }
+}
+
+const std::vector<MaterialHandle>* Subsystem::ApplyTextures(
+    const std::string& descriptor_path, const ProcModelResource& archetype,
+    TextureSet set) {
+  auto [it, added] = model_materials_.try_emplace(set.key);
+  std::vector<MaterialHandle>& materials = it->second;
+  if (!added)
+    return &materials;
+  const ModelGraph& graph = archetype.GetGraph();
+  const ModelDescriptor& descriptor = archetype.GetDescriptor();
+  materials = graph.material_handles;
+
+  StoreTextureImages(set);
+  auto& images = Content::ImageCache::Instance();
+  // False when the image has nothing to show
+  const auto put = [&](const TextureSet::Image& image) {
+    return images.Contains(image.key) && images.Get(image.key).Valid();
+  };
+  for (TextureSet::Material& made : set.materials)
+    for (size_t i = 0; i < graph.materials.size() && i < materials.size();
+         ++i) {
+      const Content::MaterialData& authored = graph.materials[i];
+      if (authored.name != made.name)
+        continue;
+      if (!put(made.albedo))
+        continue;  // nothing loaded: keep the authored material
+      auto [material, created] = textured_materials_.try_emplace(
+          descriptor_path + "|" + authored.name + "|" + made.albedo.key + "|" +
+          made.normal.key);
+      if (created) {
+        Content::MaterialData textured = authored;
+        textured.albedo_map = made.albedo.key;
+        textured.base_color = glm::vec4(1.0f);  // the texture holds the colour
+        // The maps the layers have; masks in the shader's metallic-roughness
+        // layout (g roughness, b metallic)
+        if (put(made.normal))
+          textured.normal_map = made.normal.key;
+        if (put(made.masks))
+          textured.metallic_roughness_map = made.masks.key;
+        if (put(made.occlusion))
+          textured.ao_map = made.occlusion.key;
+        material->second = MaterialRegistry::Instance().Register(textured);
+        Logger::getInstance().Log(
+            LogLevel::Debug,
+            "[ProcModel::Subsystem] " + descriptor.model_id + " " +
+                authored.name + ": texture " + made.albedo.key +
+                (textured.normal_map.empty() ? "" : ", normal") +
+                (textured.metallic_roughness_map.empty() ? "" : ", masks") +
+                (textured.ao_map.empty() ? "" : ", occlusion"));
+      }
+      materials[i] = material->second;
+    }
   return &materials;
 }
 
+// Read without the lock, so threads read apart; one that reads a path
+// another kept meanwhile drops its copy
 const Worldgen::TextureContent* Subsystem::LoadTextureContent(
     const std::string& path) {
-  auto [it, added] = texture_contents_.try_emplace(path);
-  if (added) {
-    std::ifstream file(path);
-    std::stringstream text;
-    text << file.rdbuf();
-    Worldgen::TextureContent content;
-    std::string error = "can't open it";
-    if (file && Worldgen::Json::LoadTextureContent(text.str(), content, &error))
-      it->second = std::move(content);
-    else
-      Logger::getInstance().Log(
-          LogLevel::Error, "[ProcModel::Subsystem] " + path + ": " + error);
+  {
+    std::lock_guard lock(texture_mutex_);
+    if (auto it = texture_contents_.find(path); it != texture_contents_.end())
+      return it->second ? &*it->second : nullptr;
   }
+  std::optional<Worldgen::TextureContent> read;
+  std::ifstream file(path);
+  std::stringstream text;
+  text << file.rdbuf();
+  Worldgen::TextureContent content;
+  std::string error = "can't open it";
+  if (file && Worldgen::Json::LoadTextureContent(text.str(), content, &error))
+    read = std::move(content);
+  else
+    Logger::getInstance().Log(
+        LogLevel::Error, "[ProcModel::Subsystem] " + path + ": " + error);
+  std::lock_guard lock(texture_mutex_);
+  auto it = texture_contents_.try_emplace(path, std::move(read)).first;
   return it->second ? &*it->second : nullptr;
 }
 
 const Worldgen::TextureImage* Subsystem::LoadLayerImage(
-    const std::string& path) {
-  auto [it, added] = layer_images_.try_emplace(path);
-  if (added) {
-    // Kept here as worldgen reads it, not in the image cache too
-    auto& images = Content::ImageCache::Instance();
-    const Content::ImageData& data = images.Get(path);
-    if (data.Valid() && data.format == Content::ImageFormat::RGBA8)
-      it->second = {data.width, data.height, data.pixels};
-    images.Evict(path);
+    const std::string& path, int max_size) {
+  const std::string key = path + "@" + std::to_string(max_size);
+  {
+    std::lock_guard lock(texture_mutex_);
+    if (auto it = layer_images_.find(key); it != layer_images_.end())
+      return it->second.width > 0 ? &it->second : nullptr;
   }
+  // Kept here as worldgen reads it, not in the image cache too
+  Worldgen::TextureImage image;
+  Content::ImageData data = Content::ImageLoader::LoadFile(path);
+  if (data.Valid() && data.format == Content::ImageFormat::RGBA8)
+    image = _Shrink({data.width, data.height, std::move(data.pixels)},
+                    max_size);
+  std::lock_guard lock(texture_mutex_);
+  auto it = layer_images_.try_emplace(key, std::move(image)).first;
   return it->second.width > 0 ? &it->second : nullptr;
 }
 

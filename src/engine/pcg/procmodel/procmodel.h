@@ -2,6 +2,8 @@
 #define PROCMODEL_H
 
 #include <memory>
+#include <mutex>
+#include <unordered_set>
 
 #include "engine/memory/resource.h"
 
@@ -59,10 +61,49 @@ public:
       const std::string& descriptor_path) const;
   std::optional<ProcModel::InstanceData> Generate(
       const ProcModelResource& archetype, uint64_t seed) const;
+  // `materials`: the graph's materials to use instead (ApplyTextures')
   ModelInstantiator::InstantiateResult Instantiate(
+      const ProcModel::InstanceData& instance, const ProcModelResource& archetype,
+      Entity parent = entt::null,
+      const std::vector<MaterialHandle>* materials = nullptr);
+
+  // A model's procedural textures for one texture input, in two steps so the
+  // compositing can leave the main thread: PrepareTextures composites each
+  // textured material's images (any thread), at most `max_size` a side (0:
+  // as composited); ApplyTextures stores them and gives the graph's
+  // materials with them (main thread), one list per descriptor and input.
+  // With `claims`, an image another set claimed first is left to it: store
+  // every set's images (StoreTextureImages) before applying any
+  struct TextureClaims {
+    // True for the first claim of `key` (any thread)
+    bool Claim(const std::string& key) {
+      std::lock_guard lock(mutex);
+      return keys.insert(key).second;
+    }
+    std::mutex mutex;
+    std::unordered_set<std::string> keys;
+  };
+  struct TextureSet {
+    struct Image {
+      std::string key;  // empty: none
+      Worldgen::TextureImage image;
+    };
+    struct Material {
+      std::string name;  // the graph material's
+      Image albedo, normal, masks, occlusion;
+    };
+    std::string key;
+    std::vector<Material> materials;
+  };
+  TextureSet PrepareTextures(const std::string& descriptor_path,
+                             const ModelDescriptor& descriptor,
+                             const Worldgen::TextureInput& input,
+                             int max_size = 0,
+                             TextureClaims* claims = nullptr);
+  void StoreTextureImages(TextureSet& set);
+  const std::vector<MaterialHandle>* ApplyTextures(
       const std::string& descriptor_path, const ProcModelResource& archetype,
-      const ProcModel::InstanceData& instance, Entity parent = entt::null,
-      const Worldgen::TextureInput* planet = nullptr);
+      TextureSet set);
 
   PCG::OperationRegistry& GetOperationRegistry() { return operation_registry_; }
   const PCG::OperationRegistry& GetOperationRegistry() const {
@@ -77,17 +118,22 @@ private:
   // The model's materials with its procedural textures made for the planet,
   // by the graph's material index; null when it has none to make
   const std::vector<MaterialHandle>* TexturedMaterials(
-      const std::string& descriptor_path, const ModelDescriptor& descriptor,
-      const ModelGraph& graph, const Worldgen::TextureInput& planet);
+      const std::string& descriptor_path, const ProcModelResource& archetype,
+      const Worldgen::TextureInput& planet);
+  // Any thread
   const Worldgen::TextureContent* LoadTextureContent(const std::string& path);
-  // A texture layer's image, or null if it can't load
-  const Worldgen::TextureImage* LoadLayerImage(const std::string& path);
+  // A texture layer's image at most `max_size` a side (0: as it is), or
+  // null if it can't load (any thread)
+  const Worldgen::TextureImage* LoadLayerImage(const std::string& path,
+                                               int max_size);
 
   PCG::OperationRegistry operation_registry_;
   std::unique_ptr<ValidationLogger> validation_logger_;
   std::unordered_map<std::string, ResourceID> procmodel_cache_;
 
-  // By path; unset if it failed to load
+  // By path; unset if it failed to load. Guarded by texture_mutex_ (the
+  // values stay put: readers keep pointers to them)
+  std::mutex texture_mutex_;
   std::unordered_map<std::string, std::optional<Worldgen::TextureContent>>
       texture_contents_;
   std::unordered_map<std::string, Worldgen::TextureImage> layer_images_;

@@ -78,6 +78,10 @@ static uint64_t _CellKey(const Worldgen::PlanetCell& cell) {
 void Subsystem::Init() {}
 
 void Subsystem::Shutdown() {
+  // The craft builds stop at their next craft
+  stopping_ = true;
+  crafts_.clear();
+  discarded_craft_.clear();
   meshes_.clear();
   planets_.clear();  // waits for the builds still running
   discarded_.clear();
@@ -338,12 +342,18 @@ void Subsystem::Build(Entity volume, CraftGenerator& generator) {
   state.plans = CraftInstancer::Plan(
       content, Worldgen::BuildFleet(content, generator.seed, generator.lawless),
       bounds.bounds_min, bounds.bounds_max, root_, generator.missing_count);
-  // The procmodels not loaded yet are read here, and uploaded by Make
+  // The procmodels not loaded yet are read here, and uploaded by Make; the
+  // craft's textures composited here, and stored by Make
   state.generating = std::async(
-      std::launch::async, [plans = state.plans]() mutable {
+      std::launch::async,
+      [plans = state.plans, content = std::move(content),
+       legacy = generator.legacy_colours, &stopping = stopping_,
+       &procmodel = EngineContext::PCG().GetProcModel()]() mutable {
         CraftWork work;
-        const auto& procmodel = EngineContext::PCG().GetProcModel();
+        const auto start = Clock::now();
         for (CraftInstancer::CraftPlan& plan : plans) {
+          if (stopping)
+            return CraftWork();
           if (!plan.descriptor.empty() && !plan.archetype) {
             auto it = work.read.find(plan.descriptor);
             if (it == work.read.end())
@@ -353,8 +363,28 @@ void Subsystem::Build(Entity volume, CraftGenerator& generator) {
                        .first;
             plan.archetype = it->second;
           }
-          work.instances.push_back(CraftInstancer::Generate(plan));
+          work.instances.push_back(CraftInstancer::Generate(procmodel, plan));
         }
+        // The textures on a few threads, leaving two cores to the rest
+        ProcModel::Subsystem::TextureClaims claims;
+        work.textures.resize(plans.size());
+        std::atomic<size_t> next{0};
+        const auto composite = [&] {
+          for (size_t at; !stopping && (at = next++) < plans.size();)
+            work.textures[at] = CraftInstancer::PrepareTextures(
+                procmodel, content, plans[at], legacy, claims);
+        };
+        std::vector<std::future<void>> helpers;
+        for (unsigned i = 3; i < std::thread::hardware_concurrency(); ++i)
+          helpers.push_back(std::async(std::launch::async, composite));
+        composite();
+        for (auto& helper : helpers)
+          helper.wait();
+        Logger::getInstance().Log(
+            LogLevel::Info, "[ProcWorld] " + std::to_string(plans.size()) +
+                                " craft picked and textured, " +
+                                std::to_string(_Milliseconds(start)) +
+                                " ms on a worker");
         return work;
       });
   generator.build_ms = _Milliseconds(start);
@@ -367,6 +397,11 @@ void Subsystem::Make(Entity volume, CraftGenerator& generator,
         std::future_status::ready)
       return;
     state.work = state.generating.get();
+    // Every craft's images before any craft takes them: a shared one is in
+    // the set that claimed it
+    for (auto& textures : state.work.textures)
+      if (textures)
+        EngineContext::PCG().GetProcModel().StoreTextureImages(*textures);
   }
   if (state.made == state.plans.size())
     return;
@@ -396,7 +431,8 @@ void Subsystem::Make(Entity volume, CraftGenerator& generator,
          _Milliseconds(start) < frame_budget_ms) {
     const size_t at = state.made++;
     const Entity entity = CraftInstancer::Make(
-        ecs, state.plans[at], state.work.instances[at], volume, root_);
+        ecs, state.plans[at], state.work.instances[at],
+        std::move(state.work.textures[at]), volume, root_);
     if (entity == entt::null)
       generator.missing_count++;
     else

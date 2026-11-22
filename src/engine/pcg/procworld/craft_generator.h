@@ -25,6 +25,9 @@ public:
   uint64_t seed = 1;
   // A lawless area: its fleet's craft change class at the content's chances
   bool lawless = false;
+  // Craft keeping legacy colours (an old save's flag): their palettes are
+  // drawn the older way
+  bool legacy_colours = false;
 
   // Last build, written by ProcWorld::Subsystem
   std::string error;

@@ -191,7 +191,8 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
     out["generator"] = {{"type", "Craft"},
                         {"content", craft.content_path},
                         {"seed", craft.seed},
-                        {"lawless", craft.lawless}};
+                        {"lawless", craft.lawless},
+                        {"legacy_colours", craft.legacy_colours}};
   }
   return out;
 }
@@ -240,6 +241,8 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     craft->content_path = it->value("content", std::string());
     craft->seed = it->value("seed", craft->seed);
     craft->lawless = it->value("lawless", craft->lawless);
+    craft->legacy_colours =
+        it->value("legacy_colours", craft->legacy_colours);
     auto [id, resource] =
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(
             "Craft");

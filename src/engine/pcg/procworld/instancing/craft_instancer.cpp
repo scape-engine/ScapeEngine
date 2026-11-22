@@ -14,6 +14,9 @@
 namespace ProcWorld {
 
 static constexpr const char* procmodel_prefix = "procmodel:";
+// A craft's composited textures at most this a side: each craft has its own
+// colours, so its own images
+static constexpr int craft_texture_size = 512;
 
 std::vector<CraftInstancer::CraftPlan> CraftInstancer::Plan(
     const Worldgen::CraftContent& content,
@@ -47,25 +50,41 @@ std::vector<CraftInstancer::CraftPlan> CraftInstancer::Plan(
 }
 
 std::optional<ProcModel::InstanceData> CraftInstancer::Generate(
-    const CraftPlan& plan) {
+    const ProcModel::Subsystem& procmodel, const CraftPlan& plan) {
   if (!plan.archetype)
     return std::nullopt;
-  return EngineContext::PCG().GetProcModel().Generate(*plan.archetype,
-                                                      plan.seed);
+  return procmodel.Generate(*plan.archetype, plan.seed);
+}
+
+std::optional<ProcModel::Subsystem::TextureSet> CraftInstancer::PrepareTextures(
+    ProcModel::Subsystem& procmodel, const Worldgen::CraftContent& content,
+    const CraftPlan& plan, bool legacy_colours,
+    ProcModel::Subsystem::TextureClaims& claims) {
+  if (!plan.archetype)
+    return std::nullopt;
+  return procmodel.PrepareTextures(
+      plan.descriptor, plan.archetype->GetDescriptor(),
+      Worldgen::BuildCraftTextures(content, plan.seed, legacy_colours),
+      craft_texture_size, &claims);
 }
 
 Entity CraftInstancer::Make(
     ECS& ecs, const CraftPlan& plan,
-    const std::optional<ProcModel::InstanceData>& instance, Entity source,
+    const std::optional<ProcModel::InstanceData>& instance,
+    std::optional<ProcModel::Subsystem::TextureSet> textures, Entity source,
     const std::filesystem::path& root) {
   Entity entity = entt::null;
   if (!plan.descriptor.empty()) {
-    if (plan.archetype && instance)
-      entity = EngineContext::PCG()
-                   .GetProcModel()
-                   .Instantiate(plan.descriptor, *plan.archetype, *instance,
-                                source)
-                   .root;
+    if (plan.archetype && instance) {
+      auto& procmodel = EngineContext::PCG().GetProcModel();
+      const std::vector<MaterialHandle>* materials =
+          textures ? procmodel.ApplyTextures(plan.descriptor, *plan.archetype,
+                                             std::move(*textures))
+                   : nullptr;
+      entity =
+          procmodel.Instantiate(*instance, *plan.archetype, source, materials)
+              .root;
+    }
   } else {
     entity =
         RegionInstancer::CreateObject(ecs, plan.model, source, plan.seed, root);

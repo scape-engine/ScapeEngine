@@ -20,9 +20,10 @@ namespace ProcWorld {
 // source as RegionInstancer takes) and a point and heading its seed gives
 // inside the bounds, with its procmodel's archetype when it is loaded (the
 // caller reads the others, ProcModel::Subsystem::ReadArchetype); Generate
-// picks a procmodel craft's parts from its seed (any thread); Make creates
-// its entity as a child of the source (the volume entity), tagged with
-// ProceduralInstanceComponent
+// picks a procmodel craft's parts from its seed (any thread) and
+// PrepareTextures composites its procedural textures (any thread); Make
+// creates its entity as a child of the source (the volume entity), tagged
+// with ProceduralInstanceComponent
 // TODO: craft can overlap; space them by their models' bounds
 class CraftInstancer {
 public:
@@ -45,12 +46,22 @@ public:
 
   // A procmodel craft's parts; none for other sources or a failed pick
   static std::optional<ProcModel::InstanceData> Generate(
-      const CraftPlan& plan);
+      const ProcModel::Subsystem& procmodel, const CraftPlan& plan);
+
+  // A procmodel craft's textures, from its seed and the content's palettes
+  // (the older way for legacy colours); none for other sources. Shared
+  // images are left to the set that claims them first
+  static std::optional<ProcModel::Subsystem::TextureSet> PrepareTextures(
+      ProcModel::Subsystem& procmodel, const Worldgen::CraftContent& content,
+      const CraftPlan& plan, bool legacy_colours,
+      ProcModel::Subsystem::TextureClaims& claims);
 
   // entt::null if it can't be made (a procmodel without its archetype)
-  static Entity Make(ECS& ecs, const CraftPlan& plan,
-                     const std::optional<ProcModel::InstanceData>& instance,
-                     Entity source, const std::filesystem::path& root);
+  static Entity Make(
+      ECS& ecs, const CraftPlan& plan,
+      const std::optional<ProcModel::InstanceData>& instance,
+      std::optional<ProcModel::Subsystem::TextureSet> textures, Entity source,
+      const std::filesystem::path& root);
 };
 
 }  // namespace ProcWorld

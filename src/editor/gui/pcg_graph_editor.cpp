@@ -262,6 +262,8 @@ void PCGGraphEditorPanel::DrawCraftProperties() {
   changed |= ImGui::IsItemDeactivatedAfterEdit();
   changed |= ImGui::Checkbox("Lawless", &craft.lawless);
   ImGui::TextDisabled("Some craft change class at the content's chances");
+  changed |= ImGui::Checkbox("Legacy colours", &craft.legacy_colours);
+  ImGui::TextDisabled("Palettes drawn the older way, as old saves keep");
 
   changed |= ImGui::Button("Regenerate");
 

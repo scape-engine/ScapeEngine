@@ -1,6 +1,7 @@
 #ifndef PROCWORLD_H
 #define PROCWORLD_H
 
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <future>
@@ -87,6 +88,7 @@ private:
                        std::shared_ptr<ProcModel::ProcModelResource>>
         read;
     std::vector<std::optional<ProcModel::InstanceData>> instances;
+    std::vector<std::optional<ProcModel::Subsystem::TextureSet>> textures;
   };
   struct CraftState {
     std::vector<CraftInstancer::CraftPlan> plans;
@@ -125,6 +127,7 @@ private:
   std::vector<std::future<RegionBuild>> discarded_;
   std::unordered_map<Entity, CraftState> crafts_;
   std::vector<std::future<CraftWork>> discarded_craft_;
+  std::atomic<bool> stopping_{false};
   std::unordered_map<Entity, TerrainLook> looks_;
   std::filesystem::path root_;
   glm::vec3 viewer_{0.0f};
