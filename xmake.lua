@@ -41,6 +41,7 @@ add_requires(
 add_requires("imgui 1.91.8-docking", { configs = { sdl2 = true, sdl2_renderer = true, docking = true, wchar32 = true } })
 add_requires("bgfx", { configs = { tools = true } })
 add_requires("reflect-cpp", { configs = { json = true } })
+add_requires("ozz-animation 0.16.0")
 add_requires(
 	"assimp",
 	{

@@ -262,6 +262,10 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path,
     for (unsigned int i = 0; i < scene->mNumAnimations; ++i)
       skeletal->clips.push_back(
           ConvertAnimation(scene->mAnimations[i], skeletal->skeleton));
+    if (!BuildRuntime(*skeletal))
+      Logger::getInstance().Log(LogLevel::Warning,
+                                "[MeshLoader] Too many nodes to animate: " +
+                                    path);
   } else {
     ProcessNode(scene->mRootNode, scene, mesh_data);
   }
@@ -301,6 +305,10 @@ SceneData MeshLoader::LoadScene(const std::string& path) {
   for (unsigned int i = 0; i < scene->mNumAnimations; ++i)
     data.skeletal.clips.push_back(
         ConvertAnimation(scene->mAnimations[i], data.skeletal.skeleton));
+  if ((!data.skeletal.clips.empty() || HasBones(scene)) &&
+      !BuildRuntime(data.skeletal))
+    Logger::getInstance().Log(
+        LogLevel::Warning, "[MeshLoader] Too many nodes to animate: " + path);
   // The meshes' material indices index these
   data.materials = MaterialLoader::LoadFromScene(path);
 

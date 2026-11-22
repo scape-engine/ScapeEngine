@@ -2,6 +2,7 @@
 #define ANIMATOR_COMPONENT_H
 
 #include <glm/glm.hpp>
+#include <memory>
 #include <vector>
 
 #include "engine/animation/skeleton.h"
@@ -21,7 +22,15 @@ struct AnimatorComponent {
   bool playing_{true};
   bool loop_{true};
 
-  // Each skeleton node's model-space transform
+  // The clip fading out under `clip_` (Animation::Play; -1: none), its time,
+  // and how long the fade lasts and has run
+  int fade_clip_{-1};
+  float fade_clip_time_{0.0f};
+  float fade_length_{0.0f};
+  float fade_elapsed_{0.0f};
+
+  // Its sampling buffers, and each skeleton node's model-space transform
+  std::shared_ptr<PoseSampler> sampler_;
   std::vector<glm::mat4> pose_;
 };
 

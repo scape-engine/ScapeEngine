@@ -148,6 +148,7 @@ add_packages(
 	"nlohmann_json",
 	"entt",
 	"assimp",
+	"ozz-animation",
 	"pcg-cpp"
 )
 

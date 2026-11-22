@@ -13,6 +13,10 @@ namespace Animation {
 AnimatorComponent* AddAnimator(ECS& ecs, Entity entity,
                                const SkeletalData* data);
 
+// Switches `animator` to clip `clip` from its start, fading the current one
+// out over `fade` seconds (0: at once). The clip it already plays: no change
+void Play(AnimatorComponent& animator, int clip, float fade = 0.0f);
+
 // Advances every playing animator by `dt` seconds and samples its pose
 void Update(ECS& ecs, float dt);
 
