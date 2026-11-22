@@ -430,7 +430,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   // Render each entity except selected ones (rendered with outline in the
   // selection node)
   for (const DrawList::Batch& batch : draws_.batches) {
-    bgfx::setInstanceDataBuffer(&batch.instances);
+    DrawList::Bind(batch);
     SubmitLit(*batch.mesh, batch.material, nullptr);
   }
   for (const DrawList::Single& single : draws_.singles) {
