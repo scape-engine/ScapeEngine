@@ -30,8 +30,9 @@ Material StandardMaterial::Build(const Content::MaterialData& data) {
                           ? data.alpha_cutoff
                           : 0.0f,
                       data.unlit ? 1.0f : 0.0f)),
-      param("u_emissive",
-            glm::vec4(data.emissive * data.emissive_strength, 0.0f)),
+      // w: 1 when double-sided (normals turn to the viewer)
+      param("u_emissive", glm::vec4(data.emissive * data.emissive_strength,
+                                    data.double_sided ? 1.0f : 0.0f)),
   };
 
   // Stages must match the samplers of fs_lit.sc. The texture type picks the
@@ -56,8 +57,8 @@ Material StandardMaterial::Build(const Content::MaterialData& data) {
   };
 
   material.blend = data.blend;
+  material.double_sided = data.double_sided;
 
-  // TODO: normal scale, occlusion strength, KHR_texture_transform, UV sets,
-  // double-sided
+  // TODO: normal scale, occlusion strength, KHR_texture_transform, UV sets
   return material;
 }

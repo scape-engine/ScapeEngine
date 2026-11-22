@@ -25,8 +25,9 @@ struct InstancedMeshComponent {
     uint32_t first = 0;  // into locals_
     uint32_t count = 0;
 
-    // Kept by the draw list: a sphere around its instances and the largest
-    // one's radius
+    // Kept by the draw list: how many of the run are mirrored (moved last), a
+    // sphere around its instances and the largest one's radius
+    uint32_t mirrored = 0;
     glm::vec3 center{0.0f};
     float radius = 0.0f;
     float reach = 0.0f;

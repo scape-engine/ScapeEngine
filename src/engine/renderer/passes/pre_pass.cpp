@@ -62,13 +62,12 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
 
   // Render every mesh
   const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
-                         BGFX_STATE_CULL_CW;
+                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
   for (const DrawList::Batch& batch : draws.batches) {
     if (DrawList::BlendOf(batch.material) != Content::MaterialBlend::Opaque)
       continue;
     DrawList::Bind(batch);
-    bgfx::setState(state);
+    bgfx::setState(state | DrawList::Cull(batch.material, batch.mirrored));
     bgfx::submit(ViewID::PRE_PASS, instanced_program_);
   }
   for (const DrawList::Single& single : draws.singles) {
@@ -76,7 +75,8 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
       continue;
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
-    bgfx::setState(state);
+    bgfx::setState(state | DrawList::Cull(single.material,
+                                          DrawList::Mirrored(*single.model)));
     const bool skinned = bgfx::isValid(skinned_program_) &&
                          DrawList::SetBones(*single.mesh, single.pose,
                                               single.pose_count);

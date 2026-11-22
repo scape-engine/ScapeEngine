@@ -440,7 +440,8 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
       if (!wanted(batch.material))
         continue;
       DrawList::Bind(batch);
-      SubmitLit(*batch.mesh, batch.material, nullptr);
+      SubmitLit(*batch.mesh, batch.material, nullptr, nullptr, 0,
+                batch.mirrored);
     }
     for (const DrawList::Single& single : draws_.singles) {
       if (!wanted(single.material) ||
@@ -570,14 +571,13 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
     return;
   }
 
-  // Render all meshes to shadow map: write depth, cull front faces
-  const uint64_t state =
-      BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_CULL_CW;
+  // Render all meshes to shadow map: write depth, cull back faces
+  const uint64_t state = BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
   for (const DrawList::Batch& batch : shadow_draws_.batches) {
     if (DrawList::BlendOf(batch.material) != Content::MaterialBlend::Opaque)
       continue;
     DrawList::Bind(batch);
-    bgfx::setState(state);
+    bgfx::setState(state | DrawList::Cull(batch.material, batch.mirrored));
     bgfx::submit(ViewID::SHADOW_PASS, shadow_instanced_program_);
   }
   for (const DrawList::Single& single : shadow_draws_.singles) {
@@ -585,7 +585,8 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
       continue;
     bgfx::setTransform(glm::value_ptr(*single.model));
     single.mesh->Bind();
-    bgfx::setState(state);
+    bgfx::setState(state | DrawList::Cull(single.material,
+                                          DrawList::Mirrored(*single.model)));
     const bool skinned = bgfx::isValid(shadow_skinned_program_) &&
                          DrawList::SetBones(*single.mesh, single.pose,
                                               single.pose_count);
@@ -675,7 +676,7 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
 void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
                                   const glm::mat4* model,
                                   const glm::mat4* pose,
-                                  uint32_t pose_count) {
+                                  uint32_t pose_count, bool mirrored) {
   auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
   // Textures are per-draw in bgfx
@@ -708,7 +709,9 @@ void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
   mesh.Bind();
 
   // Set culling/state; blended surfaces test depth without writing it
-  uint64_t render_state = BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW;
+  uint64_t render_state =
+      (BGFX_STATE_DEFAULT & ~BGFX_STATE_CULL_MASK) |
+      DrawList::Cull(material, model ? DrawList::Mirrored(*model) : mirrored);
   switch (DrawList::BlendOf(material)) {
     case Content::MaterialBlend::Blend:
       render_state = (render_state & ~BGFX_STATE_WRITE_Z) | BGFX_STATE_BLEND_ALPHA;

@@ -117,7 +117,7 @@ private:
   // `pose`: a skinned mesh's, of `pose_count` nodes (DrawList::SetBones)
   void SubmitLit(const Mesh& mesh, MaterialHandle material,
                  const glm::mat4* model, const glm::mat4* pose = nullptr,
-                 uint32_t pose_count = 0);
+                 uint32_t pose_count = 0, bool mirrored = false);
   void RenderSelectedEntity(EntityContainer* entity);
   void RenderSelectedEntityOutline(EntityContainer* entity);
 

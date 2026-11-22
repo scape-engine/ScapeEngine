@@ -36,6 +36,7 @@ struct MaterialData {
   MaterialBlend blend{MaterialBlend::Opaque};
   float alpha_cutoff{0.5f};  // Mask
   bool unlit{false};         // the base colour as it is, no lighting
+  bool double_sided{false};  // both sides drawn (glTF doubleSided)
 };
 
 }  // namespace Content

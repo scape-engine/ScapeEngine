@@ -19,7 +19,8 @@ $input v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent
 uniform vec4 u_meshColor;       // base color factor
 uniform vec4 u_materialParams;  // x = metallic factor, y = roughness factor,
                                 // z = alpha cutoff (0: none), w = 1: unlit
-uniform vec4 u_emissive;        // rgb = emissive factor * strength
+uniform vec4 u_emissive;        // rgb = emissive factor * strength,
+                                // w = 1: double-sided
 
 SAMPLER2D(s_albedo, 0);               // base color (sRGB)
 SAMPLER2D(s_normalMap, 1);            // tangent space normal
@@ -50,8 +51,11 @@ vec3 SurfaceNormal(vec3 N, vec3 T, vec3 B, vec2 uv)
 
 void main()
 {
-    vec3 N = SurfaceNormal(normalize(v_normal), v_tangent, v_bitangent, v_texcoord0);
     vec3 V = normalize(u_viewPos.xyz - v_worldPos);
+    // A double-sided surface seen from behind is lit as its back
+    vec3 n = normalize(v_normal);
+    if (u_emissive.w > 0.5 && dot(n, V) < 0.0) n = -n;
+    vec3 N = SurfaceNormal(n, v_tangent, v_bitangent, v_texcoord0);
 
     // Material inputs: factors multiplied by their textures
     vec4 baseColor = texture2D(s_albedo, v_texcoord0) * u_meshColor;

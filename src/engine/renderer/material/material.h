@@ -46,8 +46,7 @@ struct Material {
   // Additive draw after the opaque scene, without writing depth
   // TODO: masked depth and shadows (the depth programs sample no alpha)
   Content::MaterialBlend blend = Content::MaterialBlend::Opaque;
-
-  // TODO: culling for double-sided
+  bool double_sided = false;  // drawn unculled (DrawList::Cull)
 };
 
 #endif  // MATERIAL_H

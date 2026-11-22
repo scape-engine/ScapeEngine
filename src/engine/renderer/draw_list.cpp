@@ -18,15 +18,18 @@ namespace {
 struct BatchKey {
   const Mesh* mesh;
   MaterialHandle material;
+  bool mirrored;
   bool operator==(const BatchKey& other) const {
-    return mesh == other.mesh && material == other.material;
+    return mesh == other.mesh && material == other.material &&
+           mirrored == other.mirrored;
   }
 };
 
 struct BatchKeyHash {
   size_t operator()(const BatchKey& key) const {
-    return std::hash<const void*>()(key.mesh) ^
-           (std::hash<MaterialHandle>()(key.material) * 0x9e3779b97f4a7c15ull);
+    return (std::hash<const void*>()(key.mesh) ^
+            (std::hash<MaterialHandle>()(key.material) * 0x9e3779b97f4a7c15ull)) +
+           key.mirrored;
   }
 };
 
@@ -79,6 +82,16 @@ void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
         .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
         .add(bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float)
         .end();
+  // Each part's mirrored instances last, drawn as a batch of their own
+  for (InstancedMeshComponent::Part& part : set.parts_) {
+    const auto first = set.locals_.begin() + part.first;
+    part.mirrored = static_cast<uint32_t>(
+        first + part.count -
+        std::stable_partition(first, first + part.count,
+                              [](const glm::mat4& m) {
+                                return !DrawList::Mirrored(m);
+                              }));
+  }
   set.model_ = model;
   set.worlds_.resize(set.locals_.size());
   for (size_t i = 0; i < set.locals_.size(); ++i)
@@ -166,7 +179,8 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
         continue;
       }
       // The material is looked up once per group, not per mesh
-      const BatchKey key{renderer.mesh_, renderer.material_};
+      const BatchKey key{renderer.mesh_, renderer.material_,
+                         Mirrored(model)};
       auto [it, added] = fill.group_of.try_emplace(key, fill.groups.size());
       if (added) {
         const Material* material = registry.Get(renderer.material_);
@@ -203,9 +217,18 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
                      part.reach))
           continue;
         if (batched) {
-          fill.list->batches.push_back({part.mesh, part.material, {},
-                                        set.buffer_.handle, part.first,
-                                        part.count});
+          // the entity's own matrix mirrors both runs alike
+          const bool flip = Mirrored(transform.model_);
+          const uint32_t plain = part.count - part.mirrored;
+          if (plain > 0)
+            fill.list->batches.push_back({part.mesh, part.material, {},
+                                          set.buffer_.handle, part.first,
+                                          plain, flip});
+          if (part.mirrored > 0)
+            fill.list->batches.push_back({part.mesh, part.material, {},
+                                          set.buffer_.handle,
+                                          part.first + plain, part.mirrored,
+                                          !flip});
           continue;
         }
         for (uint32_t i = part.first; i < part.first + part.count; ++i)
@@ -225,6 +248,7 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
                     : bgfx::getAvailInstanceDataBuffer(count, instance_stride);
       if (room > 0) {
         Batch batch{group.key.mesh, group.key.material, {}};
+        batch.mirrored = group.key.mirrored;
         bgfx::allocInstanceDataBuffer(&batch.instances, room, instance_stride);
         for (uint32_t i = 0; i < room; ++i)
           std::memcpy(batch.instances.data + i * instance_stride,
@@ -249,6 +273,17 @@ void DrawList::Bind(const Batch& batch) {
 Content::MaterialBlend DrawList::BlendOf(MaterialHandle material) {
   const Material* found = MaterialRegistry::Instance().Get(material);
   return found ? found->blend : Content::MaterialBlend::Opaque;
+}
+
+bool DrawList::Mirrored(const glm::mat4& model) {
+  return glm::determinant(glm::mat3(model)) < 0.0f;
+}
+
+uint64_t DrawList::Cull(MaterialHandle material, bool mirrored) {
+  const Material* found = MaterialRegistry::Instance().Get(material);
+  if (found && found->double_sided)
+    return 0;
+  return mirrored ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
 }
 
 bool DrawList::SetBones(const Mesh& mesh, const glm::mat4* pose,

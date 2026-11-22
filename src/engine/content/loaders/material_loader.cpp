@@ -131,6 +131,9 @@ std::vector<MaterialData> MaterialLoader::ExtractMaterials(
         mat.blend = mat.unlit ? MaterialBlend::Additive : MaterialBlend::Blend;
     }
     ai_mat->Get(AI_MATKEY_GLTF_ALPHACUTOFF, mat.alpha_cutoff);
+    int two_sided = 0;
+    if (ai_mat->Get(AI_MATKEY_TWOSIDED, two_sided) == AI_SUCCESS)
+      mat.double_sided = two_sided != 0;
 
     // ? store on MaterialData for shader selection later
     mat.is_pbr = is_pbr;

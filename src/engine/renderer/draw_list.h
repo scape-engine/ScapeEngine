@@ -25,6 +25,7 @@ struct DrawList {
     bgfx::VertexBufferHandle buffer = BGFX_INVALID_HANDLE;
     uint32_t first = 0;
     uint32_t count = 0;
+    bool mirrored = false;  // its matrices turn triangles over
   };
   struct Single {
     Entity entity;
@@ -59,6 +60,12 @@ struct DrawList {
   // The material's blend mode (Opaque for a missing one): depth passes draw
   // only Opaque, the scene draws Blend and Additive after the rest
   static Content::MaterialBlend BlendOf(MaterialHandle material);
+
+  // Whether a matrix mirrors (turns triangles over: a negative determinant)
+  static bool Mirrored(const glm::mat4& model);
+  // The cull state for a material drawn mirrored or not: none for a
+  // double-sided one, else the back faces (front ones when mirrored)
+  static uint64_t Cull(MaterialHandle material, bool mirrored);
 
   // Sets u_bones from a skinned mesh's pose for the next submit; false when
   // the mesh isn't posed (draw it unskinned)
