@@ -61,12 +61,21 @@ static bool _Bind(MeshRendererComponent& renderer,
   if (!renderer.mesh_)
     return false;
 
+  // Registered once per model material and shared by its renderers (models
+  // stay cached, so the addresses do too)
+  static std::unordered_map<const void*, MaterialHandle> registered;
   const auto& materials = model->GetMaterials();
   const uint32_t material_index = renderer.mesh_->MaterialIndex();
-  renderer.material_ =
-      material_index < materials.size()
-          ? MaterialRegistry::Instance().Register(materials[material_index])
-          : INVALID_MATERIAL;
+  renderer.material_ = INVALID_MATERIAL;
+  if (material_index < materials.size()) {
+    const auto& material = materials[material_index];
+    auto it = registered.find(&material);
+    if (it == registered.end())
+      it = registered
+               .emplace(&material, MaterialRegistry::Instance().Register(material))
+               .first;
+    renderer.material_ = it->second;
+  }
   return true;
 }
 
