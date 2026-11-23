@@ -13,6 +13,7 @@
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/time/time.h"
 
 #include "api/planet_grid.h"
 #include "content_json.h"
@@ -220,6 +221,7 @@ void Subsystem::Update() {
           look.tile_colours[i] = glm::vec3(state.tile_colours[i]);
       Look(entity, look);
       Stream(entity, planet, state, volume.dirty);
+      Water(planet, state);
       volume.dirty = false;
     } else if (is_type(generator, PCG::GeneratorType::Craft)) {
       auto& craft = static_cast<CraftGenerator&>(*generator);
@@ -230,6 +232,34 @@ void Subsystem::Update() {
         Make(entity, craft, it->second);
     }
   }
+}
+
+// A new state blends in over the rules' blend time; a reload starts without
+// a blend
+// TODO: a world clock shared by everyone in a world; the application time
+// restarts with each run
+void Subsystem::Water(PlanetGenerator& generator, const PlanetState& state) {
+  if (!state.water_states) {
+    generator.water_state = generator.water_state_from = -1;
+    generator.water_blend = 1.0f;
+    return;
+  }
+  const Worldgen::WaterStateRules& rules = *state.water_states;
+  const int now = Worldgen::PickWaterState(
+      rules, static_cast<uint64_t>(Time::Now()), generator.storm);
+  if (generator.water_state < 0) {
+    generator.water_state = generator.water_state_from = now;
+    generator.water_blend = 1.0f;
+  } else if (now != generator.water_state) {
+    generator.water_state_from = generator.water_state;
+    generator.water_state = now;
+    generator.water_blend = 0.0f;
+  }
+  generator.water_blend =
+      rules.blend_time > 0.0f
+          ? std::min(1.0f, generator.water_blend +
+                               Time::Deltaf() / rules.blend_time)
+          : 1.0f;
 }
 
 void Subsystem::Clear(Entity volume) {
@@ -484,6 +514,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     state.tile_colours = {};
     state.textures = {};
     state.buildings = nullptr;
+    state.water_states = nullptr;
+    generator.water_state = generator.water_state_from = -1;
     generator.planet_tile_colours = 0;
     generator.planet_terrain = false;
     generator.planet_radius = 0.0f;
@@ -501,6 +533,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       state.textures.palettes = built.palettes;
       generator.planet_terrain = !planet.terrain_types.empty();
       generator.planet_radius = built.radius;
+      if (!planet.water_states.weights[0].empty() ||
+          !planet.water_states.weights[1].empty() ||
+          !planet.water_states.fallback[0].empty() ||
+          !planet.water_states.fallback[1].empty())
+        state.water_states = std::make_shared<Worldgen::WaterStateRules>(
+            planet.water_states);
       for (int i = 0; i < TerrainMaterialData::tile_count; ++i) {
         const Worldgen::Colour& c = built.tile_colours[i];
         if (c.a > 0.0f) {

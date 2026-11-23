@@ -378,6 +378,18 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
 
   DrawTerrainLook(planet.look);
 
+  if (ImGui::CollapsingHeader("Water")) {
+    ImGui::Checkbox("Storm", &planet.storm);
+    ImGui::TextDisabled("Picks from the storm weights; later from the weather");
+    if (planet.water_state < 0) {
+      ImGui::TextDisabled("The planet content has no water states");
+    } else {
+      ImGui::Text("State %d (from %d, %.0f%%)", planet.water_state,
+                  planet.water_state_from, planet.water_blend * 100.0f);
+      ImGui::TextDisabled("Weights and timing come from the planet content");
+    }
+  }
+
   // Applies from the next frame, no rebuild needed
   if (ImGui::CollapsingHeader("Creatures")) {
     ProcWorld::HerdSettings& herd = planet.creatures;

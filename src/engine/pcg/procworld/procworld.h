@@ -15,6 +15,7 @@
 #include "engine/renderer/model/mesh.h"
 
 #include "api/procedural_texture.h"
+#include "world/planet_water.h"
 #include "api/region.h"
 #include "engine/pcg/procworld/instancing/building_library.h"
 #include "engine/pcg/procworld/instancing/craft_instancer.h"
@@ -77,6 +78,8 @@ private:
     Worldgen::TextureInput textures;
     // Its building styles and structures; null: no buildings
     std::shared_ptr<BuildingLibrary> buildings;
+    // How its water's state changes; null: no water states
+    std::shared_ptr<const Worldgen::WaterStateRules> water_states;
   };
 
   // A craft volume's fleet: picked on a worker thread, then made a few craft
@@ -105,6 +108,8 @@ private:
   void Make(Entity volume, CraftGenerator& generator, CraftState& state);
   void Stream(Entity volume, PlanetGenerator& generator, PlanetState& state,
               bool reload);
+  // The water's state at the application time, blending into a new one
+  void Water(PlanetGenerator& generator, const PlanetState& state);
   // Destroys the entities made from the volume, and their meshes
   void Clear(Entity volume);
 
