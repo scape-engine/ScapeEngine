@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include "engine/animation/gait_set.h"
 #include "engine/animation/skeleton.h"
 
 using Entity = entt::entity;
@@ -37,6 +38,11 @@ struct AnimatorComponent {
   bool playing_{true};
   bool loop_{true};
   AnimatorSettings settings_;
+  // Additive pose layers on top of the clips (PoseLayers), each held at its
+  // frame
+  std::vector<PoseSampler::Layer> poses_;
+  // The model's gaits (none: herds walk its walk clip)
+  std::shared_ptr<GaitSet> gaits_;
 
   // The clip fading out under `clip_` (Animation::Play; -1: none), its time,
   // and how long the fade lasts and has run

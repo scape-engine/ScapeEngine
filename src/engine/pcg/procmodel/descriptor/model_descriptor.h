@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine/animation/gait_set.h"
+#include "engine/animation/pose_set.h"
 #include "engine/pcg/pipeline/pipeline_descriptor.h"
 
 namespace ProcModel {
@@ -148,6 +150,13 @@ struct ModelDescriptor {
   // to each locator's world frame before a part is placed.
   // Authored as a list of (kind, params) entries.
   std::vector<LocatorOperation> locator_operations;
+
+  // Seeded proportions of an animated model: poses of one clip, drawn
+  // together per instance
+  std::optional<PoseSet> poses;
+
+  // An animated model's gaits, which herds move it in ("movement")
+  std::optional<GaitSet> gaits;
 };
 
 }  // namespace ProcModel

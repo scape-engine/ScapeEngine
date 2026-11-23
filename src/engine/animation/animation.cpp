@@ -45,6 +45,7 @@ static void _Sample(AnimatorComponent& animator) {
                              animator.fade_clip_time_),
                       1.0f - in});
   }
+  layers.insert(layers.end(), animator.poses_.begin(), animator.poses_.end());
   animator.sampler_->Sample(*animator.data_, layers, animator.pose_);
 }
 
@@ -114,6 +115,11 @@ AnimatorComponent* AddAnimator(ECS& ecs, Entity entity,
   animator.sampler_ = std::make_shared<PoseSampler>();
   _Sample(animator);
   return &animator;
+}
+
+void Resample(AnimatorComponent& animator) {
+  if (animator.data_ && animator.sampler_)
+    _Sample(animator);
 }
 
 void Play(AnimatorComponent& animator, int clip, float fade) {

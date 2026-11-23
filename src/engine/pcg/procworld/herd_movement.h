@@ -18,7 +18,8 @@ namespace ProcWorld {
 // navmesh to a point near where it was placed, and rests again
 struct HerdSettings {
   bool roam{true};
-  float walk_speed{1.2f};    // metres per second
+  // The speed every creature heads for, times its model's gait speed scale
+  float walk_speed{1.0f};    // metres per second
   float turn_rate{120.0f};   // degrees per second
   float roam_radius{20.0f};  // walks end this near where it was placed
   float rest_min{4.0f};      // seconds between walks
@@ -29,12 +30,21 @@ struct HerdSettings {
   // in any case; none: the clip is left as it is
   std::string walk_clip{"walk"};
   std::string rest_clip{"idle"};
-  float fade{0.3f};  // seconds a clip fades into the next
-  // The axis the models face along, in model space
-  glm::vec3 forward{0.0f, 0.0f, 1.0f};
-  // The walk clip plays as fast as its feet move over the ground
-  // (StrideSpeed); off: at speed 1
+  float fade{0.3f};  // seconds a clip fades into the next, at rate 1
+  // The axis the models face along, in model space; zero: each model's own,
+  // the way its walk clip walks (StrideVelocity)
+  glm::vec3 forward{0.0f};
+  // Gaits: each creature plays the one of its model's gaits that comes
+  // nearest its speed (PickGait), at a rate within the gait's own; a model
+  // with none has one, its walk clip at the pace its planted feet keep,
+  // within these rates. Off: the first gait's clip (or the walk clip) at
+  // speed 1, moving at the speed
   bool match_stride{true};
+  float walk_min_rate{1.0f};
+  float walk_max_rate{1.0f};
+  // A creature moves as fast as its gait reaches, so its feet keep pace with
+  // the ground; off: at its speed, its clip as near as its rates allow
+  bool keep_pace{true};
   AnimatorSettings animation;  // the creatures' animators
 };
 

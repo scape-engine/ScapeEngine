@@ -2,6 +2,7 @@
 #define MODEL_GRAPH_H
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -11,6 +12,8 @@
 
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
+#include "engine/animation/gait_set.h"
+#include "engine/animation/pose_set.h"
 #include "engine/animation/skeleton.h"
 
 #include "model_graph_node.h"
@@ -24,6 +27,13 @@ struct ModelGraph {
   std::vector<Content::MaterialData> materials;
   // The scene's nodes, which skinned meshes' bones name, and its animations
   SkeletalData skeletal;
+  // The descriptor's poses, when its clip is among the skeletal clips (built
+  // additive)
+  std::optional<PoseSet> poses;
+  int pose_clip = -1;
+  // The descriptor's gaits with their clips found (shared with the animators,
+  // so edits reach every instance)
+  std::shared_ptr<GaitSet> gaits;
 
   // Flat lookup for DescriptorResolver
   std::unordered_map<std::string, ModelGraphNode*> node_lookup;

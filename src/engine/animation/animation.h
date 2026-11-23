@@ -17,6 +17,9 @@ AnimatorComponent* AddAnimator(ECS& ecs, Entity entity,
 // out over `fade` seconds (0: at once). The clip it already plays: no change
 void Play(AnimatorComponent& animator, int clip, float fade = 0.0f);
 
+// Samples `animator`'s pose now, as after changing its pose layers
+void Resample(AnimatorComponent& animator);
+
 // Where the scene is viewed from: animators plant their feet and sample at
 // full rate by their distance from it (AnimatorSettings)
 void SetViewer(const glm::vec3& position);

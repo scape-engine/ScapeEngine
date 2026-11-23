@@ -39,8 +39,8 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
   }
 
   // A model with skinned meshes plays its first clip on its root, started at
-  // a point from the entity so herds move out of step
-  // TODO: worldgen's pose values (PoseValues), blending the model's poses
+  // a point from the entity so herds move out of step, shaped by its seeded
+  // poses
   Entity animator = entt::null;
   if (std::any_of(graph.gpu_meshes.begin(), graph.gpu_meshes.end(),
                   [](const auto& mesh) { return mesh->Skinned(); })) {
@@ -52,6 +52,16 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
             std::fmod(static_cast<float>(static_cast<uint32_t>(result.root)) *
                           0.618034f,
                       1.0f);
+      // Each creature draws its own poses, as each of a species differs
+      if (graph.poses) {
+        added->poses_ = PoseLayers(
+            *graph.poses, graph.skeletal, graph.pose_clip,
+            resolved.seed ^ (static_cast<uint64_t>(result.root) + 1) *
+                                 0x9e3779b97f4a7c15ull,
+            resolved.model_scale.x);
+        Animation::Resample(*added);
+      }
+      added->gaits_ = graph.gaits;
       animator = result.root;
     }
   }

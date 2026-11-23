@@ -438,6 +438,55 @@ void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator) {
     IMComponents::Input("Speed", animator.speed_, 0.01f);
     IMComponents::Input("Loop", animator.loop_);
 
+    // The seeded pose layers: where each sits in its clip, and how strongly
+    if (!animator.poses_.empty()) {
+      _SpacingS();
+      _Headline("Poses");
+      bool changed = false;
+      for (size_t i = 0; i < animator.poses_.size(); ++i) {
+        PoseSampler::Layer& layer = animator.poses_[i];
+        ImGui::PushID(static_cast<int>(i));
+        const std::string label = "Pose " + std::to_string(i + 1);
+        changed |= ImGui::SliderFloat(label.c_str(), &layer.ratio, 0.0f, 1.0f);
+        changed |= ImGui::SliderFloat("Weight", &layer.weight, 0.0f, 2.0f);
+        ImGui::PopID();
+      }
+      if (changed)
+        Animation::Resample(animator);
+    }
+
+    // The model's gaits, shared by all its instances: the clip each plays,
+    // the ground it covers a second at scale 1, and its rates
+    if (animator.gaits_ && animator.data_) {
+      _SpacingS();
+      _Headline("Gaits");
+      GaitSet& set = *animator.gaits_;
+      const auto& clips = animator.data_->clips;
+      ImGui::DragFloat("Speed Scale", &set.speed_scale, 0.01f, 0.0f, 100.0f,
+                       "%.2fx");
+      ImGui::TextDisabled("Shared by every instance of the model");
+      for (size_t i = 0; i < set.gaits.size(); ++i) {
+        GaitSet::Gait& gait = set.gaits[i];
+        ImGui::PushID(static_cast<int>(i));
+        ImGui::SeparatorText(gait.name.empty() ? "Gait" : gait.name.c_str());
+        const bool valid = gait.clip_index >= 0 &&
+                           gait.clip_index < static_cast<int>(clips.size());
+        if (ImGui::BeginCombo("Clip", valid ? clips[gait.clip_index].name.c_str()
+                                            : "None")) {
+          for (int c = 0; c < static_cast<int>(clips.size()); ++c)
+            if (ImGui::Selectable(clips[c].name.c_str(), c == gait.clip_index)) {
+              gait.clip_index = c;
+              gait.clip = clips[c].name;
+            }
+          ImGui::EndCombo();
+        }
+        ImGui::DragFloat("Pace", &gait.pace, 0.01f, 0.0f, 100.0f, "%.2f m/s");
+        ImGui::DragFloatRange2("Rates", &gait.min_rate, &gait.max_rate, 0.01f,
+                               0.0f, 10.0f, "%.2fx");
+        ImGui::PopID();
+      }
+    }
+
     _SpacingS();
     _Headline("Sampling");
     DrawAnimatorSettings(animator.settings_);

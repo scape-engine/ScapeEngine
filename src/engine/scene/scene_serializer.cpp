@@ -157,6 +157,9 @@ static nlohmann::json _WriteCreatures(const ProcWorld::HerdSettings& herd) {
           {"fade", herd.fade},
           {"forward", herd.forward},
           {"match_stride", herd.match_stride},
+          {"walk_min_rate", herd.walk_min_rate},
+          {"walk_max_rate", herd.walk_max_rate},
+          {"keep_pace", herd.keep_pace},
           {"animation",
            {{"plant_feet", a.plant_feet},
             {"plant_distance", a.plant_distance},
@@ -184,6 +187,9 @@ static void _ReadCreatures(const nlohmann::json& in,
   herd.fade = it->value("fade", herd.fade);
   herd.forward = it->value("forward", herd.forward);
   herd.match_stride = it->value("match_stride", herd.match_stride);
+  herd.walk_min_rate = it->value("walk_min_rate", herd.walk_min_rate);
+  herd.walk_max_rate = it->value("walk_max_rate", herd.walk_max_rate);
+  herd.keep_pace = it->value("keep_pace", herd.keep_pace);
   auto animation = it->find("animation");
   if (animation == it->end())
     return;

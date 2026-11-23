@@ -173,6 +173,41 @@ bool ModelDescriptorParser::FromJson(const nlohmann::json& j,
   if (j.contains("textures"))
     for (const auto& [material, path] : j["textures"].items())
       out.textures[material] = path.get<std::string>();
+  if (j.contains("poses")) {
+    const auto& p = j["poses"];
+    PoseSet& poses = out.poses.emplace();
+    poses.clip = p.value("clip", std::string());
+    for (const auto& a : p.value("anchors", nlohmann::json::array())) {
+      PoseSet::Anchor& anchor = poses.anchors.emplace_back();
+      anchor.name = a.value("name", std::string());
+      if (a.contains("value") && a["value"].is_string())
+        anchor.source = a["value"].get<std::string>();
+      else
+        anchor.value = a.value("value", anchor.value);
+      anchor.spread = a.value("spread", anchor.spread);
+    }
+    for (const auto& i : p.value("items", nlohmann::json::array()))
+      poses.items.push_back({i.value("name", std::string()),
+                             i.value("start", -1), i.value("end", -1),
+                             i.value("spread", 0.325f)});
+    for (const auto& l : p.value("links", nlohmann::json::array()))
+      poses.links.push_back({l.value("a", std::string()),
+                             l.value("b", std::string()),
+                             l.value("correlation", 0.0f)});
+  }
+  if (j.contains("movement")) {
+    const auto& m = j["movement"];
+    GaitSet& gaits = out.gaits.emplace();
+    gaits.speed_scale = m.value("speed_scale", gaits.speed_scale);
+    for (const auto& g : m.value("gaits", nlohmann::json::array())) {
+      GaitSet::Gait& gait = gaits.gaits.emplace_back();
+      gait.name = g.value("name", std::string());
+      gait.clip = g.value("clip", std::string());
+      gait.pace = g.value("pace", gait.pace);
+      gait.min_rate = g.value("min_rate", gait.min_rate);
+      gait.max_rate = g.value("max_rate", gait.max_rate);
+    }
+  }
 
   // Whole-model scale range
   if (j.contains("scale_min")) {

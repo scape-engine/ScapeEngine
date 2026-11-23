@@ -384,6 +384,7 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     ImGui::Checkbox("Roam", &herd.roam);
     ImGui::DragFloat("Walk Speed", &herd.walk_speed, 0.05f, 0.0f, 50.0f,
                      "%.2f m/s");
+    ImGui::TextDisabled("Every creature's speed, times its model's speed scale");
     ImGui::DragFloat("Turn Rate", &herd.turn_rate, 1.0f, 1.0f, 1080.0f,
                      "%.0f deg/s");
     ImGui::DragFloat("Roam Radius", &herd.roam_radius, 0.5f, 0.0f, 1000.0f,
@@ -407,9 +408,15 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
     ImGui::TextDisabled("The first clip whose name holds this, in any case");
     ImGui::DragFloat("Fade", &herd.fade, 0.01f, 0.0f, 5.0f, "%.2f s");
     ImGui::DragFloat3("Forward", &herd.forward.x, 0.01f, -1.0f, 1.0f);
-    ImGui::TextDisabled("The axis the models face along (glTF: +z)");
-    ImGui::Checkbox("Match Stride", &herd.match_stride);
-    ImGui::TextDisabled("The walk clip plays as fast as its feet move");
+    ImGui::TextDisabled("The axis the models face along; zero: each walk clip's own");
+    ImGui::Checkbox("Gaits", &herd.match_stride);
+    ImGui::TextDisabled("The gait nearest the speed, at a rate within its own");
+    ImGui::TextDisabled("Off: the first clip at speed 1, at Walk Speed");
+    ImGui::DragFloatRange2("Walk Rates", &herd.walk_min_rate,
+                           &herd.walk_max_rate, 0.01f, 0.0f, 10.0f, "%.2fx");
+    ImGui::TextDisabled("For models without gaits: the walk clip's rates");
+    ImGui::Checkbox("Keep Pace", &herd.keep_pace);
+    ImGui::TextDisabled("Move as fast as the gait reaches, so feet don't slide");
     ImGui::SeparatorText("Animation");
     InspectableComponents::DrawAnimatorSettings(herd.animation);
   }

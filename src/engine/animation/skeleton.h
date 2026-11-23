@@ -55,6 +55,9 @@ struct SkeletalData {
   // node's joint (-1: nothing follows it, so it keeps its bind transform)
   std::shared_ptr<const ozz::animation::Skeleton> runtime_skeleton;
   std::vector<std::shared_ptr<const ozz::animation::Animation>> runtime_clips;
+  // Clips as additive layers (BuildAdditive; null: not built)
+  std::vector<std::shared_ptr<const ozz::animation::Animation>>
+      runtime_additive;
   std::vector<int> runtime_nodes, runtime_joints;
 
   bool Empty() const { return skeleton.names.empty(); }
@@ -64,6 +67,11 @@ struct SkeletalData {
 // nodes meshes follow (`posed`; none: every node) and their ancestors; false
 // (and none) when they do not fit ozz (over its joint limit)
 bool BuildRuntime(SkeletalData& data, const std::vector<int>& posed = {});
+
+// Builds clip `clip` as an additive layer (after BuildRuntime): each frame's
+// difference from its first frame, which sampling puts on top of the blended
+// pose (once per clip; false when it can't be built)
+bool BuildAdditive(SkeletalData& data, int clip);
 
 // The legs among `bones` (the skinned meshes' joints) in the bind pose: the
 // lowest tenth of the bones' height holds the feet, each the highest bone
@@ -82,6 +90,7 @@ class PoseSampler {
     int clip = -1;
     float ratio = 0.0f;  // ClipRatio
     float weight = 1.0f;
+    bool additive = false;  // from runtime_additive, on top of the rest
   };
 
   PoseSampler();
@@ -109,10 +118,10 @@ class PoseSampler {
 void SamplePose(const SkeletalData& data, int clip, float time, bool loop,
                 std::vector<glm::mat4>& globals);
 
-// How fast clip `clip` walks at speed 1, in model units per second: the
-// feet's mean reach along `forward` (model space) over a cycle, by its
-// duration, from `samples` poses. 0: no legs or no such clip
-float StrideSpeed(const SkeletalData& data, int clip, const glm::vec3& forward,
-                  int samples = 32);
+// How clip `clip` walks at speed 1, in model units per second along the
+// ground (model +y up): the way its planted feet slide back, reversed, from
+// `samples` poses over a cycle. Its direction is the way the model faces.
+// 0: no legs or no such clip
+glm::vec3 StrideVelocity(const SkeletalData& data, int clip, int samples = 32);
 
 #endif  // SKELETON_H

@@ -93,6 +93,46 @@ std::shared_ptr<ProcModelResource> Subsystem::ReadArchetype(
 
   resource->GetGraph() =
       ProcModel::ModelGraphBuilder::Build(scene, descriptor.path);
+  if (descriptor.poses) {
+    ProcModel::ModelGraph& graph = resource->GetGraph();
+    const auto& clips = graph.skeletal.clips;
+    const auto clip =
+        std::find_if(clips.begin(), clips.end(), [&](const AnimationClip& c) {
+          return c.name == descriptor.poses->clip;
+        });
+    const int index = static_cast<int>(clip - clips.begin());
+    if (clip != clips.end() && BuildAdditive(graph.skeletal, index)) {
+      graph.poses = descriptor.poses;
+      graph.pose_clip = index;
+    } else {
+      Logger::getInstance().Log(LogLevel::Warning,
+                                "[ProcModel::Subsystem] No pose clip '" +
+                                    descriptor.poses->clip + "' in " +
+                                    descriptor.path);
+    }
+  }
+
+  // Each gait's clip, and the pace its planted feet keep where none is given
+  if (descriptor.gaits) {
+    ProcModel::ModelGraph& graph = resource->GetGraph();
+    graph.gaits = std::make_shared<GaitSet>(*descriptor.gaits);
+    const auto& clips = graph.skeletal.clips;
+    for (GaitSet::Gait& gait : graph.gaits->gaits) {
+      const auto clip =
+          std::find_if(clips.begin(), clips.end(), [&](const AnimationClip& c) {
+            return c.name == gait.clip;
+          });
+      if (clip == clips.end()) {
+        Logger::getInstance().Log(LogLevel::Warning,
+                                  "[ProcModel::Subsystem] No gait clip '" +
+                                      gait.clip + "' in " + descriptor.path);
+        continue;
+      }
+      gait.clip_index = static_cast<int>(clip - clips.begin());
+      if (gait.pace <= 0.0f)
+        gait.pace = glm::length(StrideVelocity(graph.skeletal, gait.clip_index));
+    }
+  }
 
   auto resolve_result = ProcModel::DescriptorResolver::Resolve(
       resource->GetGraph(), resource->GetDescriptor());

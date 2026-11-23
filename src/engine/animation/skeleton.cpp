@@ -7,6 +7,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include <ozz/animation/offline/additive_animation_builder.h>
 #include <ozz/animation/offline/animation_builder.h>
 #include <ozz/animation/offline/animation_optimizer.h>
 #include <ozz/animation/offline/raw_animation.h>
@@ -69,9 +70,52 @@ int Skeleton::Find(const std::string& name) const {
   return it == names.end() ? -1 : static_cast<int>(it - names.begin());
 }
 
+// A clip as ozz's raw animation over the posed joints; a joint without keys
+// holds its node's own transform
+static offline::RawAnimation _RawClip(const SkeletalData& data,
+                                      const AnimationClip& clip) {
+  const Skeleton& skeleton = data.skeleton;
+  const int count = static_cast<int>(skeleton.names.size());
+  const int joints = static_cast<int>(data.runtime_nodes.size());
+  offline::RawAnimation animation;
+  animation.duration = clip.duration;
+  animation.tracks.resize(joints);
+  for (const AnimationClip::Channel& channel : clip.channels) {
+    if (channel.node < 0 || channel.node >= count ||
+        data.runtime_joints[channel.node] < 0)
+      continue;
+    auto& track = animation.tracks[data.runtime_joints[channel.node]];
+    AddKeys(channel.position_times, channel.positions, clip.duration,
+            [](const glm::vec3& v) { return ozz::math::Float3(v.x, v.y, v.z); },
+            track.translations);
+    AddKeys(channel.rotation_times, channel.rotations, clip.duration,
+            [](const glm::quat& q) {
+              return ozz::math::Quaternion(q.x, q.y, q.z, q.w);
+            },
+            track.rotations);
+    AddKeys(channel.scale_times, channel.scales, clip.duration,
+            [](const glm::vec3& v) { return ozz::math::Float3(v.x, v.y, v.z); },
+            track.scales);
+  }
+  // ozz reads a track without keys as identity: hold the node's own
+  for (int j = 0; j < joints; ++j) {
+    auto& track = animation.tracks[j];
+    const ozz::math::Transform rest =
+        ToOzz(skeleton.locals[data.runtime_nodes[j]]);
+    if (track.translations.empty())
+      track.translations.push_back({0.0f, rest.translation});
+    if (track.rotations.empty())
+      track.rotations.push_back({0.0f, rest.rotation});
+    if (track.scales.empty())
+      track.scales.push_back({0.0f, rest.scale});
+  }
+  return animation;
+}
+
 bool BuildRuntime(SkeletalData& data, const std::vector<int>& posed) {
   data.runtime_skeleton.reset();
   data.runtime_clips.clear();
+  data.runtime_additive.clear();
   data.runtime_nodes.clear();
   const Skeleton& skeleton = data.skeleton;
   const int count = static_cast<int>(skeleton.names.size());
@@ -124,38 +168,7 @@ bool BuildRuntime(SkeletalData& data, const std::vector<int>& posed) {
       data.runtime_clips.push_back(nullptr);
       continue;
     }
-    offline::RawAnimation animation;
-    animation.duration = clip.duration;
-    animation.tracks.resize(joints);
-    for (const AnimationClip::Channel& channel : clip.channels) {
-      if (channel.node < 0 || channel.node >= count ||
-          data.runtime_joints[channel.node] < 0)
-        continue;
-      auto& track = animation.tracks[data.runtime_joints[channel.node]];
-      AddKeys(channel.position_times, channel.positions, clip.duration,
-              [](const glm::vec3& v) { return ozz::math::Float3(v.x, v.y, v.z); },
-              track.translations);
-      AddKeys(channel.rotation_times, channel.rotations, clip.duration,
-              [](const glm::quat& q) {
-                return ozz::math::Quaternion(q.x, q.y, q.z, q.w);
-              },
-              track.rotations);
-      AddKeys(channel.scale_times, channel.scales, clip.duration,
-              [](const glm::vec3& v) { return ozz::math::Float3(v.x, v.y, v.z); },
-              track.scales);
-    }
-    // ozz reads a track without keys as identity: hold the node's own
-    for (int j = 0; j < joints; ++j) {
-      auto& track = animation.tracks[j];
-      const ozz::math::Transform rest =
-          ToOzz(skeleton.locals[data.runtime_nodes[j]]);
-      if (track.translations.empty())
-        track.translations.push_back({0.0f, rest.translation});
-      if (track.rotations.empty())
-        track.rotations.push_back({0.0f, rest.rotation});
-      if (track.scales.empty())
-        track.scales.push_back({0.0f, rest.scale});
-    }
+    offline::RawAnimation animation = _RawClip(data, clip);
     // Keys the others interpolate to within 1 mm dropped (ozz's defaults)
     offline::RawAnimation optimized;
     if (!offline::AnimationOptimizer()(animation, *built, &optimized))
@@ -164,6 +177,26 @@ bool BuildRuntime(SkeletalData& data, const std::vector<int>& posed) {
   }
   data.runtime_skeleton = std::move(built);
   return true;
+}
+
+bool BuildAdditive(SkeletalData& data, int clip) {
+  if (!data.runtime_skeleton || clip < 0 ||
+      clip >= static_cast<int>(data.clips.size()) ||
+      data.clips[clip].duration <= 0.0f)
+    return false;
+  if (data.runtime_additive.size() < data.clips.size())
+    data.runtime_additive.resize(data.clips.size());
+  if (data.runtime_additive[clip])
+    return true;
+  offline::RawAnimation additive, optimized;
+  if (!offline::AdditiveAnimationBuilder()(_RawClip(data, data.clips[clip]),
+                                           &additive))
+    return false;
+  if (!offline::AnimationOptimizer()(additive, *data.runtime_skeleton,
+                                     &optimized))
+    optimized = std::move(additive);
+  data.runtime_additive[clip] = offline::AnimationBuilder()(optimized);
+  return data.runtime_additive[clip] != nullptr;
 }
 
 void FindLegs(SkeletalData& data, const std::vector<int>& bones) {
@@ -242,18 +275,20 @@ void PoseSampler::Sample(const SkeletalData& data,
   const int joints = skeleton->num_joints();
   const int soa = skeleton->num_soa_joints();
 
-  std::vector<ozz::animation::BlendingJob::Layer> blend;
+  std::vector<ozz::animation::BlendingJob::Layer> blend, additive;
   for (const Layer& layer : layers) {
+    const auto& clips =
+        layer.additive ? data.runtime_additive : data.runtime_clips;
     const ozz::animation::Animation* animation =
-        layer.clip >= 0 &&
-                layer.clip < static_cast<int>(data.runtime_clips.size())
-            ? data.runtime_clips[layer.clip].get()
+        layer.clip >= 0 && layer.clip < static_cast<int>(clips.size())
+            ? clips[layer.clip].get()
             : nullptr;
     if (!animation || layer.weight <= 0.0f)
       continue;
-    if (b.slots.size() <= blend.size())
+    const size_t used = blend.size() + additive.size();
+    if (b.slots.size() <= used)
       b.slots.push_back(std::make_unique<Buffers::Slot>());
-    Buffers::Slot& slot = *b.slots[blend.size()];
+    Buffers::Slot& slot = *b.slots[used];
     if (slot.context.max_tracks() < joints)
       slot.context.Resize(joints);
     slot.locals.resize(soa);
@@ -263,19 +298,21 @@ void PoseSampler::Sample(const SkeletalData& data,
     sampling.ratio = layer.ratio;
     sampling.output = ozz::make_span(slot.locals);
     sampling.Run();
-    blend.push_back({});
-    blend.back().weight = layer.weight;
-    blend.back().transform = ozz::make_span(slot.locals);
+    auto& into = layer.additive ? additive : blend;
+    into.push_back({});
+    into.back().weight = layer.weight;
+    into.back().transform = ozz::make_span(slot.locals);
   }
 
   // One full layer is the pose as it is; else the weighted mix (none: the
-  // rest pose)
+  // rest pose), then the additive layers on top
   b.blended.resize(soa);
-  if (blend.size() == 1 && blend[0].weight >= 1.0f) {
+  if (blend.size() == 1 && blend[0].weight >= 1.0f && additive.empty()) {
     b.blended.assign(blend[0].transform.begin(), blend[0].transform.end());
   } else {
     ozz::animation::BlendingJob blending;
     blending.layers = ozz::make_span(blend);
+    blending.additive_layers = ozz::make_span(additive);
     blending.rest_pose = skeleton->joint_rest_poses();
     blending.output = ozz::make_span(b.blended);
     blending.Run();
@@ -384,29 +421,64 @@ void SamplePose(const SkeletalData& data, int clip, float time, bool loop,
   sampler.Sample(data, {{clip, ratio, 1.0f}}, globals);
 }
 
-float StrideSpeed(const SkeletalData& data, int clip, const glm::vec3& forward,
-                  int samples) {
+glm::vec3 StrideVelocity(const SkeletalData& data, int clip, int samples) {
   if (clip < 0 || clip >= static_cast<int>(data.clips.size()) ||
-      data.legs.empty() || data.clips[clip].duration <= 0.0f || samples < 2)
-    return 0.0f;
-  // Each foot's reach ahead over the cycle: the ground a planted foot
-  // passes under the body in one stride
+      data.legs.empty() || data.clips[clip].duration <= 0.0f || samples < 3)
+    return glm::vec3(0.0f);
+  const AnimationClip& c = data.clips[clip];
+  const size_t legs = data.legs.size();
   PoseSampler sampler;
   std::vector<glm::mat4> pose;
-  std::vector<float> low(data.legs.size(), INFINITY),
-      high(data.legs.size(), -INFINITY);
-  const AnimationClip& c = data.clips[clip];
+  std::vector<glm::vec3> feet(samples * legs);
   for (int i = 0; i < samples; ++i) {
-    const float time = c.duration * i / samples;
-    sampler.Sample(data, {{clip, ClipRatio(c, time, true), 1.0f}}, pose);
-    for (size_t leg = 0; leg < data.legs.size(); ++leg) {
-      const float z = glm::dot(glm::vec3(pose[data.legs[leg].end][3]), forward);
-      low[leg] = std::min(low[leg], z);
-      high[leg] = std::max(high[leg], z);
+    sampler.Sample(data, {{clip, ClipRatio(c, c.duration * i / samples, true),
+                           1.0f}},
+                   pose);
+    for (size_t leg = 0; leg < legs; ++leg)
+      feet[i * legs + leg] = glm::vec3(pose[data.legs[leg].end][3]);
+  }
+  // A foot is planted in the lowest share of its lift; there the ground
+  // slides back under it as fast as the body walks ahead. The way is all
+  // planted samples' mean; the speed along it each foot's median, as samples
+  // landing or lifting off move slower
+  const float dt = c.duration / samples;
+  std::vector<glm::vec3> velocity;
+  std::vector<int> foot;
+  glm::vec3 sum(0.0f);
+  for (size_t leg = 0; leg < legs; ++leg) {
+    float low = INFINITY, high = -INFINITY;
+    for (int i = 0; i < samples; ++i) {
+      low = std::min(low, feet[i * legs + leg].y);
+      high = std::max(high, feet[i * legs + leg].y);
+    }
+    for (int i = 0; i < samples; ++i) {
+      if (feet[i * legs + leg].y > low + (high - low) * 0.15f)
+        continue;
+      const glm::vec3 next = feet[(i + 1) % samples * legs + leg];
+      const glm::vec3 last = feet[(i + samples - 1) % samples * legs + leg];
+      const glm::vec3 v = (last - next) / (2.0f * dt);
+      velocity.push_back(glm::vec3(v.x, 0.0f, v.z));
+      foot.push_back(static_cast<int>(leg));
+      sum += velocity.back();
     }
   }
-  float sum = 0.0f;
-  for (size_t leg = 0; leg < data.legs.size(); ++leg)
-    sum += high[leg] - low[leg];
-  return sum / data.legs.size() / c.duration;
+  if (glm::length(sum) <= 0.0f)
+    return glm::vec3(0.0f);
+  const glm::vec3 way = glm::normalize(sum);
+  float speeds = 0.0f;
+  int counted = 0;
+  std::vector<float> along;
+  for (size_t leg = 0; leg < legs; ++leg) {
+    along.clear();
+    for (size_t k = 0; k < velocity.size(); ++k)
+      if (foot[k] == static_cast<int>(leg))
+        along.push_back(glm::dot(velocity[k], way));
+    if (along.empty())
+      continue;
+    std::nth_element(along.begin(), along.begin() + along.size() / 2,
+                     along.end());
+    speeds += along[along.size() / 2];
+    counted++;
+  }
+  return way * std::max(speeds / counted, 0.0f);
 }
