@@ -55,9 +55,8 @@ public:
   int biome = 0;
   int subtype = 0;
   int size = 0;  // the size class
-  // The water's state picks from the planet content's storm weights
-  // TODO: from the planet's weather once Scape runs storms
-  bool storm = false;
+  // Testing: the water acts as though a weather event is under way
+  bool force_weather_event = false;
 
   // State, written by ProcWorld::Subsystem
   std::string error;
@@ -67,9 +66,19 @@ public:
   int planet_tile_colours = 0;  // tiles coloured by the planet
   bool planet_terrain = false;  // the terrain is the planet's
   float planet_radius = 0.0f;   // from the size class; 0: the content's
+  // The weather event at the world clock, from the planet's schedule
+  bool weather_events = false;         // the planet has a schedule
+  bool weather_event = false;          // one is under way: warning to end
+  bool weather_event_warning = false;  // between its warning and its start
+  int weather_event_kind = -1;         // -1: none under way, or no kinds
+  float weather_event_intensity = 0.0f;
+  // 0 clear to 1 full: rising from its start, falling from its fade
+  float weather_event_strength = 0.0f;
+  // Seconds to the event's next stage, else to the next event; -1: none
+  double weather_event_change = -1.0;
   // The water's state (an index into the planet content's water states) at
-  // the application time, and the one it blends from; -1: the planet content
-  // has none
+  // the world clock, and the one it blends from; -1: the planet content has
+  // none
   // TODO: the water surface reads these once Scape draws water
   int water_state = -1;
   int water_state_from = -1;

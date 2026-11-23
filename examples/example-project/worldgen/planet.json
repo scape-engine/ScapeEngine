@@ -5956,6 +5956,16 @@
       }
     }
   ],
+  "weather_events": {
+    "schedules": [
+      { "interval": 600, "jitter": 120, "min_length": 90, "max_length": 240, "warning": 20, "transition": 15 },
+      { "interval": 300, "jitter": 60, "min_length": 60, "max_length": 180, "warning": 20, "transition": 15 },
+      { "interval": 150, "jitter": 30, "min_length": 120, "max_length": 300, "warning": 30, "transition": 20 }
+    ],
+    "kinds": [
+      { "kinds": [ { "weight": 3, "intensity_min": 0.0, "intensity_max": 0.5 }, { "weight": 1, "intensity_min": 0.5, "intensity_max": 1.5 } ], "usable": 2 }
+    ]
+  },
   "water_states": {
     "weights": [
       [5, 3, 1, 0],

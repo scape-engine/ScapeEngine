@@ -16,6 +16,7 @@
 
 #include "api/procedural_texture.h"
 #include "world/planet_water.h"
+#include "world/planet_weather_events.h"
 #include "api/region.h"
 #include "engine/pcg/procworld/instancing/building_library.h"
 #include "engine/pcg/procworld/instancing/craft_instancer.h"
@@ -80,6 +81,16 @@ private:
     std::shared_ptr<BuildingLibrary> buildings;
     // How its water's state changes; null: no water states
     std::shared_ptr<const Worldgen::WaterStateRules> water_states;
+    // Its weather events: the schedule and kinds it was built with, the
+    // events around the world clock, and the kind picked for the event that
+    // warned at `picked_warning`
+    Worldgen::WeatherEventSchedule weather_events = {.never = true};
+    Worldgen::WeatherEventRules::KindList weather_event_kinds;
+    uint64_t weather_seed = 0;
+    std::vector<Worldgen::WeatherEvent> events;
+    uint64_t picked_warning = UINT64_MAX;
+    int picked_kind = -1;
+    float picked_intensity = 0.0f;
   };
 
   // A craft volume's fleet: picked on a worker thread, then made a few craft
@@ -108,8 +119,10 @@ private:
   void Make(Entity volume, CraftGenerator& generator, CraftState& state);
   void Stream(Entity volume, PlanetGenerator& generator, PlanetState& state,
               bool reload);
-  // The water's state at the application time, blending into a new one
-  void Water(PlanetGenerator& generator, const PlanetState& state);
+  // The weather event at `now` (seconds on the world clock)
+  void Weather(PlanetGenerator& generator, PlanetState& state, double now);
+  // The water's state at `now`, blending into a new one
+  void Water(PlanetGenerator& generator, const PlanetState& state, double now);
   // Destroys the entities made from the volume, and their meshes
   void Clear(Entity volume);
 

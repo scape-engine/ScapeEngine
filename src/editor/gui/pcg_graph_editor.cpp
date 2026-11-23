@@ -378,9 +378,25 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
 
   DrawTerrainLook(planet.look);
 
+  if (ImGui::CollapsingHeader("Weather")) {
+    if (!planet.weather_events) {
+      ImGui::TextDisabled("The planet has no weather events");
+    } else if (!planet.weather_event) {
+      ImGui::Text("Clear, next event in %.0f s", planet.weather_event_change);
+    } else {
+      ImGui::Text("%s: kind %d, intensity %.2f",
+                  planet.weather_event_warning ? "Warning" : "Event",
+                  planet.weather_event_kind, planet.weather_event_intensity);
+      ImGui::Text("Strength %.0f%%, next stage in %.0f s",
+                  planet.weather_event_strength * 100.0f,
+                  planet.weather_event_change);
+    }
+    ImGui::TextDisabled("Schedule and kinds come from the planet content");
+  }
+
   if (ImGui::CollapsingHeader("Water")) {
-    ImGui::Checkbox("Storm", &planet.storm);
-    ImGui::TextDisabled("Picks from the storm weights; later from the weather");
+    ImGui::Checkbox("Force Weather Event", &planet.force_weather_event);
+    ImGui::TextDisabled("Picks as though a weather event is under way");
     if (planet.water_state < 0) {
       ImGui::TextDisabled("The planet content has no water states");
     } else {

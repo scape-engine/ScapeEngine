@@ -202,6 +202,11 @@ void Subsystem::Update() {
     return true;
   });
 
+  // The world clock: Unix seconds, so machines with set clocks agree
+  // TODO: a clock the world's peers share, apart from the machines' own
+  const double now = std::chrono::duration<double>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
   for (auto [entity, volume] : ecs.View<VolumeComponent>().each()) {
     PCG::Generator* generator = generator_of(volume);
     if (is_type(generator, PCG::GeneratorType::Region)) {
@@ -221,7 +226,8 @@ void Subsystem::Update() {
           look.tile_colours[i] = glm::vec3(state.tile_colours[i]);
       Look(entity, look);
       Stream(entity, planet, state, volume.dirty);
-      Water(planet, state);
+      Weather(planet, state, now);
+      Water(planet, state, now);
       volume.dirty = false;
     } else if (is_type(generator, PCG::GeneratorType::Craft)) {
       auto& craft = static_cast<CraftGenerator&>(*generator);
@@ -234,25 +240,81 @@ void Subsystem::Update() {
   }
 }
 
+// The events list is rebuilt only once its last event has ended; the kind
+// is picked once per event
+void Subsystem::Weather(PlanetGenerator& generator, PlanetState& state,
+                        double now) {
+  generator.weather_events = !state.weather_events.never;
+  generator.weather_event = generator.weather_event_warning = false;
+  generator.weather_event_kind = -1;
+  generator.weather_event_intensity = generator.weather_event_strength = 0.0f;
+  generator.weather_event_change = -1.0;
+  if (state.weather_events.never)
+    return;
+  const uint64_t time = static_cast<uint64_t>(now);
+  if (state.events.empty() || state.events.back().ends <= time)
+    state.events = Worldgen::WeatherEvents(
+        state.weather_events, state.weather_seed, time, time);
+  for (const Worldgen::WeatherEvent& e : state.events) {
+    if (e.ends <= time)
+      continue;
+    if (time < e.warning) {
+      generator.weather_event_change = static_cast<double>(e.warning) - now;
+      return;
+    }
+    if (e.warning != state.picked_warning) {
+      state.picked_warning = e.warning;
+      Worldgen::PickWeatherEventKind(
+          state.weather_event_kinds.kinds, state.weather_event_kinds.usable,
+          e.warning, state.picked_kind, state.picked_intensity);
+    }
+    generator.weather_event = true;
+    generator.weather_event_warning = time < e.starts;
+    generator.weather_event_kind = state.picked_kind;
+    generator.weather_event_intensity = state.picked_intensity;
+    const double starts = static_cast<double>(e.starts),
+                 full = static_cast<double>(e.full),
+                 fades = static_cast<double>(e.fades),
+                 ends = static_cast<double>(e.ends);
+    double strength = 1.0;
+    if (now < starts)
+      strength = 0.0;
+    else if (now < full)
+      strength = (now - starts) / (full - starts);
+    else if (now >= fades)
+      strength = (ends - now) / (ends - fades);
+    generator.weather_event_strength =
+        static_cast<float>(std::clamp(strength, 0.0, 1.0));
+    for (const uint64_t stage : {e.starts, e.full, e.fades, e.ends})
+      if (time < stage) {
+        generator.weather_event_change = static_cast<double>(stage) - now;
+        break;
+      }
+    return;
+  }
+}
+
 // A new state blends in over the rules' blend time; a reload starts without
-// a blend
-// TODO: a world clock shared by everyone in a world; the application time
-// restarts with each run
-void Subsystem::Water(PlanetGenerator& generator, const PlanetState& state) {
+// a blend. The water reads a weather event from its start to its end
+void Subsystem::Water(PlanetGenerator& generator, const PlanetState& state,
+                      double now) {
   if (!state.water_states) {
     generator.water_state = generator.water_state_from = -1;
     generator.water_blend = 1.0f;
     return;
   }
   const Worldgen::WaterStateRules& rules = *state.water_states;
-  const int now = Worldgen::PickWaterState(
-      rules, static_cast<uint64_t>(Time::Now()), generator.storm);
+  const bool event =
+      generator.force_weather_event ||
+      (generator.weather_event && !generator.weather_event_warning);
+  const int pick =
+      Worldgen::PickWaterState(rules, static_cast<uint64_t>(now), event);
   if (generator.water_state < 0) {
-    generator.water_state = generator.water_state_from = now;
+    generator.water_state = generator.water_state_from = pick;
     generator.water_blend = 1.0f;
-  } else if (now != generator.water_state) {
+  } else if (pick != generator.water_state) {
     generator.water_state_from = generator.water_state;
-    generator.water_state = now;
+    generator.water_state = pick;
     generator.water_blend = 0.0f;
   }
   generator.water_blend =
@@ -516,6 +578,11 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     state.buildings = nullptr;
     state.water_states = nullptr;
     generator.water_state = generator.water_state_from = -1;
+    state.weather_events = {.never = true};
+    state.weather_event_kinds = {};
+    state.weather_seed = generator.seed;
+    state.events.clear();
+    state.picked_warning = UINT64_MAX;
     generator.planet_tile_colours = 0;
     generator.planet_terrain = false;
     generator.planet_radius = 0.0f;
@@ -533,6 +600,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       state.textures.palettes = built.palettes;
       generator.planet_terrain = !planet.terrain_types.empty();
       generator.planet_radius = built.radius;
+      state.weather_events = built.weather_events;
+      state.weather_event_kinds = built.weather_event_kinds;
       if (!planet.water_states.weights[0].empty() ||
           !planet.water_states.weights[1].empty() ||
           !planet.water_states.fallback[0].empty() ||
