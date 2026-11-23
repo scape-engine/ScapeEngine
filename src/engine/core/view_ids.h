@@ -10,7 +10,6 @@ constexpr uint8_t UI_BACKGROUND = 1;    // back-buffer UI
 // scene FBO (colour+depth)
 constexpr uint8_t SCENE_TERRAIN = 2;
 constexpr uint8_t SCENE_CLEAR = 3;  // clears the stencil of the whole scene FBO
-constexpr uint8_t WATER_PASS = 4;
 constexpr uint8_t DEBUG_PASS = 5;
 
 // shadow map (separate FBO)
@@ -30,16 +29,25 @@ constexpr uint8_t SSAO_BLUR = 46;
 constexpr uint8_t SCENE_FORWARD = 47;
 constexpr uint8_t SCENE_SKYBOX = 48;
 
+// Compute dispatches, before any view that samples what they write
+constexpr uint8_t COMPUTE = 49;
+
 // For preview thumbnails
 constexpr uint8_t PREVIEW_PASS_BASE = 50;
 constexpr uint8_t PREVIEW_PASS_MAX = 150;
+
+// After the opaque scene: water reads its depth and colour
+constexpr uint8_t WATER_PASS = 151;
+// Editor selection, grid and gizmos, on top of everything in the scene
+constexpr uint8_t SCENE_OVERLAY = 152;
 
 // miscellaneous
 constexpr uint8_t UI = 254;
 constexpr uint8_t COUNT = 255;
 
 /// every pass that is rendered into scene_framebuffer_
-inline constexpr std::array<uint8_t, 5> kSceneViews = {
-    SCENE_SKYBOX, SCENE_TERRAIN, WATER_PASS, DEBUG_PASS, SCENE_FORWARD};
+inline constexpr std::array<uint8_t, 6> kSceneViews = {
+    SCENE_SKYBOX, SCENE_TERRAIN, WATER_PASS, DEBUG_PASS, SCENE_FORWARD,
+    SCENE_OVERLAY};
 
 }  // namespace ViewID

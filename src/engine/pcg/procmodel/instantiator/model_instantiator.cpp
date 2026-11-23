@@ -78,6 +78,46 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
   return result;
 }
 
+// A part's matrix as CreatePartEntity sets its transform
+static glm::mat4 _PartMatrix(const ResolvedDescriptor& descriptor) {
+  glm::vec3 position;
+  glm::quat rotation;
+  glm::vec3 scale;
+  glm::vec3 skew;
+  glm::vec4 perspective;
+  glm::decompose(descriptor.local_transform, scale, rotation, position, skew,
+                 perspective);
+  rotation =
+      glm::normalize(rotation * glm::quat(descriptor.applied_rotation));
+  return glm::translate(glm::mat4(1.0f), position) * glm::mat4_cast(rotation) *
+         glm::scale(glm::mat4(1.0f), scale * descriptor.applied_scale);
+}
+
+std::optional<std::vector<ModelInstantiator::Part>> ModelInstantiator::Parts(
+    const InstanceModel& resolved, const ModelGraph& graph,
+    const std::vector<MaterialHandle>* materials) {
+  const std::vector<MaterialHandle>& handles =
+      materials ? *materials : graph.material_handles;
+  const glm::mat4 model = glm::scale(glm::mat4(1.0f), resolved.model_scale);
+  std::vector<Part> parts;
+  for (const auto& descriptor : resolved.descriptors) {
+    const glm::mat4 matrix = model * _PartMatrix(descriptor);
+    for (const int index : descriptor.mesh_indices) {
+      const Mesh* mesh = graph.GetMesh(index);
+      if (!mesh)
+        continue;
+      if (mesh->Skinned())
+        return std::nullopt;
+      const uint32_t material = mesh->MaterialIndex();
+      parts.push_back({mesh,
+                       material < handles.size() ? handles[material]
+                                                 : INVALID_MATERIAL,
+                       matrix});
+    }
+  }
+  return parts;
+}
+
 Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
                                            const ModelGraph& graph,
                                            Entity parent,

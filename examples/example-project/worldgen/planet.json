@@ -5980,5 +5980,71 @@
     "default_state": 0,
     "change_time": 60,
     "blend_time": 8
+  },
+  "water_waves": {
+    "min_wavelength": 0.5,
+    "max_waves": 2048,
+    "states": [
+      {
+        "bands": [
+          { "count": 12, "strength": 0.02, "variance": 0.6 },
+          { "count": 12, "strength": 0.02, "variance": 0.6 },
+          { "count": 12, "strength": 0.03, "variance": 0.6 },
+          { "count": 12, "strength": 0.03, "variance": 0.6 },
+          { "count": 12, "strength": 0.02, "variance": 0.6 },
+          { "count": 12, "strength": 0.0, "variance": 0.6 },
+          { "count": 12, "strength": 0.0, "variance": 0.6 },
+          { "count": 12, "strength": 0.0, "variance": 0.6 }
+        ],
+        "foam": { "blur": 0.5, "fade_rate": 0.2, "shoreline_fade_depth": 2.0, "shoreline_midpoint_depth": 1.0, "shoreline_saturate_depth": 0.3, "wave_base": 0.6, "wave_generation_strength": 0.0, "wave_sensitivity": 0.5 },
+        "detail_normals": 0.2,
+        "sound_strength": 0.1
+      },
+      {
+        "bands": [
+          { "count": 12, "strength": 0.03, "variance": 0.6 },
+          { "count": 12, "strength": 0.04, "variance": 0.6 },
+          { "count": 12, "strength": 0.05, "variance": 0.6 },
+          { "count": 12, "strength": 0.06, "variance": 0.6 },
+          { "count": 12, "strength": 0.05, "variance": 0.6 },
+          { "count": 12, "strength": 0.03, "variance": 0.6 },
+          { "count": 12, "strength": 0.0, "variance": 0.6 },
+          { "count": 12, "strength": 0.0, "variance": 0.6 }
+        ],
+        "foam": { "blur": 0.5, "fade_rate": 0.4, "shoreline_fade_depth": 2.0, "shoreline_midpoint_depth": 1.0, "shoreline_saturate_depth": 0.3, "wave_base": 0.6, "wave_generation_strength": 0.2, "wave_sensitivity": 0.5 },
+        "detail_normals": 0.4,
+        "sound_strength": 0.3
+      },
+      {
+        "bands": [
+          { "count": 12, "strength": 0.04, "variance": 0.6 },
+          { "count": 12, "strength": 0.05, "variance": 0.6 },
+          { "count": 12, "strength": 0.07, "variance": 0.6 },
+          { "count": 12, "strength": 0.09, "variance": 0.6 },
+          { "count": 12, "strength": 0.09, "variance": 0.6 },
+          { "count": 12, "strength": 0.07, "variance": 0.6 },
+          { "count": 12, "strength": 0.04, "variance": 0.6 },
+          { "count": 12, "strength": 0.0, "variance": 0.6 }
+        ],
+        "foam": { "blur": 0.5, "fade_rate": 0.7, "shoreline_fade_depth": 2.0, "shoreline_midpoint_depth": 1.0, "shoreline_saturate_depth": 0.3, "wave_base": 0.6, "wave_generation_strength": 0.5, "wave_sensitivity": 0.5 },
+        "detail_normals": 0.7,
+        "sound_strength": 0.6
+      },
+      {
+        "bands": [
+          { "count": 12, "strength": 0.05, "variance": 0.6 },
+          { "count": 12, "strength": 0.06, "variance": 0.6 },
+          { "count": 12, "strength": 0.08, "variance": 0.6 },
+          { "count": 12, "strength": 0.11, "variance": 0.6 },
+          { "count": 12, "strength": 0.13, "variance": 0.6 },
+          { "count": 12, "strength": 0.12, "variance": 0.6 },
+          { "count": 12, "strength": 0.09, "variance": 0.6 },
+          { "count": 12, "strength": 0.06, "variance": 0.6 }
+        ],
+        "foam": { "blur": 0.5, "fade_rate": 1.2, "shoreline_fade_depth": 2.0, "shoreline_midpoint_depth": 1.0, "shoreline_saturate_depth": 0.3, "wave_base": 0.6, "wave_generation_strength": 1.0, "wave_sensitivity": 0.5 },
+        "detail_normals": 1.0,
+        "sound_strength": 1.0
+      }
+    ]
   }
 }

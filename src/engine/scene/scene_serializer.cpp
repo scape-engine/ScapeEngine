@@ -169,6 +169,35 @@ static nlohmann::json _WriteCreatures(const ProcWorld::HerdSettings& herd) {
 }
 
 // Missing values keep the defaults
+static nlohmann::json _WriteWater(const Water::SurfaceSettings& water) {
+  const Worldgen::WaveCascadeSettings& c = water.cascades;
+  return {{"base_scale", c.base_scale},
+          {"cascades", c.count},
+          {"resolution", c.resolution},
+          {"min_texels", c.min_texels},
+          {"gravity", c.gravity},
+          {"patch_size", water.patch_size},
+          {"grid_resolution", water.grid_resolution},
+          {"colour", water.look.colour},
+          {"roughness", water.look.roughness}};
+}
+
+static void _ReadWater(const nlohmann::json& in, Water::SurfaceSettings& water) {
+  auto it = in.find("water");
+  if (it == in.end())
+    return;
+  Worldgen::WaveCascadeSettings& c = water.cascades;
+  c.base_scale = it->value("base_scale", c.base_scale);
+  c.count = it->value("cascades", c.count);
+  c.resolution = it->value("resolution", c.resolution);
+  c.min_texels = it->value("min_texels", c.min_texels);
+  c.gravity = it->value("gravity", c.gravity);
+  water.patch_size = it->value("patch_size", water.patch_size);
+  water.grid_resolution = it->value("grid_resolution", water.grid_resolution);
+  water.look.colour = it->value("colour", water.look.colour);
+  water.look.roughness = it->value("roughness", water.look.roughness);
+}
+
 static void _ReadCreatures(const nlohmann::json& in,
                            ProcWorld::HerdSettings& herd) {
   auto it = in.find("creatures");
@@ -243,7 +272,8 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"subtype", planet.subtype},
                         {"size", planet.size},
                         {"look", _WriteLook(planet.look)},
-                        {"creatures", _WriteCreatures(planet.creatures)}};
+                        {"creatures", _WriteCreatures(planet.creatures)},
+                        {"water", _WriteWater(planet.water)}};
   }
   if (generator &&
       generator->GetGeneratorType() == PCG::GeneratorType::Craft) {
@@ -290,6 +320,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     planet->size = it->value("size", planet->size);
     _ReadLook(*it, planet->look);
     _ReadCreatures(*it, planet->creatures);
+    _ReadWater(*it, planet->water);
     auto [id, resource] =
         EngineContext::resourceManager().Create<PCG::GeneratorResource>(
             "Planet");

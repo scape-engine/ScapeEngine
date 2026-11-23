@@ -686,6 +686,8 @@ void EditorUI::UpdateMovement() {
   // Planets load their regions around the scene view camera
   // TODO: the game camera while playing
   EngineContext::PCG().GetProcWorld().SetViewer(CameraTransform.position_);
+  // water surfaces lie under it
+  EngineContext::PCG().GetWater().SetViewer(CameraTransform.position_);
   // and creatures near it plant their feet
   Animation::SetViewer(CameraTransform.position_);
 }

@@ -37,6 +37,26 @@ TextureId TextureRegistry::Acquire(const std::string& key, TextureType type,
   return id;
 }
 
+TextureId TextureRegistry::CreateStorage(uint16_t width, uint16_t height,
+                                         uint16_t layers,
+                                         bgfx::TextureFormat::Enum format,
+                                         uint64_t sampler_flags) {
+  auto texture =
+      Texture::CreateStorage(width, height, layers, format, sampler_flags);
+  if (!texture)
+    return INVALID_TEXTURE;
+
+  std::scoped_lock lock(mutex_);
+  const TextureId id = next_id_++;
+  textures_[id] = std::move(texture);
+  return id;
+}
+
+void TextureRegistry::Release(TextureId id) {
+  std::scoped_lock lock(mutex_);
+  textures_.erase(id);  // the shared pointer destroys the GPU handle
+}
+
 bgfx::TextureHandle TextureRegistry::Get(TextureId id) const {
   std::scoped_lock lock(mutex_);
 

@@ -25,6 +25,8 @@ void PCGEngine::ProcessQueued() {
 
   // Region volumes
   procworld_.Update();
+  // Water surfaces, some made by the planets above
+  water_.Update(ecs);
 
   // Process all dirty volumes
   ecs.View<VolumeComponent, MeshRendererComponent>().each(
@@ -61,5 +63,6 @@ void PCGEngine::ProcessQueued() {
 
 PCGEngine::~PCGEngine() {
   procworld_.Shutdown();
+  water_.Shutdown();
   procmodel_.Shutdown();
 }

@@ -50,6 +50,12 @@ public:
       const Content::ImageData& image, TextureType type,
       uint64_t sampler_flags = BGFX_SAMPLER_NONE);
 
+  // An empty texture compute shaders write and other shaders sample; more
+  // than one layer makes it a texture array
+  static std::shared_ptr<Texture> CreateStorage(
+      uint16_t width, uint16_t height, uint16_t layers,
+      bgfx::TextureFormat::Enum format,
+      uint64_t sampler_flags = BGFX_SAMPLER_NONE);
   // load texture from file
   static std::shared_ptr<Texture> Load2D(
       const std::filesystem::path& file, TextureType type = TextureType::IMAGE,

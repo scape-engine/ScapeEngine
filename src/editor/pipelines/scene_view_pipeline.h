@@ -4,6 +4,7 @@
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 
+#include "engine/core/view_ids.h"
 #include "engine/ecs/ecs_collection.h"
 #include "engine/renderer/draw_list.h"
 #include "engine/renderer/frame_graph.h"
@@ -105,6 +106,7 @@ private:
   void RenderPrePassNode(const Node::Context& context);
   void RenderSSAONode(const Node::Context& context);
   void RenderForwardNode(const Node::Context& context);
+  void RenderWaterNode(const Node::Context& context);
   void RenderSelectionOutlineNode(const Node::Context& context);
   void RenderGizmosNode(const Node::Context& context);
   void RenderShadowNode(const Node::Context& context);
@@ -112,12 +114,14 @@ private:
 
   // Mesh helpers
   void RenderMesh(TransformComponent& transform,
-                  MeshRendererComponent& renderer);
+                  MeshRendererComponent& renderer,
+                  bgfx::ViewId view = ViewID::SCENE_FORWARD);
   // One lit draw: of `model`, or of the instances bound beforehand
   // `pose`: a skinned mesh's, of `pose_count` nodes (DrawList::SetBones)
   void SubmitLit(const Mesh& mesh, MaterialHandle material,
                  const glm::mat4* model, const glm::mat4* pose = nullptr,
-                 uint32_t pose_count = 0, bool mirrored = false);
+                 uint32_t pose_count = 0, bool mirrored = false,
+                 bgfx::ViewId view = ViewID::SCENE_FORWARD);
   void RenderSelectedEntity(EntityContainer* entity);
   void RenderSelectedEntityOutline(EntityContainer* entity);
 

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <unordered_map>
 
+#include "engine/ecs/components/water_surface_tag.h"
 #include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
@@ -149,7 +150,9 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
   }
 
   for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
-    if (!renderer.enabled_ || !renderer.mesh_)
+    // Water draws in its own pass (SceneViewPipeline)
+    if (!renderer.enabled_ || !renderer.mesh_ ||
+        ECS::Main().Has<WaterSurfaceTag>(entity))
       continue;
     const glm::mat4& model = transform.model_;
     const Mesh& mesh = *renderer.mesh_;

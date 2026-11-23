@@ -9,6 +9,7 @@
 #include "engine/pcg/graph/program_graph.h"
 #include "engine/pcg/procmodel/procmodel.h"
 #include "engine/pcg/procworld/procworld.h"
+#include "engine/pcg/water/water_subsystem.h"
 
 struct GenerationRequest {
   uint32_t volume_id;  // Entity ID (VolumeComponent lookup)
@@ -42,6 +43,8 @@ public:
   ProcWorld::Subsystem& GetProcWorld() { return procworld_; }
   const ProcWorld::Subsystem& GetProcWorld() const { return procworld_; }
 
+  Water::Subsystem& GetWater() { return water_; }
+
   // TODO:
   // ProcTerrain::Subsystem& GetTerrain() { return terrain_; }
   // ProcTextures::Subsystem& GetTextures() { return textures_; }
@@ -52,6 +55,7 @@ private:
 
   ProcModel::Subsystem procmodel_;
   ProcWorld::Subsystem procworld_;
+  Water::Subsystem water_;
 
   // TODO:
   // ProcTerrain::Subsystem terrain_;

@@ -5,6 +5,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include "engine/core/logger.h"
+#include "engine/renderer/compute/compute_system.h"
 #include "engine/renderer/model/model.h"
 
 /* ---------- helpers ---------- */
@@ -37,7 +38,9 @@ ECS& ECS::Main() {
 // The render queue used to be a vector of component references rebuilt on
 // every MeshRenderer add/remove: O(n^2) on load, and references dangled when
 // entt swap-and-popped storage. GetRenderQueue() is now a live view.
-ECS::ECS() : registry_(), id_counter_(0) {}
+ECS::ECS() : registry_(), id_counter_(0) {
+  ComputeSystem::Connect(registry_);
+}
 
 uint32_t ECS::GetId() {
   return ++id_counter_;

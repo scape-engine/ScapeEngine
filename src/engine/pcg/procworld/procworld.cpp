@@ -12,6 +12,7 @@
 #include "engine/core/logger.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/volume_component.h"
+#include "engine/ecs/components/wave_field_component.h"
 #include "engine/pcg/generator_resource.h"
 #include "engine/time/time.h"
 
@@ -319,6 +320,15 @@ void Subsystem::Water(PlanetGenerator& generator, const PlanetState& state,
           ? std::min(1.0f, generator.water_blend +
                                Time::Deltaf() / rules.blend_time)
           : 1.0f;
+
+  auto& ecs = ECS::Main();
+  if (!ecs.Reg().valid(state.sea) || !ecs.Has<WaveFieldComponent>(state.sea))
+    return;
+  Worldgen::WaveField& field = ecs.Get<WaveFieldComponent>(state.sea).field;
+  // The first state shows at once
+  if (field.state != generator.water_state)
+    Worldgen::SetWaterState(field, generator.water_state,
+                            field.state < 0 ? 0.0f : rules.blend_time);
 }
 
 void Subsystem::Clear(Entity volume) {
@@ -401,7 +411,7 @@ void Subsystem::Build(Entity volume, RegionGenerator& generator) {
 
   generator.vertex_count = region.mesh.size();
   generator.instance_count =
-      result.object_entities.size() + creatures + built;
+      result.objects + creatures + built;
   if (result.terrain_mesh)
     meshes_[volume] = std::move(result.terrain_mesh);
 
@@ -571,9 +581,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     // The planet itself, from its own content: its terrain settings and tile
     // colours replace the region content's and the look's
     state.tile_colours = {};
+    state.archetypes.clear();  // reloaded with the content
     state.textures = {};
     state.buildings = nullptr;
     state.water_states = nullptr;
+    state.water_waves = nullptr;
+    state.sea = entt::null;  // destroyed by Clear
     generator.water_state = generator.water_state_from = -1;
     state.weather_events = {.never = true};
     state.weather_event_kinds = {};
@@ -621,6 +634,17 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->terrain = built.terrain;
       if (generator.planet_radius > 0.0f)
         content->radius = generator.planet_radius;
+      if (content->terrain.sea_level > 0.0f &&
+          !planet.water_waves.states.empty()) {
+        state.water_waves =
+            std::make_shared<Worldgen::WaterWaveSettings>(planet.water_waves);
+        auto [sea, transform] = ecs.CreateEntity("Sea", volume);
+        ecs.Add<ProceduralInstanceComponent>(sea, volume);
+        EngineContext::PCG().GetWater().Make(
+            ecs, sea, state.water_waves,
+            content->radius + content->terrain.sea_level, generator.water);
+        state.sea = sea;
+      }
       if (planet.buildings.active) {
         content->buildings = built.buildings;
         content->buildings.radius = content->radius;  // the terrain's
@@ -652,6 +676,20 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       state.herd_content = std::move(herds);
       content->herds.clear();
       bare->herds.clear();
+      // Their procmodels load here, on the main thread, so the workers can
+      // generate the instances
+      const auto load = [&](const std::string& id) {
+        static constexpr std::string_view prefix = "procmodel:";
+        if (id.rfind(prefix, 0) != 0 || state.archetypes.count(id))
+          return;
+        state.archetypes[id] =
+            EngineContext::PCG().GetProcModel().Archetype(
+                (root_ / id.substr(prefix.size())).string());
+      };
+      for (const auto& object : content->objects)
+        load(object.id);
+      for (const std::string& id : state.herd_content->herd_ids)
+        load(id);
       state.content = std::move(content);
       state.bare_content = std::move(bare);
     } else {
@@ -731,7 +769,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       ++it;
       continue;
     }
-    const Worldgen::Region region = it->second.get().region;
+    const RegionBuild build = it->second.get();
+    const Worldgen::Region& region = build.region;
     if (herd_cells.count(it->first)) {
       const Worldgen::PlanetCell cell = _CellOf(it->first);
       auto [entity, transform] = ecs.CreateEntity(
@@ -744,7 +783,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       ecs.Add<ProceduralInstanceComponent>(entity, volume);
       ecs.Add<HerdComponent>(entity).settings_ = generator.creatures;
       RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
-                                     root_, &state.textures);
+                                     root_, &state.textures, &build.objects);
       state.herds[it->first] = entity;
     }
     it = state.herd_building.erase(it);
@@ -759,23 +798,40 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     return true;
   });
 
-  // Finished builds: instance the ones still wanted, within the frame budget
+  // Within the frame budget: the objects of regions loaded before, then
+  // finished builds still wanted (their terrain and buildings; their objects
+  // join the queue)
   const auto start = Clock::now();
+  const auto more = [&] { return _Milliseconds(start) < frame_budget_ms; };
+  size_t objects_made = 0;
+  while (!state.making.empty() && more()) {
+    auto& work = state.making.front();
+    const size_t before = work.progress.made;
+    const bool done =
+        !ecs.Reg().valid(work.region) ||
+        RegionInstancer::InstanceObjects(
+            ecs, work.build.region, *work.content, work.region, root_,
+            &state.textures, &work.build.objects, work.progress, more);
+    objects_made += work.progress.made - before;
+    if (done)
+      state.making.pop_front();
+  }
   for (auto it = state.building.begin(); it != state.building.end();) {
-    if (_Milliseconds(start) >= frame_budget_ms)
+    if (!more())
       break;
     if (it->second.wait_for(std::chrono::seconds(0)) !=
         std::future_status::ready) {
       ++it;
       continue;
     }
-    const RegionBuild build = it->second.get();
+    RegionBuild build = it->second.get();
     const Worldgen::Region& region = build.region;
     const Worldgen::PlanetCell cell = _CellOf(it->first);
     if (is_wanted.count(it->first)) {
-      const Worldgen::RegionContent& content =
-          cell.level <= generator.object_level ? *state.content
-                                               : *state.bare_content;
+      const std::shared_ptr<const Worldgen::RegionContent>& content_of =
+          cell.level <= generator.object_level ? state.content
+                                               : state.bare_content;
+      const Worldgen::RegionContent& content = *content_of;
       const std::string name =
           "Region " + std::to_string(cell.face) + "/" +
           std::to_string(cell.level) + "/" + std::to_string(cell.i) + "/" +
@@ -789,13 +845,23 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       auto result =
           RegionInstancer::Instance(ecs, region, content, entity,
                                     looks_[volume].material, root_,
-                                    skirt_depth, &state.textures);
+                                    skirt_depth, &state.textures,
+                                    &build.objects, false);
       RegionInstancer::InstanceBuildings(ecs, build.pieces, entity, root_,
                                          &state.textures);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
+      if (!build.region.objects.empty())
+        state.making.push_back({entity, content_of, std::move(build)});
     }
     it = state.building.erase(it);
   }
+  // One object or region can still take longer than the budget on its own
+  if (const float ms = _Milliseconds(start); ms > 4.0f * frame_budget_ms)
+    Logger::getInstance().Log(
+        LogLevel::Warning,
+        "[ProcWorld] Region making took " + std::to_string(ms) + " ms (" +
+            std::to_string(objects_made) + " objects, " +
+            std::to_string(state.making.size()) + " regions still making)");
 
   // Unload the regions no longer wanted once every wanted region over their
   // ground is loaded
@@ -841,8 +907,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                              ? state.buildings
                                              : nullptr,
                              x = centre[0], y = centre[1], z = centre[2],
-                             level, root = root_] {
+                             level, root = root_,
+                             archetypes = state.archetypes,
+                             &procmodel = EngineContext::PCG().GetProcModel()] {
           RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
+          build.objects = RegionInstancer::GenerateObjects(
+              build.region, *content, false, archetypes, procmodel, nullptr);
           if (buildings)
             build.pieces = RegionInstancer::GatherBuildings(build.region,
                                                             *buildings, root);
@@ -860,9 +930,15 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     int centre[3];
     Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
     state.herd_building[key] = std::async(
-        std::launch::async, [content = state.herd_content, x = centre[0],
-                             y = centre[1], z = centre[2], level = cell.level] {
-          return RegionBuild{Worldgen::BuildRegion(*content, x, y, z, level)};
+        std::launch::async,
+        [content = state.herd_content, x = centre[0], y = centre[1],
+         z = centre[2], level = cell.level, archetypes = state.archetypes,
+         planet = state.textures,
+         &procmodel = EngineContext::PCG().GetProcModel()] {
+          RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
+          build.objects = RegionInstancer::GenerateObjects(
+              build.region, *content, true, archetypes, procmodel, &planet);
+          return build;
         });
   }
 

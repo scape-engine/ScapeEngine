@@ -24,10 +24,64 @@ static bool _StartsWith(const std::string& text, const char* prefix) {
   return text.rfind(prefix, 0) == 0;
 }
 
+// The first object seed of a region: from its origin, so each region's
+// objects differ (each object takes the next)
+static uint64_t _ObjectSeed(const Worldgen::Region& region) {
+  uint64_t seed = 0;
+  for (const float o : region.origin) {
+    uint32_t bits;
+    std::memcpy(&bits, &o, sizeof(bits));
+    seed = (seed ^ bits) * 0x100000001b3ull;
+  }
+  return seed;
+}
+
+// Every creature of a species on a planet is the same model: the species'
+// seed, else one per model id and planet
+static uint64_t _KindSeed(const Worldgen::RegionContent& content, size_t spawn,
+                          const Worldgen::TextureInput* planet) {
+  if (spawn < content.herd_seeds.size())
+    return content.herd_seeds[spawn];
+  uint64_t seed = planet ? planet->seed : 0;
+  for (const char c : content.herd_ids[spawn])
+    seed = (seed ^ static_cast<uint8_t>(c)) * 0x100000001b3ull;
+  return seed;
+}
+
+RegionInstancer::ObjectModels RegionInstancer::GenerateObjects(
+    const Worldgen::Region& region, const Worldgen::RegionContent& content,
+    bool herds, const Archetypes& archetypes,
+    const ProcModel::Subsystem& procmodel,
+    const Worldgen::TextureInput* planet) {
+  ObjectModels models;
+  const auto generate = [&](const std::string& id, uint64_t seed) {
+    const auto archetype = archetypes.find(id);
+    if (archetype == archetypes.end() || !archetype->second)
+      return;
+    auto [it, added] = models.try_emplace({id, seed});
+    if (added)
+      it->second = procmodel.Generate(*archetype->second, seed);
+  };
+  uint64_t seed = _ObjectSeed(region);
+  for (const Worldgen::ObjectInstances& instances : region.objects) {
+    const std::string& id = content.objects[instances.object].id;
+    for (size_t i = 0; i < instances.matrices.size(); ++i)
+      generate(id, ++seed);
+  }
+  if (herds)
+    for (size_t spawn = 0;
+         spawn < region.herds.size() && spawn < content.herd_ids.size();
+         ++spawn)
+      if (!content.herd_ids[spawn].empty())
+        generate(content.herd_ids[spawn], _KindSeed(content, spawn, planet));
+  return models;
+}
+
 Entity RegionInstancer::CreateObject(ECS& ecs, const std::string& id,
                                      Entity source, uint64_t seed,
                                      const std::filesystem::path& root,
-                                     const Worldgen::TextureInput* planet) {
+                                     const Worldgen::TextureInput* planet,
+                                     const ObjectModels* models) {
   if (_StartsWith(id, primitive_prefix)) {
     auto [entity, transform] = ecs.CreateEntity(id, source);
     ModelEntityFactory::AttachPrimitive(
@@ -36,6 +90,15 @@ Entity RegionInstancer::CreateObject(ECS& ecs, const std::string& id,
   }
   if (_StartsWith(id, procmodel_prefix)) {
     const auto path = root / id.substr(std::strlen(procmodel_prefix));
+    if (models) {
+      if (auto it = models->find({id, seed}); it != models->end())
+        return it->second ? EngineContext::PCG()
+                                .GetProcModel()
+                                .SpawnInstance(path.string(), *it->second,
+                                               source, planet)
+                                .root
+                          : entt::null;
+    }
     return EngineContext::PCG()
         .GetProcModel()
         .SpawnInstance(path.string(), seed, source, planet)
@@ -45,6 +108,25 @@ Entity RegionInstancer::CreateObject(ECS& ecs, const std::string& id,
   if (entity != entt::null)
     ecs.SetParent(entity, source);
   return entity;
+}
+
+// A static procmodel object's parts, in its space, for instancing; nullopt
+// for other objects and animated models, which CreateObject makes
+static std::optional<std::vector<ProcModel::ModelInstantiator::Part>>
+_ObjectParts(const std::string& id, uint64_t seed,
+             const std::filesystem::path& root,
+             const Worldgen::TextureInput* planet,
+             const RegionInstancer::ObjectModels* models) {
+  if (!_StartsWith(id, procmodel_prefix) || !models)
+    return std::nullopt;
+  const auto it = models->find({id, seed});
+  if (it == models->end())
+    return std::nullopt;
+  if (!it->second)
+    return std::nullopt;  // failed: CreateObject skips the kind
+  const auto path = root / id.substr(std::strlen(procmodel_prefix));
+  return EngineContext::PCG().GetProcModel().InstanceParts(
+      path.string(), *it->second, planet);
 }
 
 // Rows of x, y, z axes and the translation (worldgen's layout) as local TRS
@@ -68,7 +150,8 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
     ECS& ecs, const Worldgen::Region& region,
     const Worldgen::RegionContent& content, Entity source,
     MaterialHandle terrain_material, const std::filesystem::path& root,
-    float skirt_depth, const Worldgen::TextureInput* planet) {
+    float skirt_depth, const Worldgen::TextureInput* planet,
+    const ObjectModels* models, bool objects) {
   InstanceResult result;
 
   if (!region.mesh.empty()) {
@@ -87,31 +170,88 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
     result.terrain = terrain;
   }
 
-  // Seeds from the region's origin, so each region's objects differ
-  uint64_t seed = 0;
-  for (const float o : region.origin) {
-    uint32_t bits;
-    std::memcpy(&bits, &o, sizeof(bits));
-    seed = (seed ^ bits) * 0x100000001b3ull;
-  }
-  for (const Worldgen::ObjectInstances& instances : region.objects) {
-    const std::string& id = content.objects[instances.object].id;
-    for (const std::array<float, 16>& matrix : instances.matrices) {
-      const Entity entity = CreateObject(ecs, id, source, ++seed, root, planet);
-      if (entity == entt::null)
-        break;  // the source is missing: skip the rest of this kind
-      _SetTransform(ecs.Get<TransformComponent>(entity), matrix);
-      ecs.Add<ProceduralInstanceComponent>(entity, source);
-      result.object_entities.push_back(entity);
-    }
+  if (objects) {
+    ObjectProgress progress;
+    InstanceObjects(ecs, region, content, source, root, planet, models,
+                    progress, [] { return true; });
+    result.objects = progress.made;
   }
   return result;
+}
+
+bool RegionInstancer::InstanceObjects(
+    ECS& ecs, const Worldgen::Region& region,
+    const Worldgen::RegionContent& content, Entity source,
+    const std::filesystem::path& root, const Worldgen::TextureInput* planet,
+    const ObjectModels* models, ObjectProgress& progress,
+    const std::function<bool()>& more, std::vector<Entity>* made) {
+  if (!progress.started) {
+    progress.seed = _ObjectSeed(region);
+    progress.started = true;
+  }
+  while (progress.kind < region.objects.size()) {
+    const Worldgen::ObjectInstances& instances = region.objects[progress.kind];
+    if (progress.at >= instances.matrices.size()) {
+      progress.kind++;
+      progress.at = 0;
+      continue;
+    }
+    if (!more())
+      return false;
+    const std::string& id = content.objects[instances.object].id;
+    const uint64_t seed = ++progress.seed;
+    glm::mat4 matrix = glm::make_mat4(
+        instances.matrices[progress.at].data());  // rows read as glm columns
+    // The decorator's w lanes are not a projective row (_SetTransform skips
+    // them too)
+    matrix[0][3] = matrix[1][3] = matrix[2][3] = 0.0f;
+    matrix[3][3] = 1.0f;
+    if (const auto parts = _ObjectParts(id, seed, root, planet, models)) {
+      for (const ProcModel::ModelInstantiator::Part& part : *parts)
+        progress.instances[{part.mesh, part.material}].push_back(matrix *
+                                                                 part.matrix);
+      progress.at++;
+      progress.made++;
+      continue;
+    }
+    const Entity entity =
+        CreateObject(ecs, id, source, seed, root, planet, models);
+    if (entity == entt::null) {
+      // The source is missing: skip the rest of this kind
+      progress.kind++;
+      progress.at = 0;
+      continue;
+    }
+    _SetTransform(ecs.Get<TransformComponent>(entity),
+                  instances.matrices[progress.at++]);
+    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    progress.made++;
+    if (made)
+      made->push_back(entity);
+  }
+  if (!progress.instances.empty()) {
+    auto [entity, transform] = ecs.CreateEntity("Objects", source);
+    auto& set = ecs.Add<InstancedMeshComponent>(entity);
+    for (auto& [key, matrices] : progress.instances) {
+      InstancedMeshComponent::Part part;
+      part.mesh = key.first;
+      part.material = key.second;
+      part.first = static_cast<uint32_t>(set.locals_.size());
+      part.count = static_cast<uint32_t>(matrices.size());
+      set.parts_.push_back(part);
+      set.locals_.insert(set.locals_.end(), matrices.begin(), matrices.end());
+    }
+    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    progress.instances.clear();
+  }
+  return true;
 }
 
 std::vector<Entity> RegionInstancer::InstanceHerds(
     ECS& ecs, const Worldgen::Region& region,
     const Worldgen::RegionContent& content, Entity source,
-    const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
+    const std::filesystem::path& root, const Worldgen::TextureInput* planet,
+    const ObjectModels* models) {
   std::vector<Entity> creatures;
   // The region's terrain as ground for the creatures' feet, in the source's
   // space (region-local, as the herd matrices); up is away from the planet's
@@ -138,19 +278,13 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     herd.origin_ =
         glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
   }
-  // Every creature of a species on a planet is the same model: the species'
-  // seed, else one per model id and planet; the matrices hold their scale.
-  // Skinned models animate (ModelInstantiator)
+  // The matrices hold their scale. Skinned models animate (ModelInstantiator)
   for (size_t spawn = 0;
        spawn < region.herds.size() && spawn < content.herd_ids.size();
        ++spawn) {
     const std::string& id = content.herd_ids[spawn];
     const std::vector<float>& matrices = region.herds[spawn].matrices;
-    uint64_t kind_seed = planet ? planet->seed : 0;
-    for (const char c : id)
-      kind_seed = (kind_seed ^ static_cast<uint8_t>(c)) * 0x100000001b3ull;
-    if (spawn < content.herd_seeds.size())
-      kind_seed = content.herd_seeds[spawn];
+    const uint64_t kind_seed = _KindSeed(content, spawn, planet);
     for (size_t at = 0; !id.empty() && at + 12 <= matrices.size(); at += 12) {
       std::array<float, 16> rows{};  // 12 floats: rows without w
       for (int row = 0; row < 4; ++row)
@@ -158,7 +292,7 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
           rows[row * 4 + k] = matrices[at + row * 3 + k];
       rows[15] = 1.0f;
       const Entity entity =
-          CreateObject(ecs, id, source, kind_seed, root, planet);
+          CreateObject(ecs, id, source, kind_seed, root, planet, models);
       if (entity == entt::null)
         break;  // the source is missing: skip the rest of this kind
       _SetTransform(ecs.Get<TransformComponent>(entity), rows);

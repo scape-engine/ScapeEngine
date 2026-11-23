@@ -40,6 +40,18 @@ public:
       const std::string& descriptor_path, uint64_t seed,
       Entity parent = entt::null,
       const Worldgen::TextureInput* planet = nullptr);
+  // The same with the instance generated beforehand (Generate, e.g. on a
+  // worker) from the descriptor's archetype; keeps no validation samples
+  ModelInstantiator::InstantiateResult SpawnInstance(
+      const std::string& descriptor_path,
+      const ProcModel::InstanceData& instance, Entity parent = entt::null,
+      const Worldgen::TextureInput* planet = nullptr);
+
+  // Its parts instead of entities (ModelInstantiator::Parts), for instancing
+  std::optional<std::vector<ModelInstantiator::Part>> InstanceParts(
+      const std::string& descriptor_path,
+      const ProcModel::InstanceData& instance,
+      const Worldgen::TextureInput* planet = nullptr);
 
   // A spawn in two steps, so the picking can leave the main thread. Archetype
   // loads the descriptor's model on first use (main thread; null if it

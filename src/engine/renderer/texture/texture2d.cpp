@@ -72,6 +72,21 @@ std::shared_ptr<Texture> Texture::Create(const Content::ImageData& image,
       new Texture(handle, image.width, image.height, type));
 }
 
+std::shared_ptr<Texture> Texture::CreateStorage(
+    uint16_t width, uint16_t height, uint16_t layers,
+    bgfx::TextureFormat::Enum format, uint64_t sampler_flags) {
+  bgfx::TextureHandle handle = bgfx::createTexture2D(
+      width, height, false, layers, format,
+      BGFX_TEXTURE_COMPUTE_WRITE | sampler_flags);
+  if (!bgfx::isValid(handle)) {
+    Logger::getInstance().Log(LogLevel::Error,
+                              "Texture2D: storage texture creation failed");
+    return {};
+  }
+  return std::shared_ptr<Texture>(
+      new Texture(handle, width, height, TextureType::HDR));
+}
+
 // Method to load 2D texture from disk, uploads it to GPU
 std::shared_ptr<Texture> Texture::Load2D(
     const std::filesystem::path& file, TextureType type,

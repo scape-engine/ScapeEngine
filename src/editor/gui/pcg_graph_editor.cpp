@@ -395,6 +395,35 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   }
 
   if (ImGui::CollapsingHeader("Water")) {
+    // The surface is made again on regenerating
+    Water::SurfaceSettings& water = planet.water;
+    ImGui::DragFloat("Patch Size", &water.patch_size, 16.0f, 16.0f, 1.0e5f,
+                     "%.0f m");
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::TextDisabled("Across the grid drawn under the viewer");
+    ImGui::SliderInt("Grid Resolution", &water.grid_resolution, 2, 1024);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::SliderInt("Cascades", &water.cascades.count, 1, 16);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::SliderInt("Cascade Resolution", &water.cascades.resolution, 8,
+                     1024);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::DragFloat("Base Scale", &water.cascades.base_scale, 0.05f, 0.01f,
+                     100.0f);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::TextDisabled("Cascade 0 is base scale x 4 m; each next one twice");
+    ImGui::DragFloat("Min Texels", &water.cascades.min_texels, 0.1f, 1.0f,
+                     64.0f);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::TextDisabled("Texels across a cascade's shortest wave");
+    ImGui::DragFloat("Gravity", &water.cascades.gravity, 0.05f, 0.0f, 100.0f,
+                     "%.2f m/s2");
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::ColorEdit3("Colour", &water.look.colour.x);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::SliderFloat("Roughness", &water.look.roughness, 0.0f, 1.0f);
+    changed |= ImGui::IsItemDeactivatedAfterEdit();
+
     ImGui::Checkbox("Force Weather Event", &planet.force_weather_event);
     ImGui::TextDisabled("Picks as though a weather event is under way");
     if (planet.water_state < 0) {

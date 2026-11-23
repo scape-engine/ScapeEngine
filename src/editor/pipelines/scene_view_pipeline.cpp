@@ -13,8 +13,10 @@
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
 #include "engine/core/view_ids.h"
+#include "engine/ecs/components/water_surface_tag.h"
 #include "engine/ecs/world.h"
 #include "engine/math/transformation.h"
+#include "engine/renderer/compute/compute_system.h"
 #include "engine/renderer/lighting/light.h"
 #include "engine/renderer/lighting/sky_light.h"
 #include "engine/renderer/material/material_registry.h"
@@ -145,7 +147,15 @@ void SceneViewPipeline::RegisterNodes() {
                              }
                            }});
 
-  // Node 4: Forward opaque rendering
+  // Node 4: Compute jobs, before anything samples what they write
+  frame_graph.AddNode(Node{.name = "compute",
+                           .reads = {},
+                           .writes = {},
+                           .execute = [](const Node::Context&) {
+                             ComputeSystem::Dispatch(ECS::Main());
+                           }});
+
+  // Node 5: Forward opaque rendering
   frame_graph.AddNode(Node{.name = "forward_opaque",
                            .reads = {"shadow_map", "ambient_occlusion"},
                            .writes = {"scene_color", "scene_depth"},
@@ -153,7 +163,17 @@ void SceneViewPipeline::RegisterNodes() {
                              RenderForwardNode(context);
                            }});
 
-  // Node 5: Selected entities and their outline
+  // Node 6: Water, after the opaque scene
+  frame_graph.AddNode(Node{.name = "water",
+                           .reads = {"scene_depth"},
+                           .writes = {"scene_color"},
+                           .execute = [this](const Node::Context& context) {
+                             if (show_water_) {
+                               RenderWaterNode(context);
+                             }
+                           }});
+
+  // Node 7: Selected entities and their outline
   frame_graph.AddNode(Node{.name = "selection_outline",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -163,7 +183,7 @@ void SceneViewPipeline::RegisterNodes() {
                              }
                            }});
 
-  // Node 6: Reference grid (transparent, after all opaque geometry)
+  // Node 8: Reference grid (transparent, after all opaque geometry)
   frame_graph.AddNode(Node{.name = "grid",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -173,7 +193,7 @@ void SceneViewPipeline::RegisterNodes() {
                              }
                            }});
 
-  // Node 7: Gizmos (transform handles, etc.)
+  // Node 9: Gizmos (transform handles, etc.)
   frame_graph.AddNode(Node{.name = "gizmos",
                            .reads = {"scene_depth"},
                            .writes = {"scene_color"},
@@ -315,6 +335,13 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   // Submission order matters: the selection stencil write must precede the
   // outline draw (default sort mode orders by program, not submit order)
   bgfx::setViewMode(ViewID::SCENE_FORWARD, bgfx::ViewMode::Sequential);
+
+  // Views drawn on top of this one, into the same framebuffer without a clear
+  for (bgfx::ViewId view : {ViewID::WATER_PASS, ViewID::SCENE_OVERLAY}) {
+    bgfx::setViewTransform(view, viewMatrix, projMatrix);
+    bgfx::setViewRect(view, 0, 0, canvasViewportW, canvasViewportH);
+    bgfx::setViewMode(view, bgfx::ViewMode::Sequential);
+  }
 
   // Get shadows
   auto& shadow_map = Runtime::MainShadowMap();
@@ -481,6 +508,18 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   }*/
 }
 
+void SceneViewPipeline::RenderWaterNode(const Node::Context& context) {
+  auto& world = ECS::Main();
+  for (auto [entity, transform, renderer] :
+       world.View<TransformComponent, MeshRendererComponent, WaterSurfaceTag>()
+           .each()) {
+    if (!renderer.enabled_ || !renderer.mesh_)
+      continue;
+    ComputeSystem::BindForDraw(world, entity);
+    RenderMesh(transform, renderer, ViewID::WATER_PASS);
+  }
+}
+
 void SceneViewPipeline::RenderSelectionOutlineNode(
     const Node::Context& context) {
   // Get Camera
@@ -491,8 +530,6 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
   CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
-
-  bgfx::setViewTransform(ViewID::SCENE_FORWARD, viewMatrix, projMatrix);
 
   // Render every selected entity and write to stencil first, so one mesh's
   // outline never covers another selected mesh
@@ -609,7 +646,8 @@ void SceneViewPipeline::RenderSelectedEntity(EntityContainer* entity) {
       BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) |
       BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_REPLACE |
       BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE);
-  RenderMesh(entity->Transform(), entity->Get<MeshRendererComponent>());
+  RenderMesh(entity->Transform(), entity->Get<MeshRendererComponent>(),
+             ViewID::SCENE_OVERLAY);
 }
 
 void SceneViewPipeline::RenderSelectedEntityOutline(EntityContainer* entity) {
@@ -651,11 +689,12 @@ void SceneViewPipeline::RenderSelectedEntityOutline(EntityContainer* entity) {
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
                  BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_CULL_CW |
                  BGFX_STATE_BLEND_ALPHA);
-  bgfx::submit(ViewID::SCENE_FORWARD, selection_program_);
+  bgfx::submit(ViewID::SCENE_OVERLAY, selection_program_);
 }
 
 void SceneViewPipeline::RenderMesh(TransformComponent& transform,
-                                   MeshRendererComponent& renderer) {
+                                   MeshRendererComponent& renderer,
+                                   bgfx::ViewId view) {
   // Transform model must have been evaluated beforehand
 
   // Renderer must be enabled
@@ -670,13 +709,14 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   const glm::mat4* pose =
       Animation::Pose(ECS::Main(), renderer.animator_, pose_count);
   SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_, pose,
-            pose_count);
+            pose_count, false, view);
 }
 
 void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
                                   const glm::mat4* model,
                                   const glm::mat4* pose,
-                                  uint32_t pose_count, bool mirrored) {
+                                  uint32_t pose_count, bool mirrored,
+                                  bgfx::ViewId view) {
   auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
   // Textures are per-draw in bgfx
@@ -730,8 +770,7 @@ void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
 
   // Render mesh, the unlit view mode overrides the material's program
   bgfx::setState(render_state);
-  bgfx::submit(ViewID::SCENE_FORWARD,
-               unlit_ ? default_program_ : material_program);
+  bgfx::submit(view, unlit_ ? default_program_ : material_program);
 }
 
 void SceneViewPipeline::BuildReferenceGrid(const glm::mat4& view_projection) {
@@ -764,15 +803,6 @@ void SceneViewPipeline::RenderGizmosNode(const Node::Context& context) {
   float projMatrix[16];
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
   CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
-
-  // Setup BGFX view for gizmo rendering
-  bgfx::setViewTransform(ViewID::SCENE_FORWARD, viewMatrix, projMatrix);
-  bgfx::setViewRect(ViewID::SCENE_FORWARD, 0, 0, canvasViewportW,
-                    canvasViewportH);
-
-  auto* renderer = static_cast<GraphicsRenderer*>(Runtime::Renderer());
-  bgfx::setViewFrameBuffer(ViewID::SCENE_FORWARD,
-                           renderer->GetSceneFramebuffer());
 
   // Build view-projection for gizmo rendering
   glm::mat4 view = glm::make_mat4(viewMatrix);
@@ -828,7 +858,7 @@ void SceneViewPipeline::RenderGridNode(const Node::Context& context) {
   grid_mesh_->Bind();
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
                  BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_BLEND_ALPHA);
-  bgfx::submit(ViewID::SCENE_FORWARD, debug_program_);
+  bgfx::submit(ViewID::SCENE_OVERLAY, debug_program_);
 }
 
 // PLACEHOLDER: Remove this once pipeline is done
@@ -865,7 +895,7 @@ void SceneViewPipeline::Render() {
 
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();
-  gizmos.NewFrame(ViewID::SCENE_FORWARD);
+  gizmos.NewFrame(ViewID::SCENE_OVERLAY);
 
   // Icons capture the gizmo state when queued
   gizmos.opacity = billboard_params_.opacity;
@@ -989,7 +1019,11 @@ void SceneViewPipeline::SetSelectedEntities(
     if (entity == entt::null || !world.Reg().valid(entity))
       continue;
 
-    selected_entities_.push_back(entity);
+    // Water is drawn by its own pass, displaced by its waves: the selection
+    // passes would draw its flat grid
+    // TODO: an outline for meshes their shaders displace
+    if (!world.Has<WaterSurfaceTag>(entity))
+      selected_entities_.push_back(entity);
 
     if (world.Has<TransformComponent>(entity)) {
       for (Entity child : world.Get<TransformComponent>(entity).children_)

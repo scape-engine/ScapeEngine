@@ -13,6 +13,24 @@ void ShaderManager::Init() {
   shader_cache_.clear();
 }
 
+bgfx::ProgramHandle ShaderManager::LoadComputeProgram(
+    const std::string& csPath) {
+  if (auto it = program_cache_.find(csPath); it != program_cache_.end())
+    return it->second;
+
+  bgfx::ShaderHandle cs = LoadShader(csPath);
+  bgfx::ProgramHandle program = BGFX_INVALID_HANDLE;
+  if (bgfx::isValid(cs))
+    program = bgfx::createProgram(cs, true);
+  if (!bgfx::isValid(program))
+    Logger::getInstance().Log(
+        LogLevel::Error,
+        "ShaderManager failed to load compute program: " + csPath);
+  // Cached even when invalid, so a missing shader is reported once
+  program_cache_[csPath] = program;
+  return program;
+}
+
 void ShaderManager::Shutdown() {
   // Destroy all programs (this automatically destroys shaders, because of the
   // 'true' flag)

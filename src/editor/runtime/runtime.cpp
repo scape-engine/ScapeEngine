@@ -53,6 +53,7 @@
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/shadows/shadow_map.h"
 #include "engine/renderer/skybox/skybox.h"
+#include "engine/renderer/compute/compute_buffer_registry.h"
 #include "engine/renderer/texture/texture_registry.h"
 #include "engine/time/time.h"
 
@@ -357,9 +358,15 @@ int TERMINATE() {
   Light::Destroy();
   SkyLight::Destroy();
 
+  // The scene's entities go now, while what their components free into is
+  // alive: left to std::exit, the static ECS outlives e.g. ozz's allocator
+  // (an animator's pose buffers then make a pure virtual call)
+  ECS::Main().Clear();
+
   // GPU textures must be released while bgfx is alive
   MaterialRegistry::Instance().Clear();
   TextureRegistry::Instance().Clear();
+  ComputeBufferRegistry::Instance().Clear();
 
   EngineContext::Destroy();
 

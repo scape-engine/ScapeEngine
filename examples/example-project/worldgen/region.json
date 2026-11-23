@@ -2,7 +2,7 @@
   "radius": 1000,
   "terrain": {
     "base_seed": 99,
-    "sea_level": 0,
+    "sea_level": 75,
     "no_sea_base_level": 50,
     "noise_layers": [
       {
@@ -100,8 +100,9 @@
         "min_scale_y": 1,
         "max_scale_y": 1,
         "max_angle": 90,
-        "min_height": -1000,
+        "min_height": 0,
         "max_height": 1000,
+        "relative_to_sea_level": true,
         "max_y_rotation": 360
       }
     }

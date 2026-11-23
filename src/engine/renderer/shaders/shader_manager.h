@@ -13,6 +13,7 @@ public:
   static bgfx::ProgramHandle LoadProgram(const std::string& name,
                                          const std::string& vsPath,
                                          const std::string& fsPath);
+  static bgfx::ProgramHandle LoadComputeProgram(const std::string& csPath);
   static bgfx::ShaderHandle LoadShader(const std::string& path);
 
 private:

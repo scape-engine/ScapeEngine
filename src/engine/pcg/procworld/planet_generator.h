@@ -7,6 +7,7 @@
 #include "engine/pcg/generator_base.h"
 #include "engine/pcg/procworld/herd_movement.h"
 #include "engine/pcg/procworld/terrain_look.h"
+#include "engine/pcg/water/water_subsystem.h"
 
 namespace ProcWorld {
 
@@ -57,6 +58,9 @@ public:
   int size = 0;  // the size class
   // Testing: the water acts as though a weather event is under way
   bool force_weather_event = false;
+  // The sea's surface (planets whose terrain has a sea level), at the radius
+  // plus the sea level; its waves come from the planet content
+  Water::SurfaceSettings water;
 
   // State, written by ProcWorld::Subsystem
   std::string error;
@@ -81,7 +85,6 @@ public:
   // The water's state (an index into the planet content's water states) at
   // the world clock, and the one it blends from; -1: the planet content has
   // none
-  // TODO: the water surface reads these once Scape draws water
   int water_state = -1;
   int water_state_from = -1;
   float water_blend = 1.0f;  // 0: all `water_state_from`, 1: all `water_state`

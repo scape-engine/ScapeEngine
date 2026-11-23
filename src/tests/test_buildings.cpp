@@ -14,6 +14,10 @@
 #include <nlohmann/json.hpp>
 
 #include "content_json.h"
+#include "water/wave_cascades.h"
+#include "api/planet_grid.h"
+#include "api/region.h"
+#include "terrain/polygonizer.h"
 #include "engine/pcg/procmodel/descriptor/model_descriptor_parser.h"
 #include "engine/pcg/procworld/instancing/building_library.h"
 
@@ -110,11 +114,86 @@ static void TestExampleCraft() {
   std::cout << "Craft: OK (" << models.size() << " models)" << std::endl;
 }
 
+// The example sea: the region terrain has a sea level and the planet a wave
+// list per water state, rougher state by state, each split into cascades
+static void TestExampleSea() {
+  const auto read = [](const std::string& name) {
+    std::ifstream file(std::string(project) + "/worldgen/" + name);
+    std::stringstream text;
+    text << file.rdbuf();
+    return text.str();
+  };
+  Worldgen::RegionContent region;
+  assert(Worldgen::Json::LoadRegionContent(read("region.json"), region));
+  assert(region.terrain.sea_level > 0.0f);
+  // A good share of the ground lies under it, so it shows: terrain heights
+  // over a sample of coarse regions around the planet
+  {
+    const int level = 3;
+    const int side = Worldgen::PlanetGrid::CellsPerSide(region.radius, level);
+    std::vector<float> heights;
+    for (int face = 0; face < 6; ++face)
+      for (int i = 0; i < side; i += 2)
+        for (int j = 0; j < side; j += 2) {
+          int centre[3];
+          Worldgen::PlanetGrid::CellCentre({face, i, j, level}, region.radius,
+                                           centre);
+          const Worldgen::Region built = Worldgen::BuildRegion(
+              region, centre[0], centre[1], centre[2], level);
+          for (const auto& vertex : built.mesh) {
+            float p[3], n[3];
+            Worldgen::Polygonizer::DecodeVertex(vertex, p, n);
+            const float x = p[0] + built.origin[0], y = p[1] + built.origin[1],
+                        z = p[2] + built.origin[2];
+            heights.push_back(std::sqrt(x * x + y * y + z * z) - region.radius);
+          }
+        }
+    std::sort(heights.begin(), heights.end());
+    size_t under = 0;
+    while (under < heights.size() && heights[under] < region.terrain.sea_level)
+      ++under;
+    const double share = double(under) / double(heights.size());
+    assert(share > 0.2 && share < 0.8);
+    std::cout << "Sea: " << int(share * 100.0) << "% of the ground under it"
+              << std::endl;
+  }
+  Worldgen::PlanetContent planet;
+  assert(Worldgen::Json::LoadPlanetContent(read("planet.json"), planet));
+  const Worldgen::WaterWaveSettings& waves = planet.water_waves;
+  assert(waves.states.size() == planet.water_states.weights[0].size());
+
+  float previous = 0.0f;
+  std::string sums;
+  for (int state = 0; state < int(waves.states.size()); ++state) {
+    Worldgen::WaveField field;
+    Worldgen::SetWaterState(field, state, 0.0f);
+    Worldgen::UpdateWaves(waves, 0.1f, field);
+    assert(!field.waves.empty() && field.wave_sum > previous);
+    previous = field.wave_sum;
+    sums += " " + std::to_string(field.wave_sum).substr(0, 5);
+
+    std::vector<Worldgen::Wave> sorted = field.waves;
+    Worldgen::SortWaves(sorted);
+    const Worldgen::WaveCascadeSettings settings;
+    const Worldgen::WaveCascades cascades =
+        Worldgen::BuildWaveCascades(sorted, settings, Worldgen::WaveFrame());
+    assert(!cascades.groups.empty());
+    assert(int(cascades.starts.size()) == settings.count + 1);
+    for (int c = 0; c < settings.count; ++c)
+      assert(cascades.starts[c] <= cascades.starts[c + 1]);
+    assert(cascades.starts.back() == int(cascades.groups.size()));
+  }
+  // A storm stays a sea, not a mountain range
+  assert(previous < 10.0f);
+  std::cout << "Sea: OK (wave sums" << sums << ")" << std::endl;
+}
+
 void TestBuildings() {
   TestSceneTransform();
   TestGlbScenes();
   TestExampleStyles();
   TestExampleCraft();
+  TestExampleSea();
 }
 
 }  // namespace Tests

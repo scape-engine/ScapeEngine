@@ -99,6 +99,8 @@ public:
     SKY_PREFILTER_STAGE = 6,
     AMBIENT_OCCLUSION_STAGE = 7,
     SHADOW_MAP_STAGE = 8,
+    // An entity's RenderTextureComponent textures, in order (ComputeSystem)
+    ENTITY_TEXTURE_STAGE = 9,
   };
 
   // Reference grid (scene view)

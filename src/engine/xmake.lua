@@ -43,6 +43,7 @@ add_files(
 	"renderer/material/*.cpp",
 	"renderer/passes/*.cpp",
 	"renderer/primitives/*.cpp",
+	"renderer/compute/*.cpp",
 
 	-- Math files
 	"math/noise/OpenSimplex2S.cpp",
@@ -71,6 +72,7 @@ add_files(
 	"pcg/procmodel/validation/*.cpp",
 	"pcg/procworld/*.cpp",
 	"pcg/procworld/instancing/*.cpp",
+	"pcg/water/*.cpp",
 	"pcg/pipeline/*.cpp"
 )
 
@@ -94,6 +96,7 @@ add_headerfiles(
 	"renderer/lighting/*.h",
 	"renderer/shaders/*.h",
 	"renderer/icons/*.h",
+	"renderer/compute/*.h",
 	"renderer/texture/*.h",
 	"renderer/model/*.h",
 	"renderer/skybox/*.h",
@@ -130,6 +133,7 @@ add_headerfiles(
 	"pcg/procmodel/validation/*.h",
 	"pcg/procworld/*.h",
 	"pcg/procworld/instancing/*.h",
+	"pcg/water/*.h",
 	"pcg/pipeline/*.h"
 )
 
@@ -255,7 +259,12 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		end
 	end
 
-	assert(os.isfile(varying), "No varying file for shader '" .. fname .. "'\n  selected: " .. varying)
+	-- compute shaders have no varyings
+	if stype == "compute" then
+		varying = nil
+	else
+		assert(os.isfile(varying), "No varying file for shader '" .. fname .. "'\n  selected: " .. varying)
+	end
 
 	-- output bin -------------------------------------------------------------
 	local binname = fname:gsub("%.sc$", ".bin")
@@ -299,8 +308,6 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 			stype,
 			"--profile",
 			backend.profile,
-			"--varyingdef",
-			varying,
 			"-i",
 			path.join(os.projectdir(), "thirdparty/bgfx_utils/common"),
 			"-i",
@@ -310,17 +317,21 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 			"-o",
 			outfile,
 		}
+		if varying then
+			table.insert(args, "--varyingdef")
+			table.insert(args, varying)
+		end
 		-- Print shader file progress
 		batchcmds:show_progress(
 			opt.progress,
 			"[shaderc] %-15s → %-20s | varying: %s",
 			fname,
 			backend.folder,
-			path.basename(varying)
+			varying and path.basename(varying) or "none"
 		)
 		batchcmds:vrunv(exe, args)
 		batchcmds:set_depmtime(os.mtime(outfile))
 	end
 
-	batchcmds:add_depfiles(shaderfile, varying)
+	batchcmds:add_depfiles(shaderfile, varying or shaderfile)
 end)

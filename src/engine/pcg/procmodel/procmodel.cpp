@@ -281,6 +281,31 @@ ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
                             : nullptr);
 }
 
+ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
+    const std::string& descriptor_path, const ProcModel::InstanceData& instance,
+    Entity parent, const Worldgen::TextureInput* planet) {
+  const auto resource = Archetype(descriptor_path);
+  if (!resource)
+    return {};
+  return Instantiate(instance, *resource, parent,
+                     planet ? TexturedMaterials(descriptor_path, *resource,
+                                                *planet)
+                            : nullptr);
+}
+
+std::optional<std::vector<ProcModel::ModelInstantiator::Part>>
+Subsystem::InstanceParts(const std::string& descriptor_path,
+                         const ProcModel::InstanceData& instance,
+                         const Worldgen::TextureInput* planet) {
+  const auto resource = Archetype(descriptor_path);
+  if (!resource)
+    return std::vector<ProcModel::ModelInstantiator::Part>();
+  return ProcModel::ModelInstantiator::Parts(
+      instance.model, resource->GetGraph(),
+      planet ? TexturedMaterials(descriptor_path, *resource, *planet)
+             : nullptr);
+}
+
 std::shared_ptr<const ProcModelResource> Subsystem::Archetype(
     const std::string& descriptor_path) {
   const ResourceID id = LoadArchetype(descriptor_path);

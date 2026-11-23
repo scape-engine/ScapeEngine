@@ -26,6 +26,14 @@ public:
   TextureId Acquire(const std::string& key, TextureType type,
                     uint64_t sampler_flags = BGFX_SAMPLER_NONE);
 
+  // A texture made at runtime for compute shaders to write (see
+  // Texture::CreateStorage), owned by whoever made it: Release it when done.
+  // INVALID_TEXTURE if it can't be made
+  TextureId CreateStorage(uint16_t width, uint16_t height, uint16_t layers,
+                          bgfx::TextureFormat::Enum format,
+                          uint64_t sampler_flags = BGFX_SAMPLER_NONE);
+  void Release(TextureId id);
+
   // GPU handle, invalid for unknown ids
   bgfx::TextureHandle Get(TextureId id) const;
 

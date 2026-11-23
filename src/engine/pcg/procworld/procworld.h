@@ -1,6 +1,7 @@
 #ifndef PROCWORLD_H
 #define PROCWORLD_H
 
+#include <deque>
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
@@ -15,6 +16,7 @@
 #include "engine/renderer/model/mesh.h"
 
 #include "api/procedural_texture.h"
+#include "water/water_waves.h"
 #include "world/planet_water.h"
 #include "world/planet_weather_events.h"
 #include "api/region.h"
@@ -60,6 +62,9 @@ private:
   struct RegionBuild {
     Worldgen::Region region;
     RegionInstancer::BuildingPieces pieces;
+    // Its procmodel objects' (and creatures') instances, generated on the
+    // worker so the main thread only makes their entities
+    RegionInstancer::ObjectModels objects;
   };
   struct PlanetState {
     // Shared with the jobs building from it, so a reload leaves them intact
@@ -73,6 +78,16 @@ private:
     std::shared_ptr<const Worldgen::RegionContent> herd_content;
     std::unordered_map<uint64_t, Entity> herds;  // by cell key
     std::unordered_map<uint64_t, std::future<RegionBuild>> herd_building;
+    // The procmodels of its objects and creatures, loaded with the content
+    RegionInstancer::Archetypes archetypes;
+    // Loaded regions whose objects are still being made, a few per frame
+    struct ObjectWork {
+      Entity region = entt::null;
+      std::shared_ptr<const Worldgen::RegionContent> content;
+      RegionBuild build;
+      RegionInstancer::ObjectProgress progress;
+    };
+    std::deque<ObjectWork> making;
     // The planet's tile colours (sRGB); alpha 0: the look's colour
     std::array<glm::vec4, TerrainMaterialData::tile_count> tile_colours{};
     // The planet's seed and palettes, for the models' procedural textures
@@ -81,6 +96,10 @@ private:
     std::shared_ptr<BuildingLibrary> buildings;
     // How its water's state changes; null: no water states
     std::shared_ptr<const Worldgen::WaterStateRules> water_states;
+    // Its sea (a Water::Subsystem surface) and the waves of its states; null
+    // entity: no sea
+    std::shared_ptr<const Worldgen::WaterWaveSettings> water_waves;
+    Entity sea = entt::null;
     // Its weather events: the schedule and kinds it was built with, the
     // events around the world clock, and the kind picked for the event that
     // warned at `picked_warning`
@@ -121,7 +140,8 @@ private:
               bool reload);
   // The weather event at `now` (seconds on the world clock)
   void Weather(PlanetGenerator& generator, PlanetState& state, double now);
-  // The water's state at `now`, blending into a new one
+  // The water's state at `now`, blending into a new one; the sea's waves
+  // move towards it
   void Water(PlanetGenerator& generator, const PlanetState& state, double now);
   // Destroys the entities made from the volume, and their meshes
   void Clear(Entity volume);
