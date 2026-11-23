@@ -5956,6 +5956,8 @@
       }
     }
   ],
+  "weather": { "weights": [1], "roll_extreme": true, "extreme_chance": 0.1 },
+  "weather_types": [ { "low_events_chance": 0.4, "high_events_chance": 0.3 } ],
   "weather_events": {
     "schedules": [
       { "interval": 600, "jitter": 120, "min_length": 90, "max_length": 240, "warning": 20, "transition": 15 },

@@ -5,11 +5,32 @@
 #include "editor/runtime/runtime.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "engine/renderer/skybox/skybox.h"
+#include "engine/time/time.h"
 
 namespace Panels {
 
 inline void WorldSettings() {
   ImGui::BeginChild("WorldSettings", ImVec2(0, 0), false);
+
+  // The world clock that time-driven systems (weather events, water) read
+  // TODO: the sky's day cycle follows it too
+  if (ImGui::CollapsingHeader("World Clock", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::Indent();
+    ImGui::Text("%.0f s", Time::World());
+    float scale = static_cast<float>(Time::GetTimeScale());
+    if (ImGui::SliderFloat("Time Scale", &scale, 0.0f, 100.0f, "%.2f",
+                           ImGuiSliderFlags_Logarithmic))
+      Time::SetTimeScale(scale);
+    ImGui::Text("Skip:");
+    for (const auto& [label, seconds] :
+         {std::pair{"1 min", 60.0}, std::pair{"10 min", 600.0},
+          std::pair{"1 h", 3600.0}}) {
+      ImGui::SameLine();
+      if (ImGui::SmallButton(label))
+        Time::SetWorld(Time::World() + seconds);
+    }
+    ImGui::Unindent();
+  }
 
   Skybox* skybox = Runtime::BuildGlobalResources().skybox;
   if (!skybox) {

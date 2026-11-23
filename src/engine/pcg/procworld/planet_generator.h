@@ -67,6 +67,8 @@ public:
   bool planet_terrain = false;  // the terrain is the planet's
   float planet_radius = 0.0f;   // from the size class; 0: the content's
   // The weather event at the world clock, from the planet's schedule
+  // TODO: the renderer draws the event from these (fog, particles, sky,
+  // sound), within a frame budget
   bool weather_events = false;         // the planet has a schedule
   bool weather_event = false;          // one is under way: warning to end
   bool weather_event_warning = false;  // between its warning and its start

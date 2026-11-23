@@ -45,6 +45,15 @@ double GetTimeScale();
 
 // Sets the time scale
 void SetTimeScale(double time_scale);
+
+// The world clock, in seconds: advances by the scaled delta time. It starts at
+// the Unix time of launch, so machines with set clocks agree until it is
+// scaled or set
+// TODO: saved with the scene, and shared by a world's peers
+double World();
+
+// Sets the world clock
+void SetWorld(double seconds);
 };  // namespace Time
 
 #endif  // TIME_H

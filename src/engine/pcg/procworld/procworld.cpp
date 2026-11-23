@@ -202,11 +202,7 @@ void Subsystem::Update() {
     return true;
   });
 
-  // The world clock: Unix seconds, so machines with set clocks agree
-  // TODO: a clock the world's peers share, apart from the machines' own
-  const double now = std::chrono::duration<double>(
-                         std::chrono::system_clock::now().time_since_epoch())
-                         .count();
+  const double now = Time::World();
   for (auto [entity, volume] : ecs.View<VolumeComponent>().each()) {
     PCG::Generator* generator = generator_of(volume);
     if (is_type(generator, PCG::GeneratorType::Region)) {
@@ -240,8 +236,8 @@ void Subsystem::Update() {
   }
 }
 
-// The events list is rebuilt only once its last event has ended; the kind
-// is picked once per event
+// The events list is rebuilt only once its last event has ended, or when the
+// clock is set back before it; the kind is picked once per event
 void Subsystem::Weather(PlanetGenerator& generator, PlanetState& state,
                         double now) {
   generator.weather_events = !state.weather_events.never;
@@ -252,7 +248,8 @@ void Subsystem::Weather(PlanetGenerator& generator, PlanetState& state,
   if (state.weather_events.never)
     return;
   const uint64_t time = static_cast<uint64_t>(now);
-  if (state.events.empty() || state.events.back().ends <= time)
+  if (state.events.empty() || state.events.back().ends <= time ||
+      time < state.events.front().warning)
     state.events = Worldgen::WeatherEvents(
         state.weather_events, state.weather_seed, time, time);
   for (const Worldgen::WeatherEvent& e : state.events) {
