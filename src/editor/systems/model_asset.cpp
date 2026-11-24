@@ -8,6 +8,8 @@
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/components/inspectable_components.h"
 #include "editor/runtime/runtime.h"
+#include "engine/context/engine_context.h"
+#include "engine/pcg/pcg_engine.h"
 #include "engine/renderer/icons/icon_loader.h"
 #include "engine/scene/model_entity_factory.h"
 
@@ -23,6 +25,8 @@ void ModelAsset::Apply() {
   DrawSettings::Write(Runtime::Project().AbsolutePath(GetPath()), draw_);
   ModelEntityFactory::ReloadDrawSettings(
       GetPath().generic_string(), Runtime::Project().GetProject().path_);
+  EngineContext::PCG().GetProcModel().ReloadDrawSettings(
+      Runtime::Project().AbsolutePath(GetPath()));
 }
 
 void ModelAsset::DrawInspectorUI() {

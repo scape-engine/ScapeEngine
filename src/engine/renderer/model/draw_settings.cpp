@@ -47,7 +47,8 @@ bool DrawSettings::Write(const std::filesystem::path& model,
   nlohmann::json body;
   _Split(meta, header, body);
   body["draw"] = settings;
-  std::ofstream out(meta, std::ios::binary);
+  // Text mode, like the metadata's other writers (ProjectAssets)
+  std::ofstream out(meta);
   out << header << body.dump(4);
   return static_cast<bool>(out);
 }

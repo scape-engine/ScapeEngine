@@ -62,6 +62,7 @@ bool ProjectManager::Load(const std::filesystem::path& directory) {
   // Set project path
   project_.path_ = directory;
   EngineContext::PCG().GetProcWorld().SetRoot(directory);
+  EngineContext::PCG().GetProcModel().SetRoot(directory);
 
   // Ensure project configuration is valid
   if (!EnsureConfig()) {

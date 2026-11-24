@@ -62,7 +62,8 @@ struct DrawList {
   // evaluated. `apart` entities always draw one by one (e.g. the selection,
   // which passes skip or draw differently), as everything does without
   // `instanced`, and anything partly faded. Instanced parts draw only as far
-  // from the viewer as they allow; hidden entities don't draw
+  // from the viewer as they allow, each instance as its mesh's LOD for its
+  // distance; hidden entities don't draw
   static void Build(std::initializer_list<Frustum> frusta,
                     const glm::vec3& viewer, const std::vector<Entity>& apart,
                     bool instanced = true);

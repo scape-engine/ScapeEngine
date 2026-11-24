@@ -23,6 +23,8 @@
 #include "engine/pcg/procmodel/model_graph/model_graph_builder.h"
 #include "engine/pcg/procmodel/procmodel_resource.h"
 #include "engine/pcg/procmodel/validation/procmodel_evaluation.h"
+#include "engine/renderer/model/draw_settings.h"
+#include "engine/scene/model_entity_factory.h"
 
 #include "content_json.h"
 
@@ -176,10 +178,38 @@ std::shared_ptr<const ProcModelResource> Subsystem::AddArchetype(
                               "[ProcModel::Subsystem] Failed to upload meshes");
     return nullptr;
   }
+  ApplyDraw(read->GetGraph());
   read->SetResolved(true);
   procmodel_cache_[descriptor_path] =
       EngineContext::resourceManager().Add(descriptor_path, read);
   return read;
+}
+
+void Subsystem::ApplyDraw(const ModelGraph& graph) const {
+  const DrawSettings settings = DrawSettings::Read(graph.source_path);
+  std::vector<std::vector<std::pair<const Mesh*, MaterialHandle>>> lods;
+  for (const DrawSettings::Lod& lod : settings.lods)
+    lods.push_back(lod.source.empty()
+                       ? decltype(lods)::value_type()
+                       : ModelEntityFactory::Meshes(lod.source, root_));
+  for (size_t i = 0; i < graph.gpu_meshes.size(); ++i) {
+    std::vector<Mesh::Lod> chain;
+    for (size_t l = 0; l < lods.size(); ++l)
+      if (i < lods[l].size())
+        chain.push_back({settings.lods[l].distance, lods[l][i].first});
+    graph.gpu_meshes[i]->SetDraw(settings.fade_start, settings.fade_end,
+                                 std::move(chain));
+  }
+}
+
+void Subsystem::ReloadDrawSettings(const std::filesystem::path& model) {
+  for (const auto& [descriptor_path, id] : procmodel_cache_) {
+    const auto archetype = LoadedArchetype(descriptor_path);
+    std::error_code error;
+    if (archetype && std::filesystem::equivalent(
+                         archetype->GetGraph().source_path, model, error))
+      ApplyDraw(archetype->GetGraph());
+  }
 }
 
 std::shared_ptr<const ProcModelResource> Subsystem::LoadedArchetype(

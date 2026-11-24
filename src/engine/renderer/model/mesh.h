@@ -67,6 +67,7 @@ public:
   float FadeEnd() const { return fade_end_; }
   // The coarsest LOD whose distance it is past, or itself
   const Mesh& ForDistance(float distance) const;
+  const std::vector<Lod>& Lods() const { return lods_; }
   void SetDraw(float fade_start, float fade_end, std::vector<Lod> lods);
 
 private:

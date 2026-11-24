@@ -1,6 +1,7 @@
 #ifndef PROCMODEL_H
 #define PROCMODEL_H
 
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <unordered_set>
@@ -126,7 +127,17 @@ public:
 
   ResourceID LoadArchetype(const std::string& descriptor_path);
 
+  // The project root, which the models' LOD sources are relative to
+  void SetRoot(const std::filesystem::path& root) { root_ = root; }
+  // Applies a source model's draw settings again to the loaded archetypes
+  // made from it (after they were edited)
+  void ReloadDrawSettings(const std::filesystem::path& model);
+
 private:
+  // The source model's draw settings (DrawSettings) on the graph's meshes:
+  // mesh i of each LOD model stands in for mesh i
+  void ApplyDraw(const ModelGraph& graph) const;
+
   // The model's materials with its procedural textures made for the planet,
   // by the graph's material index; null when it has none to make
   const std::vector<MaterialHandle>* TexturedMaterials(
@@ -142,6 +153,7 @@ private:
   PCG::OperationRegistry operation_registry_;
   std::unique_ptr<ValidationLogger> validation_logger_;
   std::unordered_map<std::string, ResourceID> procmodel_cache_;
+  std::filesystem::path root_;
 
   // By path; unset if it failed to load. Guarded by texture_mutex_ (the
   // values stay put: readers keep pointers to them)

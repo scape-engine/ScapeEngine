@@ -78,6 +78,14 @@ bool TooSmall(const glm::mat4& view_projection, const glm::vec3& center,
          size * glm::length(glm::vec3(t[1])) < min_screen_size * w;
 }
 
+// Whether the mesh draws as another LOD somewhere between these distances
+bool Switches(const Mesh& mesh, float from, float to) {
+  for (const Mesh::Lod& lod : mesh.Lods())
+    if (lod.mesh && lod.distance > from && lod.distance <= to)
+      return true;
+  return false;
+}
+
 // An instanced mesh's world matrices, its parts' bounds and its buffer from
 // the entity's model matrix
 void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
@@ -238,41 +246,100 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
                            bgfx::isValid(set.buffer_.handle);
       // None of the part's instances within its draw distance (the part's
       // own, else its mesh's draw settings)
-      // TODO: LODs for instanced parts (Mesh::ForDistance per instance)
       const bool own = part.fade_end > part.fade_start;
       const float fade_start = own ? part.fade_start : part.mesh->FadeStart();
       const float fade_end = own ? part.fade_end : part.mesh->FadeEnd();
       const Fade fade{viewer, fade_start, fade_end, visibility};
       const bool limited = fade_end > fade_start;
-      if (limited &&
-          glm::distance(viewer, part.center) - part.radius > fade_end)
+      const float distance = glm::distance(viewer, part.center);
+      if (limited && distance - part.radius > fade_end)
         continue;
+      // Its mesh's LODs: one for all of them when no LOD switches within its
+      // sphere, else one per instance, their matrices sorted by LOD into the
+      // frame's instance buffer (once, for every frustum)
+      const float closest = std::max(distance - part.radius, 0.0f);
+      const bool split = Switches(*part.mesh, closest, distance + part.radius);
+      const Mesh* drawn = &part.mesh->ForDistance(closest);
+      // the entity's own matrix mirrors both runs alike
+      const bool flip = Mirrored(transform.model_);
+      const uint32_t plain = part.count - part.mirrored;
+      struct Run {
+        const Mesh* mesh;
+        bool mirrored;
+        std::vector<uint32_t> at;  // into worlds_
+        bgfx::InstanceDataBuffer instances{};
+        uint32_t room = 0;  // how many of them the buffer holds
+      };
+      std::vector<Run> runs;
+      if (batched && split) {
+        for (uint32_t i = part.first; i < part.first + part.count; ++i) {
+          const float from =
+              glm::distance(viewer, glm::vec3(set.worlds_[i][3]));
+          if (limited && from > fade_end)
+            continue;
+          const Mesh* mesh = &part.mesh->ForDistance(from);
+          const bool mirrored = i >= part.first + plain ? !flip : flip;
+          auto run = std::find_if(runs.begin(), runs.end(), [&](const Run& r) {
+            return r.mesh == mesh && r.mirrored == mirrored;
+          });
+          if (run == runs.end())
+            run = runs.insert(runs.end(), Run{mesh, mirrored});
+          run->at.push_back(i);
+        }
+        for (Run& run : runs) {
+          run.room = bgfx::getAvailInstanceDataBuffer(
+              static_cast<uint32_t>(run.at.size()), instance_stride);
+          if (run.room == 0)
+            continue;
+          bgfx::allocInstanceDataBuffer(&run.instances, run.room,
+                                        instance_stride);
+          for (uint32_t i = 0; i < run.room; ++i)
+            std::memcpy(run.instances.data + i * instance_stride,
+                        &set.worlds_[run.at[i]], instance_stride);
+        }
+      }
       for (Fill& fill : fills) {
         if (!InFrustum(fill.planes, part.center, part.radius) ||
             TooSmall(fill.view_projection, part.center, part.radius,
                      part.reach))
           continue;
+        if (batched && split) {
+          // What the frame's buffer can't hold draws one by one
+          for (const Run& run : runs) {
+            if (run.room > 0) {
+              Batch batch{run.mesh, part.material, run.instances};
+              batch.mirrored = run.mirrored;
+              batch.fade = fade;
+              fill.list->batches.push_back(batch);
+            }
+            for (size_t i = run.room; i < run.at.size(); ++i)
+              fill.list->singles.push_back({entity, &set.worlds_[run.at[i]],
+                                            run.mesh, part.material, nullptr,
+                                            0, fade});
+          }
+          continue;
+        }
         if (batched) {
-          // the entity's own matrix mirrors both runs alike
-          const bool flip = Mirrored(transform.model_);
-          const uint32_t plain = part.count - part.mirrored;
           if (plain > 0)
-            fill.list->batches.push_back({part.mesh, part.material, {},
+            fill.list->batches.push_back({drawn, part.material, {},
                                           set.buffer_.handle, part.first,
                                           plain, flip, fade});
           if (part.mirrored > 0)
-            fill.list->batches.push_back({part.mesh, part.material, {},
+            fill.list->batches.push_back({drawn, part.material, {},
                                           set.buffer_.handle,
                                           part.first + plain, part.mirrored,
                                           !flip, fade});
           continue;
         }
         // One by one, those within the distance
-        for (uint32_t i = part.first; i < part.first + part.count; ++i)
-          if (!limited ||
-              glm::distance(viewer, glm::vec3(set.worlds_[i][3])) <= fade_end)
-            fill.list->singles.push_back({entity, &set.worlds_[i], part.mesh,
+        for (uint32_t i = part.first; i < part.first + part.count; ++i) {
+          const float from =
+              glm::distance(viewer, glm::vec3(set.worlds_[i][3]));
+          if (!limited || from <= fade_end)
+            fill.list->singles.push_back({entity, &set.worlds_[i],
+                                          &part.mesh->ForDistance(from),
                                           part.material, nullptr, 0, fade});
+        }
       }
     }
   }
