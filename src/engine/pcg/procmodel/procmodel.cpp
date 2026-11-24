@@ -212,7 +212,7 @@ void Subsystem::ApplyDraw(const ModelGraph& graph) {
       if (i < lods[l].size())
         chain.push_back({settings.lods[l].distance, lods[l][i]});
     graph.gpu_meshes[i]->SetDraw(settings.fade_start, settings.fade_end,
-                                 std::move(chain));
+                                 settings.lod_fade, std::move(chain));
   }
 }
 

@@ -44,6 +44,11 @@ void ModelAsset::DrawInspectorUI() {
     ImGui::TextDisabled("From each distance on, the model's meshes draw as");
     ImGui::TextDisabled("the LOD model's (mesh by mesh, nearest first), or");
     ImGui::TextDisabled("without one as simplified copies of its own");
+    float blend = draw_.lod_fade * 100.0f;
+    if (IMComponents::Slider("Blend", blend, 0.0f, 50.0f, "%.0f %%"))
+      draw_.lod_fade = blend / 100.0f;
+    ImGui::TextDisabled("Each LOD dithers in over this share of its");
+    ImGui::TextDisabled("distance before it (0: they switch at once)");
     int remove = -1;
     for (size_t i = 0; i < draw_.lods.size(); ++i) {
       DrawSettings::Lod& lod = draw_.lods[i];
@@ -78,6 +83,7 @@ void ModelAsset::DrawInspectorUI() {
 
   changed = draw_.fade_start != before.fade_start ||
             draw_.fade_end != before.fade_end ||
+            draw_.lod_fade != before.lod_fade ||
             draw_.lods.size() != before.lods.size();
   for (size_t i = 0; !changed && i < draw_.lods.size(); ++i)
     changed = draw_.lods[i].distance != before.lods[i].distance ||

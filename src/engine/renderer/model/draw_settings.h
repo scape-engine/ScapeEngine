@@ -23,6 +23,9 @@ struct DrawSettings {
   float fade_start = 0.0f;
   float fade_end = 0.0f;
   std::vector<Lod> lods;  // nearest first
+  // Each LOD blends in (dithered) over this share of its distance before it,
+  // as the one before blends out (0: they switch at once)
+  float lod_fade = 0.1f;
 
   // The model's settings; defaults when its metadata has none
   static DrawSettings Read(const std::filesystem::path& model);

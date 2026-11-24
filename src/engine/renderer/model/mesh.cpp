@@ -169,16 +169,45 @@ uint32_t Mesh::MaterialIndex() const {
   return material_index_;
 }
 
-const Mesh& Mesh::ForDistance(float distance) const {
-  const Mesh* drawn = this;
-  for (const Lod& lod : lods_)
-    if (distance >= lod.distance && lod.mesh)
-      drawn = lod.mesh;
-  return *drawn;
+int Mesh::ForDistance(float distance, Drawn out[2]) const {
+  // Its levels: itself from 0 on, then each LOD with a mesh from its distance
+  const auto next_of = [&](size_t i) {
+    while (i < lods_.size() && !lods_[i].mesh)
+      ++i;
+    return i;
+  };
+  // A level from `start` on, until the LOD at `next` (none past the last)
+  const auto level = [&](const Mesh* mesh, float start, size_t next) {
+    glm::vec4 lod(0.0f);
+    if (start > 0.0f) {
+      lod.x = start * (1.0f - lod_fade_);
+      lod.y = start;
+    }
+    if (next < lods_.size()) {
+      lod.z = lods_[next].distance * (1.0f - lod_fade_);
+      lod.w = lods_[next].distance;
+    }
+    return Drawn{mesh, lod};
+  };
+  size_t at = lods_.size();  // itself
+  for (size_t i = 0; i < lods_.size(); ++i)
+    if (lods_[i].mesh && distance >= lods_[i].distance)
+      at = i;
+  const size_t next = next_of(at == lods_.size() ? 0 : at + 1);
+  out[0] = at == lods_.size()
+               ? level(this, 0.0f, next)
+               : level(lods_[at].mesh, lods_[at].distance, next);
+  if (next == lods_.size() || lod_fade_ <= 0.0f ||
+      distance < lods_[next].distance * (1.0f - lod_fade_))
+    return 1;
+  out[1] = level(lods_[next].mesh, lods_[next].distance, next_of(next + 1));
+  return 2;
 }
 
-void Mesh::SetDraw(float fade_start, float fade_end, std::vector<Lod> lods) {
+void Mesh::SetDraw(float fade_start, float fade_end, float lod_fade,
+                   std::vector<Lod> lods) {
   fade_start_ = fade_start;
   fade_end_ = fade_end;
+  lod_fade_ = lod_fade;
   lods_ = std::move(lods);
 }

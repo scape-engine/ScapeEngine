@@ -179,6 +179,6 @@ void Model::SetDraw(const DrawSettings& settings,
       if (lods[l] && lods[l] != this)
         chain.push_back({settings.lods[l].distance, lods[l]->QueryMesh(i)});
     meshes_[i]->SetDraw(settings.fade_start, settings.fade_end,
-                        std::move(chain));
+                        settings.lod_fade, std::move(chain));
   }
 }

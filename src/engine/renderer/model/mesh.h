@@ -65,10 +65,20 @@ public:
   };
   float FadeStart() const { return fade_start_; }
   float FadeEnd() const { return fade_end_; }
-  // The coarsest LOD whose distance it is past, or itself
-  const Mesh& ForDistance(float distance) const;
+  // The share of a LOD's distance before it that it blends in over
+  float LodFade() const { return lod_fade_; }
+  // What it draws as at `distance` from the viewer: the coarsest LOD whose
+  // distance it is past (or itself), and while the next blends in, that one
+  // too; each with the distances it fades in and out over (DrawList::Fade's
+  // lod). Gives how many (1 or 2)
+  struct Drawn {
+    const Mesh* mesh;
+    glm::vec4 lod;
+  };
+  int ForDistance(float distance, Drawn out[2]) const;
   const std::vector<Lod>& Lods() const { return lods_; }
-  void SetDraw(float fade_start, float fade_end, std::vector<Lod> lods);
+  void SetDraw(float fade_start, float fade_end, float lod_fade,
+               std::vector<Lod> lods);
 
 private:
   bgfx::VertexBufferHandle vbo_ = BGFX_INVALID_HANDLE;
@@ -86,6 +96,7 @@ private:
   float bounds_radius_{0.0f};
   float fade_start_{0.0f};
   float fade_end_{0.0f};
+  float lod_fade_{0.0f};
   std::vector<Lod> lods_;  // nearest first
   void SetBounds(const uint8_t* positions, uint32_t count, uint32_t stride);
 

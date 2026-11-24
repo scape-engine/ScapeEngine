@@ -7,8 +7,11 @@
 #include <iostream>
 #include <sstream>
 
+#include <bgfx/bgfx.h>
+
 #include "engine/renderer/model/draw_settings.h"
 #include "engine/renderer/model/lod_generation.h"
+#include "engine/renderer/model/mesh.h"
 
 namespace Tests {
 
@@ -70,6 +73,30 @@ void TestDrawSettings() {
     assert(half > 0 && half <= full * 5 / 8);
     assert(LodGeneration::Simplify(*mesh, 1.0f).indices == mesh->indices);
   }
+
+  // A mesh draws as its LODs, two at once over the blend before each: the
+  // next fading in over the same distances the one before fades out
+  bgfx::Init init;
+  init.type = bgfx::RendererType::Noop;
+  assert(bgfx::init(init));
+  {
+    Mesh base(grid), lod1(split), lod2(split);
+    base.SetDraw(0.0f, 0.0f, 0.1f, {{100.0f, &lod1}, {50.0f, nullptr},
+                                    {200.0f, &lod2}});
+    Mesh::Drawn drawn[2];
+    assert(base.ForDistance(50.0f, drawn) == 1 && drawn[0].mesh == &base &&
+           drawn[0].lod == glm::vec4(0.0f, 0.0f, 90.0f, 100.0f));
+    assert(base.ForDistance(95.0f, drawn) == 2 && drawn[0].mesh == &base &&
+           drawn[1].mesh == &lod1 &&
+           drawn[1].lod == glm::vec4(90.0f, 100.0f, 180.0f, 200.0f));
+    assert(base.ForDistance(150.0f, drawn) == 1 && drawn[0].mesh == &lod1);
+    assert(base.ForDistance(190.0f, drawn) == 2 && drawn[1].mesh == &lod2 &&
+           drawn[1].lod == glm::vec4(180.0f, 200.0f, 0.0f, 0.0f));
+    assert(base.ForDistance(500.0f, drawn) == 1 && drawn[0].mesh == &lod2);
+    base.SetDraw(0.0f, 0.0f, 0.0f, {{100.0f, &lod1}});
+    assert(base.ForDistance(99.0f, drawn) == 1 && drawn[0].mesh == &base);
+  }
+  bgfx::shutdown();
   std::cout << "Draw settings: OK" << std::endl;
 }
 

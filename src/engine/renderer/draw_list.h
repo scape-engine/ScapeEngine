@@ -19,12 +19,14 @@ class Mesh;
 struct DrawList {
   // How much of a draw the standard shaders show (dithered; fade.sh): it
   // fades out from `start` to `end` from the viewer (end <= start: it
-  // doesn't), times `visibility` (FadeSystem::Visibility)
+  // doesn't), times `visibility` (FadeSystem::Visibility); as a mesh LOD it
+  // blends in over lod.xy and out over lod.zw (Mesh::ForDistance)
   struct Fade {
     glm::vec3 viewer{0.0f};
     float start = 0.0f;
     float end = 0.0f;
     float visibility = 1.0f;
+    glm::vec4 lod{0.0f};
   };
   struct Batch {
     const Mesh* mesh;
