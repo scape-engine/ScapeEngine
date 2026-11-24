@@ -5,6 +5,7 @@
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
 
+#include "editor/systems/asset_meta.h"
 #include "engine/memory/resource.h"
 #include "platform/input/input_event.h"
 
@@ -22,6 +23,7 @@ inline boost::signals2::signal<void()> close_graph_editor;
 
 inline boost::signals2::signal<void(Entity)> entity_selected;
 inline boost::signals2::signal<void()> selection_cleared;
+inline boost::signals2::signal<void(AssetSID)> asset_selected;
 
 inline boost::signals2::signal<void(int)> item_selected;
 

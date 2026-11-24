@@ -18,6 +18,13 @@ void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight);
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
 void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator);
 
+// The inspector's section look (a component's header bar and body), for
+// asset inspectors too: draw the body and call EndSection when it returns true
+bool BeginSection(const std::string& title, bool always_opened = false);
+void EndSection();
+// A bold label over a group of fields
+void Headline(const std::string& label);
+
 // Sampling and foot planting settings, also drawn for a planet's creatures
 void DrawAnimatorSettings(AnimatorSettings& settings);
 // TODO: velocity component, box collider, sphere collider, rigidbody, audio

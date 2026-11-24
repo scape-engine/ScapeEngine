@@ -186,6 +186,8 @@ void EditorUI::Initialize() {
   // events
   EditorEvents::entity_selected.connect(
       [properties](Entity) { properties->Select("Inspector"); });
+  EditorEvents::asset_selected.connect(
+      [properties](AssetSID) { properties->Select("Inspector"); });
 
   EditorEvents::focus_entity.connect([this](Entity entity) {
     auto& world = ECS::Main();

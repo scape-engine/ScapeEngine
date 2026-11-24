@@ -6,6 +6,7 @@
 #include <string>
 #include <type_traits>
 
+#include "editor/systems/asset_meta.h"
 #include "window_base.h"
 
 class InspectorPanel : public WindowBase {
@@ -32,6 +33,7 @@ private:
   static inline std::unique_ptr<InspectableBase> inspected_;
 
   Entity last_inspected_entity_ = entt::null;
+  AssetSID last_inspected_asset_ = 0;
 
   // Output texture of preview viewer
   size_t preview_viewer_output_;

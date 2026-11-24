@@ -596,10 +596,7 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
     // If it's a file, create and show inspector
     if (!node->IsFolder()) {
       auto file = std::static_pointer_cast<const ProjectObserver::File>(node);
-      if (file->asset_id_) {
-        // TODO: Show asset in inspector
-        // InsightPanelWindow::showAsset(file->asset_id_);
-      }
+      Runtime::State().SelectAsset(file->asset_id_);
     }
   }
 

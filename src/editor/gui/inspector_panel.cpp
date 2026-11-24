@@ -3,6 +3,7 @@
 #include <imgui_internal.h>
 
 #include "editor/gui/hierarchy_panel.h"
+#include "editor/gui/inspectables/asset_inspectable.h"
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/runtime/runtime.h"
 
@@ -29,14 +30,22 @@ void InspectorPanel::Render() {
       // Only re-inspect if selection changed
       if (selection != last_inspected_entity_) {
         last_inspected_entity_ = selection;
+        last_inspected_asset_ = 0;
 
         // Keep the HierarchyItem alive
         HierarchyItem item{EntityContainer(selection)};
         Inspect<EntityInspectable>(item);
       }
-    } else {
-      if (last_inspected_entity_ != entt::null) {
+    } else if (state.selected_asset != 0) {
+      if (state.selected_asset != last_inspected_asset_) {
+        last_inspected_asset_ = state.selected_asset;
         last_inspected_entity_ = entt::null;
+        Inspect<AssetInspectable>(state.selected_asset);
+      }
+    } else {
+      if (last_inspected_entity_ != entt::null || last_inspected_asset_ != 0) {
+        last_inspected_entity_ = entt::null;
+        last_inspected_asset_ = 0;
         inspected_ = nullptr;
       }
     }

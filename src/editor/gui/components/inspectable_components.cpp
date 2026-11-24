@@ -193,6 +193,18 @@ void _Headline(const std::string& label) {
   ImGui::Dummy(ImVec2(0.0f, 1.0f));
 }
 
+bool BeginSection(const std::string& title, bool always_opened) {
+  return _BeginComponent(title, 0, nullptr, nullptr, always_opened);
+}
+
+void EndSection() {
+  _EndComponent();
+}
+
+void Headline(const std::string& label) {
+  _Headline(label);
+}
+
 void _SpacingS() {
   ImGui::Dummy(ImVec2(0.0f, 3.0f));
 }
