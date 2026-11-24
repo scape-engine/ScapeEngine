@@ -135,8 +135,9 @@ public:
 
 private:
   // The source model's draw settings (DrawSettings) on the graph's meshes:
-  // mesh i of each LOD model stands in for mesh i
-  void ApplyDraw(const ModelGraph& graph) const;
+  // mesh i of each LOD model stands in for mesh i; LODs without a model are
+  // made from the graph's meshes
+  void ApplyDraw(const ModelGraph& graph);
 
   // The model's materials with its procedural textures made for the planet,
   // by the graph's material index; null when it has none to make
@@ -154,6 +155,9 @@ private:
   std::unique_ptr<ValidationLogger> validation_logger_;
   std::unordered_map<std::string, ResourceID> procmodel_cache_;
   std::filesystem::path root_;
+  // Generated LOD meshes, by source model and detail (ApplyDraw)
+  std::unordered_map<std::string, std::vector<std::unique_ptr<Mesh>>>
+      generated_lods_;
 
   // By path; unset if it failed to load. Guarded by texture_mutex_ (the
   // values stay put: readers keep pointers to them)

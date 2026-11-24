@@ -6,9 +6,12 @@
 #include <unordered_set>
 
 #include "engine/animation/animation.h"
+#include "engine/content/cache/material_cache.h"
+#include "engine/content/cache/mesh_cache.h"
 #include "engine/core/logger.h"
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/model.h"
+#include "engine/renderer/model/lod_generation.h"
 #include "engine/renderer/primitives/shapes.h"
 
 static constexpr const char* primitive_prefix = "primitive:";
@@ -23,13 +26,34 @@ static std::unordered_map<std::string, std::shared_ptr<Model>>& _Models() {
 static const Model* _LoadModel(const std::string& source,
                                const std::filesystem::path& root);
 
-// Reads the model's draw settings and loads its LOD models
+// The model's meshes simplified to `detail`, made once per detail
+static const Model* _GeneratedLod(const std::string& source,
+                                  const std::filesystem::path& root,
+                                  float detail) {
+  const std::string key = ModelEntityFactory::ModelKey(source, root);
+  auto& cache = _Models();
+  const std::string lod_key = key + "#lod" + std::to_string(detail);
+  if (auto it = cache.find(lod_key); it != cache.end())
+    return it->second.get();
+  std::vector<Geometry::MeshData> meshes;
+  for (const Geometry::MeshData& mesh : Content::MeshCache::Instance().Get(key))
+    meshes.push_back(LodGeneration::Simplify(mesh, detail));
+  return cache
+      .emplace(lod_key,
+               Model::FromMeshData(meshes,
+                                   Content::MaterialCache::Instance().Get(key)))
+      .first->second.get();
+}
+
+// Reads the model's draw settings and loads or makes its LOD models
 static void _ApplyDraw(Model& model, const std::string& source,
                        const std::filesystem::path& root) {
   const DrawSettings settings = DrawSettings::Read(root / source);
   std::vector<const Model*> lods;
   for (const DrawSettings::Lod& lod : settings.lods)
-    lods.push_back(lod.source.empty() ? nullptr : _LoadModel(lod.source, root));
+    lods.push_back(lod.source.empty()
+                       ? _GeneratedLod(source, root, lod.detail)
+                       : _LoadModel(lod.source, root));
   model.SetDraw(settings, lods);
 }
 

@@ -24,6 +24,7 @@
 #include "engine/pcg/procmodel/procmodel_resource.h"
 #include "engine/pcg/procmodel/validation/procmodel_evaluation.h"
 #include "engine/renderer/model/draw_settings.h"
+#include "engine/renderer/model/lod_generation.h"
 #include "engine/scene/model_entity_factory.h"
 
 #include "content_json.h"
@@ -185,18 +186,31 @@ std::shared_ptr<const ProcModelResource> Subsystem::AddArchetype(
   return read;
 }
 
-void Subsystem::ApplyDraw(const ModelGraph& graph) const {
+void Subsystem::ApplyDraw(const ModelGraph& graph) {
   const DrawSettings settings = DrawSettings::Read(graph.source_path);
-  std::vector<std::vector<std::pair<const Mesh*, MaterialHandle>>> lods;
-  for (const DrawSettings::Lod& lod : settings.lods)
-    lods.push_back(lod.source.empty()
-                       ? decltype(lods)::value_type()
-                       : ModelEntityFactory::Meshes(lod.source, root_));
+  std::vector<std::vector<const Mesh*>> lods;
+  for (const DrawSettings::Lod& lod : settings.lods) {
+    std::vector<const Mesh*>& meshes = lods.emplace_back();
+    if (!lod.source.empty()) {
+      for (const auto& [mesh, material] :
+           ModelEntityFactory::Meshes(lod.source, root_))
+        meshes.push_back(mesh);
+      continue;
+    }
+    auto& generated = generated_lods_[graph.source_path + "#lod" +
+                                      std::to_string(lod.detail)];
+    if (generated.empty())
+      for (const Geometry::MeshData& mesh : graph.mesh_data)
+        generated.push_back(std::make_unique<Mesh>(
+            LodGeneration::Simplify(mesh, lod.detail)));
+    for (const auto& mesh : generated)
+      meshes.push_back(mesh.get());
+  }
   for (size_t i = 0; i < graph.gpu_meshes.size(); ++i) {
     std::vector<Mesh::Lod> chain;
     for (size_t l = 0; l < lods.size(); ++l)
       if (i < lods[l].size())
-        chain.push_back({settings.lods[l].distance, lods[l][i].first});
+        chain.push_back({settings.lods[l].distance, lods[l][i]});
     graph.gpu_meshes[i]->SetDraw(settings.fade_start, settings.fade_end,
                                  std::move(chain));
   }

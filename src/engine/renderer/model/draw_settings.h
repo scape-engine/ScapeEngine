@@ -10,10 +10,13 @@
 // (<model>.meta, under "draw") and edited in the model asset's inspector
 struct DrawSettings {
   // From `distance` metres from the viewer on, the model's meshes draw as
-  // `source`'s (a project-relative model; mesh i stands in for mesh i)
+  // `source`'s (a project-relative model; mesh i stands in for mesh i), or
+  // without a source as simplified copies of its own keeping about `detail`
+  // (0..1) of their triangles (LodGeneration)
   struct Lod {
     float distance = 0.0f;
     std::string source;
+    float detail = 0.5f;
   };
   // It dithers out from fade_start to fade_end metres from the viewer and
   // doesn't draw past it (fade_end <= fade_start: no limit)

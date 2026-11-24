@@ -1,9 +1,6 @@
 #include "model_asset.h"
 
 #include <imgui.h>
-#include <imgui_internal.h>
-
-#include <cstdio>
 
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/components/inspectable_components.h"
@@ -45,43 +42,37 @@ void ModelAsset::DrawInspectorUI() {
 
   if (BeginSection("LODs")) {
     ImGui::TextDisabled("From each distance on, the model's meshes draw as");
-    ImGui::TextDisabled("the LOD model's (mesh by mesh, nearest first)");
-    sources_.resize(draw_.lods.size());
+    ImGui::TextDisabled("the LOD model's (mesh by mesh, nearest first), or");
+    ImGui::TextDisabled("without one as simplified copies of its own");
     int remove = -1;
     for (size_t i = 0; i < draw_.lods.size(); ++i) {
       DrawSettings::Lod& lod = draw_.lods[i];
       ImGui::PushID(static_cast<int>(i));
       Headline("LOD " + std::to_string(i + 1));
       IMComponents::Input("Distance", lod.distance, 1.0f);
-      std::array<char, 260>& source = sources_[i];
-      // Shows the saved path unless it is being typed
-      if (ImGui::GetActiveID() != ImGui::GetID("##model") &&
-          lod.source != source.data())
-        std::snprintf(source.data(), source.size(), "%s", lod.source.c_str());
-      ImGui::TextUnformatted("Model:");
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(-1.0f);
-      ImGui::InputTextWithHint("##model", "models/rock_lod1.glb", source.data(),
-                               source.size());
-      if (ImGui::IsItemDeactivatedAfterEdit())
-        lod.source = source.data();
+      IMComponents::InputText("Model", lod.source, "generated");
+      if (lod.source.empty()) {
+        float percent = lod.detail * 100.0f;
+        if (IMComponents::Slider("Triangles", percent, 1.0f, 100.0f,
+                                 "%.0f %%"))
+          lod.detail = percent / 100.0f;
+      }
       if (ImGui::SmallButton("Remove"))
         remove = static_cast<int>(i);
       ImGui::PopID();
     }
-    if (remove >= 0) {
+    if (remove >= 0)
       draw_.lods.erase(draw_.lods.begin() + remove);
-      sources_.erase(sources_.begin() + remove);
-    }
     ImGui::Dummy(ImVec2(0.0f, 3.0f));
     IMComponents::BeginCentered("AddLod");
     if (IMComponents::ButtonBig("Add LOD")) {
       const float last =
           draw_.lods.empty() ? 0.0f : draw_.lods.back().distance;
-      draw_.lods.push_back({last + 50.0f, std::string()});
+      // Each further LOD half the triangles of the one before
+      const float detail = draw_.lods.empty() ? 1.0f : draw_.lods.back().detail;
+      draw_.lods.push_back({last + 50.0f, std::string(), detail * 0.5f});
     }
     IMComponents::EndCentered();
-    // TODO: generate LOD meshes (simplified copies) instead of naming files
     EndSection();
   }
 
@@ -90,9 +81,14 @@ void ModelAsset::DrawInspectorUI() {
             draw_.lods.size() != before.lods.size();
   for (size_t i = 0; !changed && i < draw_.lods.size(); ++i)
     changed = draw_.lods[i].distance != before.lods[i].distance ||
-              draw_.lods[i].source != before.lods[i].source;
-  if (changed)
+              draw_.lods[i].source != before.lods[i].source ||
+              draw_.lods[i].detail != before.lods[i].detail;
+  // Applied once an edit ends: each generated detail makes its meshes once
+  pending_ |= changed;
+  if (pending_ && !ImGui::IsAnyItemActive()) {
+    pending_ = false;
     Apply();
+  }
 }
 
 uint32_t ModelAsset::GetIcon() const {

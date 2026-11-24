@@ -43,6 +43,14 @@ void Input(std::string label, bool& value);
 void Input(std::string label, int32_t& value, float speed = 0.1f);
 void Input(std::string label, float& value, float speed = 0.1f);
 void Input(std::string label, glm::vec3& value, float speed = 0.1f);
+// Laid out like Input: true when the value changed
+bool Slider(std::string label, float& value, float min, float max,
+            const char* format = "%.2f");
+bool Choice(std::string label, int& index, const char* const* names,
+            int count);
+// Applied when the field is left, so half-typed text (e.g. a path) is never
+// used; true then
+bool InputText(std::string label, std::string& value, const char* hint = "");
 
 void IndicatorLabel(std::string label, std::string value,
                     std::string additional = "");

@@ -1,7 +1,6 @@
 #ifndef MODEL_ASSET_H
 #define MODEL_ASSET_H
 
-#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <vector>
@@ -24,9 +23,7 @@ private:
   void Apply();
 
   DrawSettings draw_;
-  // The LOD model paths being typed: applied when the field is left, so a
-  // half-typed path never loads
-  std::vector<std::array<char, 260>> sources_;
+  bool pending_ = false;  // edited, applied once no field is being edited
 };
 
 #endif  // MODEL_ASSET_H

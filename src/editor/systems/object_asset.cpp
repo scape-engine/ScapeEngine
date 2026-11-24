@@ -1,15 +1,13 @@
 #include "object_asset.h"
 
 #include <imgui.h>
-#include <imgui_internal.h>
 
 #include <algorithm>
 #include <array>
-#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <sstream>
-#include <unordered_map>
 
 #include "content_json.h"
 #include "editor/gui/components/im_components.h"
@@ -54,33 +52,12 @@ void ObjectAsset::Save() {
   }
 }
 
-// A text field applied when it is left, not on every key
-static void _Text(const char* label, const char* id, std::string& value,
-                  const char* hint) {
-  // One buffer per field, holding what is typed until it is left
-  static std::unordered_map<ImGuiID, std::array<char, 260>> buffers;
-  std::array<char, 260>& buffer = buffers[ImGui::GetID(id)];
-  ImGui::TextUnformatted(label);
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(-1.0f);
-  if (ImGui::GetActiveID() != ImGui::GetID(id))
-    std::snprintf(buffer.data(), buffer.size(), "%s", value.c_str());
-  ImGui::InputTextWithHint(id, hint, buffer.data(), buffer.size());
-  if (ImGui::IsItemDeactivatedAfterEdit())
-    value = buffer.data();
-}
-
 template <class Enum, size_t N>
 static void _Choice(const char* label, Enum& value,
                     const std::array<const char*, N>& names) {
   int index = static_cast<int>(value);
-  ImGui::TextUnformatted(label);
-  ImGui::SameLine();
-  ImGui::SetNextItemWidth(-1.0f);
-  ImGui::PushID(label);
-  if (ImGui::Combo("##choice", &index, names.data(), static_cast<int>(N)))
+  if (IMComponents::Choice(label, index, names.data(), static_cast<int>(N)))
     value = static_cast<Enum>(index);
-  ImGui::PopID();
 }
 
 void ObjectAsset::DrawInspectorUI() {
@@ -93,7 +70,7 @@ void ObjectAsset::DrawInspectorUI() {
   const std::string before = Worldgen::Json::SaveRegionObject(object_);
 
   if (BeginSection("Object")) {
-    _Text("Model:", "##model", object_.id, "procmodel:models/rock.json");
+    IMComponents::InputText("Model", object_.id, "procmodel:models/rock.json");
     ImGui::TextDisabled("A model file, or procmodel: and a procedural model");
     // Region sizes are 32 m doubled per level
     std::array<std::string, 9> labels;
@@ -105,14 +82,11 @@ void ObjectAsset::DrawInspectorUI() {
       if (object_.placement_size == 32 << i)
         level = i;
     }
-    ImGui::TextUnformatted("Placement Size:");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(-1.0f);
-    if (ImGui::Combo("##size", &level, names.data(), 9))
+    if (IMComponents::Choice("Placement Size", level, names.data(), 9))
       object_.placement_size = 32 << level;
     ImGui::TextDisabled("Regions this wide place it: small sizes for small");
     ImGui::TextDisabled("objects seen close, large ones for objects seen far");
-    _Choice("Ground Tile:", object_.tile_type,
+    _Choice("Ground Tile", object_.tile_type,
             std::array<const char*, 9>{"Air", "Base", "Rock", "Mountain",
                                        "Underwater", "Cave", "Dirt", "Liquid",
                                        "Substance"});
@@ -124,7 +98,7 @@ void ObjectAsset::DrawInspectorUI() {
   if (BeginSection("Density")) {
     std::string placement(spawn.placement.bytes,
                           strnlen(spawn.placement.bytes, 16));
-    _Text("Spawn Density:", "##placement", placement, "a density's name");
+    IMComponents::InputText("Spawn Density", placement, "a density's name");
     std::fill(std::begin(spawn.placement.bytes),
               std::end(spawn.placement.bytes), '\0');
     std::copy_n(placement.begin(), std::min<size_t>(placement.size(), 16),
@@ -134,15 +108,15 @@ void ObjectAsset::DrawInspectorUI() {
     IMComponents::Input("Slope Multiplier", spawn.slope_multiplier, 0.01f);
     IMComponents::Input("Coverage", spawn.coverage, 0.01f);
     IMComponents::Input("Patch Edge Scaling", spawn.patch_edge_scaling, 0.01f);
-    _Choice("Near Buildings:", spawn.large_object_coverage,
+    _Choice("Near Buildings", spawn.large_object_coverage,
             std::array<const char*, 7>{
                 "Do Not Place", "Do Not Place (Ignore Footprint)",
                 "Do Not Place Close", "Do Not Place Anywhere Near",
                 "Only Place Around", "Only Place Around (Ignore Footprint)",
                 "Always Place"});
-    _Choice("Overlap:", spawn.overlap_style,
+    _Choice("Overlap", spawn.overlap_style,
             std::array<const char*, 3>{"None", "Same Seed", "All"});
-    _Choice("Priority:", spawn.placement_priority,
+    _Choice("Priority", spawn.placement_priority,
             std::array<const char*, 3>{"Low", "Normal", "High"});
     IMComponents::Input("Order", spawn.order);
     EndSection();
@@ -156,7 +130,7 @@ void ObjectAsset::DrawInspectorUI() {
     IMComponents::Input("Min Height", spawn.min_height, 1.0f);
     IMComponents::Input("Max Height", spawn.max_height, 1.0f);
     IMComponents::Input("From Sea Level", spawn.relative_to_sea_level);
-    _Choice("Ground Colour:", spawn.ground_colour_index,
+    _Choice("Ground Colour", spawn.ground_colour_index,
             std::array<const char*, 3>{"Auto", "Main", "Patch"});
     EndSection();
   }
@@ -181,10 +155,9 @@ void ObjectAsset::DrawInspectorUI() {
   if (BeginSection("Seed")) {
     IMComponents::Input("Own Seed", spawn.seed_valid);
     if (spawn.seed_valid) {
-      ImGui::TextUnformatted("Seed:");
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(-1.0f);
-      ImGui::InputScalar("##seed", ImGuiDataType_U64, &spawn.seed);
+      std::string seed = std::to_string(spawn.seed);
+      if (IMComponents::InputText("Seed", seed))
+        spawn.seed = std::strtoull(seed.c_str(), nullptr, 10);
     }
     ImGui::TextDisabled("Off: the seed comes from its place among the");
     ImGui::TextDisabled("planet's objects of its size");

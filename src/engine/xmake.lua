@@ -156,6 +156,7 @@ add_packages(
 	"entt",
 	"assimp",
 	"ozz-animation",
+	"meshoptimizer",
 	"pcg-cpp"
 )
 

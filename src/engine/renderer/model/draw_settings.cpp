@@ -5,7 +5,7 @@
 #include <sstream>
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings::Lod, distance,
-                                                source)
+                                                source, detail)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings, fade_start,
                                                 fade_end, lods)
 

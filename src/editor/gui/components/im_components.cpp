@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
 
 #include "editor/editor_ui.h"
 #include "editor/gui/styles/editor_styles.h"
@@ -388,6 +389,64 @@ void Input(std::string label, float& value, float speed) {
     ImGui::EndTable();
   }
   ImGui::PopID();
+}
+
+// A label and its field in two columns, as Input lays them out
+template <class Field>
+static bool _Row(std::string label, Field field) {
+  label += ":";
+  bool changed = false;
+  ImGui::PushID(EditorUI::Get()->GenerateId());
+  if (ImGui::BeginTable("##table", 2,
+                        ImGuiTableFlags_SizingStretchProp |
+                            ImGuiTableFlags_NoBordersInBody |
+                            ImGuiTableFlags_NoSavedSettings)) {
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+    ImGui::TableNextRow();
+
+    ImGui::TableSetColumnIndex(0);
+    ImGui::Text("%s", label.c_str());
+
+    ImGui::TableSetColumnIndex(1);
+    ImGui::PushItemWidth(-1);
+    changed = field();
+    ImGui::PopItemWidth();
+
+    ImGui::EndTable();
+  }
+  ImGui::PopID();
+  return changed;
+}
+
+bool Slider(std::string label, float& value, float min, float max,
+            const char* format) {
+  return _Row(std::move(label), [&] {
+    return ImGui::SliderFloat("##slider", &value, min, max, format);
+  });
+}
+
+bool Choice(std::string label, int& index, const char* const* names,
+            int count) {
+  return _Row(std::move(label), [&] {
+    return ImGui::Combo("##choice", &index, names, count);
+  });
+}
+
+bool InputText(std::string label, std::string& value, const char* hint) {
+  return _Row(std::move(label), [&] {
+    // One buffer per field, holding what is typed until it is left
+    static std::unordered_map<ImGuiID, std::array<char, 260>> buffers;
+    const ImGuiID id = ImGui::GetID("##text");
+    std::array<char, 260>& buffer = buffers[id];
+    if (ImGui::GetActiveID() != id)
+      std::snprintf(buffer.data(), buffer.size(), "%s", value.c_str());
+    ImGui::InputTextWithHint("##text", hint, buffer.data(), buffer.size());
+    if (!ImGui::IsItemDeactivatedAfterEdit() || value == buffer.data())
+      return false;
+    value = buffer.data();
+    return true;
+  });
 }
 
 void Input(std::string label, glm::vec3& value, float speed) {
