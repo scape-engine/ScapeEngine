@@ -402,7 +402,9 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
       changed = true;
     }
     ImGui::TextDisabled("Type a project-relative path and press Enter");
-    // TODO: drop .object assets from the asset browser here
+    // TODO: Drop .object assets from the asset browser here. Needs working
+    // drag and drop between panels first: this floating panel ends up behind
+    // the asset browser once a drag starts there, so nothing reaches it
   }
 
   changed |= ImGui::Button("Regenerate");
