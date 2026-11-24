@@ -30,6 +30,7 @@
 #include "gui/viewport/action_overlay.h"
 #include "gui/viewport/toolbar.h"
 
+#include "engine/scene/scene_serializer.h"
 #include "platform/paths.h"
 #include "platform/window_manager.h"
 
@@ -60,6 +61,19 @@ EditorUI* EditorUI::s_instance_ = nullptr;
 
 EditorUI::EditorUI(RendererBase* renderer) : renderer_(renderer) {
   s_instance_ = this;
+
+  // The god camera is saved with the scene. Connected here, not in
+  // Initialize: the startup scene opens before the editor runs
+  EditorEvents::scene_saving.connect([this](nlohmann::json& scene) {
+    SceneSerializer::WriteEditorCamera(
+        scene, std::get<0>(Runtime::GetSceneViewPipeline().GetGodCamera()),
+        god_state_.move_speed);
+  });
+  EditorEvents::scene_loaded.connect([this](const nlohmann::json& scene) {
+    auto& camera = std::get<0>(Runtime::GetSceneViewPipeline().GetGodCamera());
+    if (SceneSerializer::ReadEditorCamera(scene, camera, god_state_.move_speed))
+      god_state_.snapping = false;
+  });
 }
 
 EditorUI::~EditorUI() {

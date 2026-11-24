@@ -3,6 +3,7 @@
 
 #include <boost/signals2/signal.hpp>
 #include <entt/entt.hpp>
+#include <nlohmann/json.hpp>
 
 #include "engine/memory/resource.h"
 #include "platform/input/input_event.h"
@@ -28,6 +29,12 @@ inline boost::signals2::signal<void(Entity)> focus_entity;
 
 // A scene was opened or created, previous entities no longer exist
 inline boost::signals2::signal<void()> scene_opened;
+
+// A scene file is being written: add editor state to its JSON
+inline boost::signals2::signal<void(nlohmann::json&)> scene_saving;
+
+// A scene file was read, before scene_opened: restore editor state
+inline boost::signals2::signal<void(const nlohmann::json&)> scene_loaded;
 
 }  // namespace EditorEvents
 

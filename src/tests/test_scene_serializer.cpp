@@ -51,6 +51,25 @@ void TestSceneSerializer() {
   }
   assert(count == 3);
 
+  // The editor camera is optional: old scenes leave it untouched
+  TransformComponent camera;
+  camera.position_ = glm::vec3(4.0f, 5.0f, 6.0f);
+  float speed = 16.0f;
+  assert(!SceneSerializer::ReadEditorCamera(scene, camera, speed));
+  assert(camera.position_ == glm::vec3(4.0f, 5.0f, 6.0f) && speed == 16.0f);
+
+  nlohmann::json with_camera = scene;
+  camera.rotation_ = glm::quat(0.5f, 0.5f, 0.5f, 0.5f);
+  camera.euler_angles_ = glm::vec3(10.0f, 20.0f, 0.0f);
+  SceneSerializer::WriteEditorCamera(with_camera, camera, 42.0f);
+  assert(SceneSerializer::Deserialize(loaded, with_camera, "/project"));
+  TransformComponent restored;
+  assert(SceneSerializer::ReadEditorCamera(with_camera, restored, speed));
+  assert(restored.position_ == camera.position_);
+  assert(restored.rotation_ == camera.rotation_);
+  assert(restored.euler_angles_ == camera.euler_angles_);
+  assert(speed == 42.0f);
+
   // Unknown versions are rejected without touching the ECS
   assert(!SceneSerializer::Deserialize(loaded, {{"version", 99}}, "/project"));
   assert(loaded.View<TransformComponent>().size() == 3);

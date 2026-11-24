@@ -2,7 +2,9 @@
 // scene_serializer.cpp
 // Scene format (version 1):
 // { "version": 1, "entities": [ { "name", "parent": <index|-1>, "position",
-//   "rotation", "euler", "scale", "<component>": {...} } ] }
+//   "rotation", "euler", "scale", "<component>": {...} } ],
+//   "editor_camera": { "position", "rotation", "euler", "move_speed" } }
+// "editor_camera" is optional.
 // Parents are always written before their children.
 // ---------------------------------------------------------------------------
 
@@ -476,6 +478,40 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
         LogLevel::Error,
         "[SceneSerializer] Invalid scene: " + std::string(e.what()));
     world.Clear();
+    return false;
+  }
+  return true;
+}
+
+/* ---------- editor camera ---------- */
+void SceneSerializer::WriteEditorCamera(nlohmann::json& scene,
+                                        const TransformComponent& camera,
+                                        float move_speed) {
+  scene["editor_camera"] = {{"position", camera.position_},
+                            {"rotation", camera.rotation_},
+                            {"euler", camera.euler_angles_},
+                            {"move_speed", move_speed}};
+}
+
+bool SceneSerializer::ReadEditorCamera(const nlohmann::json& scene,
+                                       TransformComponent& camera,
+                                       float& move_speed) {
+  auto it = scene.find("editor_camera");
+  if (it == scene.end() || !it->is_object())
+    return false;
+  try {
+    const glm::vec3 position = it->at("position").get<glm::vec3>();
+    const glm::quat rotation = it->at("rotation").get<glm::quat>();
+    const glm::vec3 euler = it->at("euler").get<glm::vec3>();
+    move_speed = it->value("move_speed", move_speed);
+    camera.position_ = position;
+    camera.rotation_ = rotation;
+    camera.euler_angles_ = euler;
+    camera.modified_ = true;
+  } catch (const nlohmann::json::exception& e) {
+    Logger::getInstance().Log(
+        LogLevel::Error,
+        "[SceneSerializer] Invalid editor camera: " + std::string(e.what()));
     return false;
   }
   return true;

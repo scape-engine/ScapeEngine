@@ -206,6 +206,7 @@ bool ProjectManager::OpenScene(const std::filesystem::path& path) {
 
   scene_path_ = RelativePath(path);
   scene_dirty_ = false;
+  EditorEvents::scene_loaded(*scene);
   EditorEvents::scene_opened();
   return true;
 }
@@ -214,8 +215,9 @@ bool ProjectManager::SaveScene() {
   if (scene_path_.empty())
     return false;
 
-  const nlohmann::json scene =
+  nlohmann::json scene =
       SceneSerializer::Serialize(ECS::Main(), project_.path_);
+  EditorEvents::scene_saving(scene);
   if (!Content::WriteJsonFile(AbsolutePath(scene_path_).string(), scene))
     return false;
 
