@@ -69,15 +69,19 @@ private:
   struct PlanetState {
     // Shared with the jobs building from it, so a reload leaves them intact
     std::shared_ptr<const Worldgen::RegionContent> content;
-    std::shared_ptr<const Worldgen::RegionContent> bare_content;  // no objects
     std::unordered_map<uint64_t, LoadedRegion> regions;  // by cell key
     std::unordered_map<uint64_t, std::future<RegionBuild>> building;
-    // Herds come from regions of the herd level, apart from the terrain
-    // (whose level changes under them): their content has no objects, the
-    // terrain's no herds
+    // Herds come from regions of the herd level and objects from regions of
+    // their placement sizes, apart from the terrain (whose level changes
+    // under them): the herds' content has no objects, the objects' no herds
+    // and the terrain's neither
     std::shared_ptr<const Worldgen::RegionContent> herd_content;
     std::unordered_map<uint64_t, Entity> herds;  // by cell key
     std::unordered_map<uint64_t, std::future<RegionBuild>> herd_building;
+    std::shared_ptr<const Worldgen::RegionContent> object_content;
+    std::vector<int> object_levels;  // the levels some object kind's size is
+    std::unordered_map<uint64_t, Entity> placements;  // by cell key
+    std::unordered_map<uint64_t, std::future<RegionBuild>> placing;
     // The procmodels of its objects and creatures, loaded with the content
     RegionInstancer::Archetypes archetypes;
     // Loaded regions whose objects are still being made, a few per frame

@@ -367,12 +367,43 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   ImGui::DragFloat("View Distance", &planet.view_distance, 64.0f, 0.0f,
                    1.0e6f, "%.0f m");
   ImGui::TextDisabled("Regions farther are not loaded; 0: no limit");
-  changed |= ImGui::SliderInt("Object Level", &planet.object_level, -1, 5);
   changed |= ImGui::SliderInt("Building Level", &planet.building_level, -1, 9);
   changed |= ImGui::SliderInt("Herd Level", &planet.herd_level, -1, 5);
   ImGui::TextDisabled("Creatures come from regions of this level; -1: none");
   ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);
   ImGui::TextDisabled("Regions building at once; 0: one per core but one");
+  ImGui::DragFloat("Fade In", &planet.fade_in, 0.01f, 0.0f, 10.0f, "%.2f s");
+  ImGui::TextDisabled("New objects, buildings and creatures fade in; 0: at once");
+
+  if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::TextDisabled("Kinds of object it places (.object assets), after");
+    ImGui::TextDisabled("the region content's own. Each size is placed as far");
+    ImGui::TextDisabled("as the terrain is that fine or finer (Split Distance)");
+    int remove = -1;
+    for (size_t i = 0; i < planet.objects.size(); ++i) {
+      ImGui::PushID(static_cast<int>(i));
+      if (ImGui::SmallButton("Remove"))
+        remove = static_cast<int>(i);
+      ImGui::SameLine();
+      ImGui::TextUnformatted(planet.objects[i].c_str());
+      ImGui::PopID();
+    }
+    if (remove >= 0) {
+      planet.objects.erase(planet.objects.begin() + remove);
+      changed = true;
+    }
+    static char added[260] = "";
+    if (ImGui::InputTextWithHint("##AddObject", "objects/rock.object", added,
+                                 sizeof(added),
+                                 ImGuiInputTextFlags_EnterReturnsTrue) &&
+        added[0] != '\0') {
+      planet.objects.push_back(added);
+      added[0] = '\0';
+      changed = true;
+    }
+    ImGui::TextDisabled("Type a project-relative path and press Enter");
+    // TODO: drop .object assets from the asset browser here
+  }
 
   changed |= ImGui::Button("Regenerate");
 

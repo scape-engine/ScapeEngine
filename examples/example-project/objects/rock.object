@@ -1,0 +1,19 @@
+{
+  "id": "procmodel:models/rock.json",
+  "spawn": {
+    "placement": "MEADOW",
+    "flat_density": 0.2,
+    "coverage": 1,
+    "min_scale": 0.2,
+    "max_scale": 0.4,
+    "min_scale_y": 1,
+    "max_scale_y": 1,
+    "max_angle": 90,
+    "min_height": -1000,
+    "max_height": 1000,
+    "max_y_rotation": 0,
+    "fade_start": 70,
+    "fade_end": 80
+  },
+  "placement_size": 32
+}

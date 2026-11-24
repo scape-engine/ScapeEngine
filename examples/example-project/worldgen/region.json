@@ -72,41 +72,7 @@
   ],
   "young_share": 0.3,
   "young_scale": 0.5,
-  "objects": [
-    {
-      "id": "procmodel:models/rock.json",
-      "spawn": {
-        "placement": "MEADOW",
-        "flat_density": 0.2,
-        "coverage": 1,
-        "min_scale": 0.2,
-        "max_scale": 0.4,
-        "min_scale_y": 1,
-        "max_scale_y": 1,
-        "max_angle": 90,
-        "min_height": -1000,
-        "max_height": 1000,
-        "max_y_rotation": 0
-      }
-    },
-    {
-      "id": "procmodel:models/tree.json",
-      "spawn": {
-        "placement": "MEADOW",
-        "flat_density": 0.02,
-        "coverage": 1,
-        "min_scale": 0.5,
-        "max_scale": 1.5,
-        "min_scale_y": 1,
-        "max_scale_y": 1,
-        "max_angle": 90,
-        "min_height": 0,
-        "max_height": 1000,
-        "relative_to_sea_level": true,
-        "max_y_rotation": 360
-      }
-    }
-  ],
+  "objects": [],
   "densities": [
     {
       "name": "MEADOW",

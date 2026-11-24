@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "engine/pcg/generator_base.h"
 #include "engine/pcg/procworld/herd_movement.h"
@@ -32,8 +33,10 @@ public:
   float split_distance = 2.0f;
   // Regions farther than this from the viewer are not loaded; 0: no limit
   float view_distance = 8192.0f;
-  // Objects are placed on regions up to this level
-  int object_level = 0;
+  // The kinds of object it places (.object assets, project-relative), after
+  // its region content's own; each is placed by the regions of its placement
+  // size
+  std::vector<std::string> objects;
   // Buildings are placed on regions up to this level; -1: none
   int building_level = 9;
   // Creature herds come from the regions of this level over the loaded
@@ -44,6 +47,9 @@ public:
   // Regions building at once on worker threads, nearest first; 0: one per
   // core but one
   int worker_jobs = 0;
+  // Seconds a region's new objects, buildings and creatures take to fade in
+  // (FadeComponent); 0: they appear at once
+  float fade_in = 0.5f;
   // The terrain's tile colours and material settings
   TerrainMaterialData look = DefaultTerrainLook();
   // The planet itself, optional: worldgen planet content (JSON,

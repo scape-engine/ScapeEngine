@@ -17,7 +17,8 @@ enum class AssetType {
   MODEL,
   MATERIAL,
   AUDIO_CLIP,
-  ANIMATION
+  ANIMATION,
+  OBJECT
 };
 
 class EditorAsset {
