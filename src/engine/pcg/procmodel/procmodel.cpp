@@ -223,6 +223,8 @@ void Subsystem::ReloadDrawSettings(const std::filesystem::path& model) {
     if (archetype && std::filesystem::equivalent(
                          archetype->GetGraph().source_path, model, error))
       ApplyDraw(archetype->GetGraph());
+    // TODO: rebake its imposters; regions still draw the old cards, so they
+    // stay until the planet reloads
   }
 }
 
@@ -445,6 +447,42 @@ const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
     return &it->second;
   return ApplyTextures(descriptor_path, archetype,
                        PrepareTextures(descriptor_path, descriptor, input));
+}
+
+const Subsystem::ModelImposter* Subsystem::Imposter(
+    const std::string& descriptor_path, const Worldgen::TextureInput* planet) {
+  const std::string key =
+      planet ? _TextureKey(descriptor_path, *planet) : descriptor_path;
+  if (const auto it = imposters_.find(key); it != imposters_.end())
+    return it->second.imposter ? &it->second : nullptr;
+  ModelImposter& made = imposters_[key];
+  const auto archetype = Archetype(descriptor_path);
+  if (!archetype)
+    return nullptr;
+  const DrawSettings settings =
+      DrawSettings::Read(archetype->GetGraph().source_path);
+  if (settings.imposter.distance <= 0.0f)
+    return nullptr;
+  std::vector<::Imposter::Variant> variants;
+  for (int seed = 1; seed <= std::max(settings.imposter.variants, 1); ++seed) {
+    const auto instance = Generate(*archetype, static_cast<uint64_t>(seed));
+    const auto parts =
+        instance ? InstanceParts(descriptor_path, *instance, planet)
+                 : std::nullopt;
+    if (!parts || parts->empty())
+      continue;
+    ::Imposter::Variant& variant = variants.emplace_back();
+    for (const ModelInstantiator::Part& part : *parts)
+      variant.push_back({part.mesh, part.material, part.matrix});
+  }
+  if (variants.empty())
+    return nullptr;
+  made.imposter = std::make_unique<::Imposter>(std::move(variants),
+                                               settings.imposter.resolution,
+                                               settings.imposter.views);
+  made.distance = settings.imposter.distance;
+  made.blend = settings.lod_fade;
+  return &made;
 }
 
 Subsystem::TextureSet Subsystem::PrepareTextures(

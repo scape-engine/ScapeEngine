@@ -40,6 +40,10 @@ struct Material {
   // The same shading skinned by u_bones (DrawList::SetBones); invalid: skinned
   // meshes draw in their bind pose
   bgfx::ProgramHandle skinned_program = BGFX_INVALID_HANDLE;
+  // Its own instanced programs for the depth passes (pre-pass, shadows), e.g.
+  // to cut out by alpha; invalid: the pass's own
+  bgfx::ProgramHandle pre_pass_program = BGFX_INVALID_HANDLE;
+  bgfx::ProgramHandle shadow_program = BGFX_INVALID_HANDLE;
   std::vector<MaterialTexture> textures;  // stages below MATERIAL_STAGE_COUNT
   std::vector<MaterialParam> params;
   // Only Opaque draws in the depth passes (pre-pass, shadows); Blend and

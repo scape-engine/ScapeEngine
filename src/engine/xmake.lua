@@ -45,6 +45,7 @@ add_files(
 	"renderer/passes/*.cpp",
 	"renderer/primitives/*.cpp",
 	"renderer/compute/*.cpp",
+	"renderer/imposter/*.cpp",
 
 	-- Math files
 	"math/noise/OpenSimplex2S.cpp",
@@ -99,6 +100,7 @@ add_headerfiles(
 	"renderer/shaders/*.h",
 	"renderer/icons/*.h",
 	"renderer/compute/*.h",
+	"renderer/imposter/*.h",
 	"renderer/texture/*.h",
 	"renderer/model/*.h",
 	"renderer/skybox/*.h",
@@ -249,6 +251,7 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		sky_light = "varying_fullscreen.def.sc",
 		ssao = "varying_fullscreen.def.sc",
 		pre_pass = "varying_pre_pass.def.sc",
+		imposter = "varying_imposter.def.sc",
 	}
 
 	-- pick the longest key found anywhere in the relative path (pairs has no

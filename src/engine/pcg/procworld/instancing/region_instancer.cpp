@@ -210,12 +210,45 @@ bool RegionInstancer::InstanceObjects(
     // them too)
     matrix[0][3] = matrix[1][3] = matrix[2][3] = 0.0f;
     matrix[3][3] = 1.0f;
+    if (progress.imposter_kind != progress.kind) {
+      progress.imposter_kind = progress.kind;
+      progress.imposter =
+          _StartsWith(id, procmodel_prefix)
+              ? EngineContext::PCG().GetProcModel().Imposter(
+                    (root / id.substr(std::strlen(procmodel_prefix))).string(),
+                    planet)
+              : nullptr;
+    }
+    const ProcModel::Subsystem::ModelImposter* imposter = progress.imposter;
+    // Its meshes, up to the imposter's distance once its card is baked
+    const bool card = imposter && imposter->imposter->Baked();
+    const float distance = card ? imposter->distance : 0.0f;
+    const float blend = card ? imposter->blend : 0.0f;
+    const glm::vec3 origin(matrix[3]);
+    const auto place = [&](const Mesh* mesh, MaterialHandle material,
+                           const glm::mat4& local, float from, float until) {
+      auto& placed = progress.instances[{mesh, material,
+                                         object.spawn.fade_start,
+                                         object.spawn.fade_end, from, until,
+                                         blend}];
+      placed.matrices.push_back(local);
+      placed.anchors.push_back(origin);
+    };
+    if (imposter) {
+      const auto& variants = imposter->imposter->Variants();
+      const size_t variant = seed % variants.size();
+      for (const Imposter::Part& part : variants[variant])
+        place(part.mesh, part.material, matrix * part.matrix, 0.0f, distance);
+      if (card)
+        place(imposter->imposter->Card(),
+              imposter->imposter->Material(variant), matrix, distance, 0.0f);
+      progress.at++;
+      progress.made++;
+      continue;
+    }
     if (const auto parts = _ObjectParts(id, seed, root, planet, models)) {
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
-        progress
-            .instances[{part.mesh, part.material, object.spawn.fade_start,
-                        object.spawn.fade_end}]
-            .push_back(matrix * part.matrix);
+        place(part.mesh, part.material, matrix * part.matrix, 0.0f, 0.0f);
       progress.at++;
       progress.made++;
       continue;
@@ -238,13 +271,17 @@ bool RegionInstancer::InstanceObjects(
   if (!progress.instances.empty()) {
     auto [entity, transform] = ecs.CreateEntity("Objects", source);
     auto& set = ecs.Add<InstancedMeshComponent>(entity);
-    for (auto& [key, matrices] : progress.instances) {
+    for (auto& [key, placed] : progress.instances) {
       InstancedMeshComponent::Part part;
-      std::tie(part.mesh, part.material, part.fade_start, part.fade_end) = key;
+      std::tie(part.mesh, part.material, part.fade_start, part.fade_end,
+               part.from, part.until, part.blend) = key;
       part.first = static_cast<uint32_t>(set.locals_.size());
-      part.count = static_cast<uint32_t>(matrices.size());
+      part.count = static_cast<uint32_t>(placed.matrices.size());
       set.parts_.push_back(part);
-      set.locals_.insert(set.locals_.end(), matrices.begin(), matrices.end());
+      set.locals_.insert(set.locals_.end(), placed.matrices.begin(),
+                         placed.matrices.end());
+      set.anchors_.insert(set.anchors_.end(), placed.anchors.begin(),
+                          placed.anchors.end());
     }
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();

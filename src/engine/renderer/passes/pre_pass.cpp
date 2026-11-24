@@ -68,6 +68,12 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
       continue;
     DrawList::Bind(batch);
     bgfx::setState(state | DrawList::Cull(batch.material, batch.mirrored));
+    const Material* material = MaterialRegistry::Instance().Get(batch.material);
+    if (material && bgfx::isValid(material->pre_pass_program)) {
+      MaterialRegistry::Instance().Bind(batch.material, true);
+      bgfx::submit(ViewID::PRE_PASS, material->pre_pass_program);
+      continue;
+    }
     bgfx::submit(ViewID::PRE_PASS, instanced_program_);
   }
   for (const DrawList::Single& single : draws.singles) {

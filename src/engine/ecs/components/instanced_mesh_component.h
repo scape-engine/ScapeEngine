@@ -25,11 +25,17 @@ struct InstancedMeshComponent {
     uint32_t first = 0;  // into locals_
     uint32_t count = 0;
     // How far from the viewer its instances draw: each dithers out from
-    // fade_start to fade_end by its own origin, and none draw past it
+    // fade_start to fade_end by its anchor, and none draw past it
     // (fade_end <= fade_start: no limit). The entity's FadeComponent fades
     // them all
     float fade_start = 0.0f;
     float fade_end = 0.0f;
+    // It draws from `from` to `until` metres from the viewer, by each
+    // instance's anchor (0: no bound), blending in and out over `blend` of
+    // each: an imposter's cards and the meshes they stand in for
+    float from = 0.0f;
+    float until = 0.0f;
+    float blend = 0.0f;
 
     // Kept by the draw list: how many of the run are mirrored (moved last), a
     // sphere around its instances and the largest one's radius
@@ -40,6 +46,10 @@ struct InstancedMeshComponent {
   };
   std::vector<Part> parts_;
   std::vector<glm::mat4> locals_;
+  // Per transform, the point its distance from the viewer is measured from
+  // (fades, LODs, draw ranges), relative to the entity: its object's origin,
+  // so a model's parts switch together. Empty: each transform's own origin
+  std::vector<glm::vec3> anchors_;
   bool enabled_{true};
 
   // Owns a GPU buffer; moves with the component
@@ -59,9 +69,10 @@ struct InstancedMeshComponent {
     }
   };
 
-  // Kept by the draw list: the world matrices, the entity's model matrix they
-  // were made from and their buffer
+  // Kept by the draw list: the world matrices and anchors, the entity's model
+  // matrix they were made from and their buffer
   std::vector<glm::mat4> worlds_;
+  std::vector<glm::vec3> world_anchors_;
   glm::mat4 model_{0.0f};
   Buffer buffer_;
 };

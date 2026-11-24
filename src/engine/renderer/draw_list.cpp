@@ -4,6 +4,7 @@
 #include <array>
 #include <cfloat>
 #include <cstring>
+#include <numeric>
 #include <unordered_map>
 
 #include "engine/ecs/components/water_surface_tag.h"
@@ -42,7 +43,16 @@ struct BatchKeyHash {
   }
 };
 
-constexpr uint16_t instance_stride = sizeof(glm::mat4);
+// An instance: its world matrix, then the point it fades and switches LODs by
+// (InstancedMeshComponent::anchors_; w unused)
+constexpr uint16_t instance_stride = sizeof(glm::mat4) + sizeof(glm::vec4);
+
+void WriteInstance(uint8_t* out, const glm::mat4& world,
+                   const glm::vec3& anchor) {
+  const glm::vec4 at(anchor, 1.0f);
+  std::memcpy(out, &world, sizeof(world));
+  std::memcpy(out + sizeof(world), &at, sizeof(at));
+}
 
 // Instanced meshes smaller than this share of the view's height are not drawn
 // TODO: mesh LODs, so distant instances thin out instead of popping
@@ -80,14 +90,44 @@ bool TooSmall(const glm::mat4& view_projection, const glm::vec3& center,
          size * glm::length(glm::vec3(t[1])) < min_screen_size * w;
 }
 
-// Whether the mesh draws as another LOD, or blends into one, somewhere
-// between these distances
-bool Switches(const Mesh& mesh, float from, float to) {
-  for (const Mesh::Lod& lod : mesh.Lods())
-    if (lod.mesh && lod.distance > from &&
-        lod.distance * (1.0f - mesh.LodFade()) <= to)
+// Whether the part draws as another LOD of its mesh, starts or stops, or
+// blends into either, somewhere between these distances
+bool Switches(const InstancedMeshComponent::Part& part, float from, float to) {
+  const auto within = [&](float at, float blend) {
+    return at > from && at * (1.0f - blend) <= to;
+  };
+  for (const Mesh::Lod& lod : part.mesh->Lods())
+    if (lod.mesh && within(lod.distance, part.mesh->LodFade()))
       return true;
-  return false;
+  return (part.from > 0.0f && within(part.from, part.blend)) ||
+         (part.until > 0.0f && within(part.until, part.blend));
+}
+
+// The part's mesh LODs at `distance` (Mesh::ForDistance) within its draw
+// range: none outside it, blending in and out at its ends
+int PartLods(const InstancedMeshComponent::Part& part, float distance,
+             Mesh::Drawn out[2]) {
+  const float starts = part.from * (1.0f - part.blend);
+  const float ends = part.until * (1.0f - part.blend);
+  if ((part.from > 0.0f && distance < starts) ||
+      (part.until > 0.0f && distance >= part.until))
+    return 0;
+  int count = part.mesh->ForDistance(distance, out);
+  // A LOD the range ends before never shows
+  if (count == 2 && part.until > 0.0f && out[1].lod.y >= part.until)
+    count = 1;
+  for (int l = 0; l < count; ++l) {
+    glm::vec4& lod = out[l].lod;
+    if (part.from > 0.0f && lod.y <= part.from) {
+      lod.x = starts;
+      lod.y = part.from;
+    }
+    if (part.until > 0.0f && (lod.w <= 0.0f || lod.w > part.until)) {
+      lod.z = ends;
+      lod.w = part.until;
+    }
+  }
+  return count;
 }
 
 // An instanced mesh's world matrices, its parts' bounds and its buffer from
@@ -104,21 +144,42 @@ void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
         .add(bgfx::Attrib::TexCoord5, 4, bgfx::AttribType::Float)
         .add(bgfx::Attrib::TexCoord6, 4, bgfx::AttribType::Float)
         .add(bgfx::Attrib::TexCoord7, 4, bgfx::AttribType::Float)
+        .add(bgfx::Attrib::TexCoord3, 4, bgfx::AttribType::Float)
         .end();
-  // Each part's mirrored instances last, drawn as a batch of their own
+  const bool anchored = set.anchors_.size() == set.locals_.size();
+  // Each part's mirrored instances last, drawn as a batch of their own (their
+  // anchors moved alike)
   for (InstancedMeshComponent::Part& part : set.parts_) {
-    const auto first = set.locals_.begin() + part.first;
+    std::vector<uint32_t> order(part.count);
+    std::iota(order.begin(), order.end(), part.first);
     part.mirrored = static_cast<uint32_t>(
-        first + part.count -
-        std::stable_partition(first, first + part.count,
-                              [](const glm::mat4& m) {
-                                return !DrawList::Mirrored(m);
-                              }));
+        order.end() -
+        std::stable_partition(order.begin(), order.end(), [&](uint32_t i) {
+          return !DrawList::Mirrored(set.locals_[i]);
+        }));
+    std::vector<glm::mat4> locals;
+    std::vector<glm::vec3> anchors;
+    for (const uint32_t i : order) {
+      locals.push_back(set.locals_[i]);
+      if (anchored)
+        anchors.push_back(set.anchors_[i]);
+    }
+    std::copy(locals.begin(), locals.end(), set.locals_.begin() + part.first);
+    std::copy(anchors.begin(), anchors.end(),
+              set.anchors_.begin() + (anchored ? part.first : 0));
   }
   set.model_ = model;
   set.worlds_.resize(set.locals_.size());
-  for (size_t i = 0; i < set.locals_.size(); ++i)
+  set.world_anchors_.resize(set.locals_.size());
+  std::vector<uint8_t> instances(set.locals_.size() * instance_stride);
+  for (size_t i = 0; i < set.locals_.size(); ++i) {
     set.worlds_[i] = model * set.locals_[i];
+    set.world_anchors_[i] =
+        anchored ? glm::vec3(model * glm::vec4(set.anchors_[i], 1.0f))
+                 : glm::vec3(set.worlds_[i][3]);
+    WriteInstance(&instances[i * instance_stride], set.worlds_[i],
+                  set.world_anchors_[i]);
+  }
   for (InstancedMeshComponent::Part& part : set.parts_) {
     glm::vec3 low(FLT_MAX), high(-FLT_MAX);
     float reach = 0.0f;
@@ -126,8 +187,9 @@ void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
       const glm::mat4& world = set.worlds_[i];
       const glm::vec3 center =
           world * glm::vec4(part.mesh->BoundsCenter(), 1.0f);
-      low = glm::min(low, center);
-      high = glm::max(high, center);
+      // The sphere holds the anchors too: its distances bound theirs
+      low = glm::min(low, glm::min(center, set.world_anchors_[i]));
+      high = glm::max(high, glm::max(center, set.world_anchors_[i]));
       reach = glm::max(
           reach,
           part.mesh->BoundsRadius() *
@@ -141,8 +203,7 @@ void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
   }
   set.buffer_ = InstancedMeshComponent::Buffer();
   set.buffer_.handle = bgfx::createVertexBuffer(
-      bgfx::copy(set.worlds_.data(),
-                 static_cast<uint32_t>(set.worlds_.size() * sizeof(glm::mat4))),
+      bgfx::copy(instances.data(), static_cast<uint32_t>(instances.size())),
       layout);
 }
 
@@ -277,9 +338,10 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
       // sorted by LOD into the frame's instance buffer (once, for every
       // frustum)
       const float closest = std::max(distance - part.radius, 0.0f);
-      const bool split = Switches(*part.mesh, closest, distance + part.radius);
+      const bool split = Switches(part, closest, distance + part.radius);
       Mesh::Drawn drawn[2];
-      part.mesh->ForDistance(closest, drawn);
+      if (!split && PartLods(part, closest, drawn) == 0)
+        continue;
       // the entity's own matrix mirrors both runs alike
       const bool flip = Mirrored(transform.model_);
       const uint32_t plain = part.count - part.mirrored;
@@ -293,12 +355,11 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
       std::vector<Run> runs;
       if (batched && split) {
         for (uint32_t i = part.first; i < part.first + part.count; ++i) {
-          const float from =
-              glm::distance(viewer, glm::vec3(set.worlds_[i][3]));
+          const float from = glm::distance(viewer, set.world_anchors_[i]);
           if (limited && from > fade_end)
             continue;
           Mesh::Drawn lods[2];
-          const int count = part.mesh->ForDistance(from, lods);
+          const int count = PartLods(part, from, lods);
           const bool mirrored = i >= part.first + plain ? !flip : flip;
           for (int l = 0; l < count; ++l) {
             auto run =
@@ -318,8 +379,9 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
           bgfx::allocInstanceDataBuffer(&run.instances, run.room,
                                         instance_stride);
           for (uint32_t i = 0; i < run.room; ++i)
-            std::memcpy(run.instances.data + i * instance_stride,
-                        &set.worlds_[run.at[i]], instance_stride);
+            WriteInstance(run.instances.data + i * instance_stride,
+                          set.worlds_[run.at[i]],
+                          set.world_anchors_[run.at[i]]);
         }
       }
       for (Fill& fill : fills) {
@@ -357,12 +419,11 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
         }
         // One by one, those within the distance
         for (uint32_t i = part.first; i < part.first + part.count; ++i) {
-          const float from =
-              glm::distance(viewer, glm::vec3(set.worlds_[i][3]));
+          const float from = glm::distance(viewer, set.world_anchors_[i]);
           if (limited && from > fade_end)
             continue;
           Mesh::Drawn lods[2];
-          const int count = part.mesh->ForDistance(from, lods);
+          const int count = PartLods(part, from, lods);
           for (int l = 0; l < count; ++l)
             fill.list->singles.push_back({entity, &set.worlds_[i],
                                           lods[l].mesh, part.material, nullptr,
@@ -387,8 +448,9 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
                       group.key.lod};
         bgfx::allocInstanceDataBuffer(&batch.instances, room, instance_stride);
         for (uint32_t i = 0; i < room; ++i)
-          std::memcpy(batch.instances.data + i * instance_stride,
-                      group.members[i].model, instance_stride);
+          WriteInstance(batch.instances.data + i * instance_stride,
+                        *group.members[i].model,
+                        glm::vec3((*group.members[i].model)[3]));
         fill.list->batches.push_back(batch);
       }
       fill.list->singles.insert(fill.list->singles.end(),

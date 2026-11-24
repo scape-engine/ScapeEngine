@@ -39,6 +39,7 @@
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/herd_movement.h"
 #include "engine/renderer/graphics_renderer.h"
+#include "engine/renderer/imposter/imposter.h"
 #include "engine/renderer/shaders/shader_manager.h"
 #include "platform/input/input.h"
 #include "platform/window_manager.h"
@@ -124,6 +125,7 @@ void NextFrame() {
   if (pcg_engine_) {
     pcg_engine_->ProcessQueued();
   }
+  Imposter::BakeNext();
 
   dynamic_registry.TickAll(delta_time);
 

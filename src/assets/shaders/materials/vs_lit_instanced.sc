@@ -1,4 +1,4 @@
-$input a_position, a_normal, a_texcoord0, a_tangent, a_bitangent, i_data0, i_data1, i_data2, i_data3
+$input a_position, a_normal, a_texcoord0, a_tangent, a_bitangent, i_data0, i_data1, i_data2, i_data3, i_data4
 $output v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent, v_fade
 
 #include "../common/common.sh"
@@ -6,7 +6,7 @@ $output v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent, v_fade
 
 // vs_lit.sc with the model matrix per instance: its columns (glm's
 // layout) applied by hand, so every backend reads them alike. Each instance
-// fades by its own origin
+// fades by its anchor
 void main()
 {
     // World position
@@ -20,7 +20,7 @@ void main()
     v_bitangent = (i_data0 * a_bitangent.x + i_data1 * a_bitangent.y + i_data2 * a_bitangent.z).xyz;
 
     v_texcoord0 = a_texcoord0;
-    v_fade = FadeAmount(i_data3.xyz);
+    v_fade = FadeAmount(i_data4.xyz);
 
     // Final clip position
     gl_Position = mul(u_viewProj, worldPos);

@@ -6,8 +6,12 @@
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings::Lod, distance,
                                                 source, detail)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings::Imposter,
+                                                distance, resolution, views,
+                                                variants)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings, fade_start,
-                                                fade_end, lods, lod_fade)
+                                                fade_end, lods, lod_fade,
+                                                imposter)
 
 // A metadata file is a header ("guid: ...", then "---") and a JSON body
 static void _Split(const std::filesystem::path& meta, std::string& header,

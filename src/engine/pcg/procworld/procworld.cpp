@@ -738,16 +738,22 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
             state.object_levels.push_back(level);
       // Their procmodels load here, on the main thread, so the workers can
       // generate the instances
+      static constexpr std::string_view prefix = "procmodel:";
       const auto load = [&](const std::string& id) {
-        static constexpr std::string_view prefix = "procmodel:";
         if (id.rfind(prefix, 0) != 0 || state.archetypes.count(id))
           return;
         state.archetypes[id] =
             EngineContext::PCG().GetProcModel().Archetype(
                 (root_ / id.substr(prefix.size())).string());
       };
-      for (const auto& object : objects->objects)
+      for (const auto& object : objects->objects) {
         load(object.id);
+        // Their imposters bake over the frames before the regions need them
+        if (object.id.rfind(prefix, 0) == 0)
+          EngineContext::PCG().GetProcModel().Imposter(
+              (root_ / object.id.substr(prefix.size())).string(),
+              &state.textures);
+      }
       for (const std::string& id : state.herd_content->herd_ids)
         load(id);
       state.content = std::move(content);

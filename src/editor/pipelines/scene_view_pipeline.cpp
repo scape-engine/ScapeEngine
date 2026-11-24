@@ -616,6 +616,12 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
       continue;
     DrawList::Bind(batch);
     bgfx::setState(state | DrawList::Cull(batch.material, batch.mirrored));
+    const Material* material = MaterialRegistry::Instance().Get(batch.material);
+    if (material && bgfx::isValid(material->shadow_program)) {
+      MaterialRegistry::Instance().Bind(batch.material, true);
+      bgfx::submit(ViewID::SHADOW_PASS, material->shadow_program);
+      continue;
+    }
     bgfx::submit(ViewID::SHADOW_PASS, shadow_instanced_program_);
   }
   for (const DrawList::Single& single : shadow_draws_.singles) {

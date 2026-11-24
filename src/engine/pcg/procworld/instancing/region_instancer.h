@@ -74,11 +74,20 @@ public:
     uint64_t seed = 0;
     bool started = false;
     size_t made = 0;  // objects, instanced or not
-    // The instanced ones' matrices in the region, by mesh, material and
-    // their kind's fade distances
-    std::map<std::tuple<const Mesh*, MaterialHandle, float, float>,
-             std::vector<glm::mat4>>
+    // The instanced ones' matrices in the region and their objects' origins
+    // (InstancedMeshComponent::anchors_), by mesh, material, their kind's
+    // fade distances and their draw range (InstancedMeshComponent::Part)
+    struct PartInstances {
+      std::vector<glm::mat4> matrices;
+      std::vector<glm::vec3> anchors;
+    };
+    std::map<std::tuple<const Mesh*, MaterialHandle, float, float, float,
+                        float, float>,
+             PartInstances>
         instances;
+    // The current kind's imposter, once looked up (null: none)
+    const ProcModel::Subsystem::ModelImposter* imposter = nullptr;
+    size_t imposter_kind = SIZE_MAX;
   };
   // The region's objects (as Instance makes them) from where `progress`
   // stands, one at a time while `more` allows, so a frame can stop partway;
@@ -86,7 +95,10 @@ public:
   // InstancedMeshComponent for the region made once all are gathered;
   // animated ones and primitives get an entity each. `made` collects the
   // entities, the instanced set's among them.
-  // Instanced parts take their kind's fade distances (ObjectSpawn).
+  // Instanced parts take their kind's fade distances (ObjectSpawn). A
+  // procmodel with an imposter places only the imposter's variants (picked by
+  // the object's seed), so its card shows the same model; once baked, the
+  // card draws past the imposter's distance.
   // TODO: Coarser meshes at the kind's LOD distances
   // TODO: Other engine runtime systems. The game's own streaming, LOD
   // selection and render batching can be decompiled like the PCG code was;

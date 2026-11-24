@@ -16,6 +16,7 @@
 #include "engine/pcg/procmodel/instantiator/model_instantiator.h"
 #include "engine/pcg/procmodel/procmodel_resource.h"
 #include "engine/pcg/procmodel/validation/validation_logger.h"
+#include "engine/renderer/imposter/imposter.h"
 
 #include "api/procedural_texture.h"
 
@@ -127,6 +128,19 @@ public:
 
   ResourceID LoadArchetype(const std::string& descriptor_path);
 
+  // A model's imposter (its draw settings' imposter) and where its cards take
+  // over from the meshes
+  struct ModelImposter {
+    std::unique_ptr<::Imposter> imposter;
+    float distance = 0.0f;
+    float blend = 0.0f;  // the fraction of distance they cross-fade over
+  };
+  // The model's imposter for the planet, made on first ask (main thread) from
+  // the first draw-settings variants seeds; null when its draw settings have
+  // none (distance 0) or it can't load. It draws once baked
+  const ModelImposter* Imposter(const std::string& descriptor_path,
+                                const Worldgen::TextureInput* planet);
+
   // The project root, which the models' LOD sources are relative to
   void SetRoot(const std::filesystem::path& root) { root_ = root; }
   // Applies a source model's draw settings again to the loaded archetypes
@@ -170,6 +184,9 @@ private:
   // By descriptor and planet
   std::unordered_map<std::string, std::vector<MaterialHandle>>
       model_materials_;
+
+  // By descriptor and planet (Imposter); kept while anything may draw them
+  std::unordered_map<std::string, ModelImposter> imposters_;
 
   std::vector<ProcModelSample> samples_;
 };

@@ -10,6 +10,8 @@ constexpr uint8_t UI_BACKGROUND = 1;    // back-buffer UI
 // scene FBO (colour+depth)
 constexpr uint8_t SCENE_TERRAIN = 2;
 constexpr uint8_t SCENE_CLEAR = 3;  // clears the stencil of the whole scene FBO
+// Imposter atlases (offscreen), one a frame, before any view draws them
+constexpr uint8_t IMPOSTER_BAKE = 4;
 constexpr uint8_t DEBUG_PASS = 5;
 
 // shadow map (separate FBO)
