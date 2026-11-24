@@ -475,6 +475,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
           std::find(selected_entities_.begin(), selected_entities_.end(),
                     single.entity) != selected_entities_.end())
         continue;
+      DrawList::SetFade(single.fade);
       SubmitLit(*single.mesh, single.material, single.model, single.pose,
                 single.pose_count);
     }
@@ -621,6 +622,7 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
     if (DrawList::BlendOf(single.material) != Content::MaterialBlend::Opaque)
       continue;
     bgfx::setTransform(glm::value_ptr(*single.model));
+    DrawList::SetFade(single.fade);
     single.mesh->Bind();
     bgfx::setState(state | DrawList::Cull(single.material,
                                           DrawList::Mirrored(*single.model)));
@@ -708,6 +710,8 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   uint32_t pose_count = 0;
   const glm::mat4* pose =
       Animation::Pose(ECS::Main(), renderer.animator_, pose_count);
+  // Drawn whole (the selection outline, the water)
+  DrawList::SetFade({});
   SubmitLit(*renderer.mesh_, renderer.material_, &transform.model_, pose,
             pose_count, false, view);
 }
@@ -888,9 +892,10 @@ void SceneViewPipeline::Render() {
     UpdateLightMatrices();
     DrawList::Build({{&draws_, view_projection},
                      {&shadow_draws_, light_projection_ * light_view_}},
-                    selected_entities_, !unlit_);
+                    camera_transform.position_, selected_entities_, !unlit_);
   } else {
-    DrawList::Build({{&draws_, view_projection}}, selected_entities_, !unlit_);
+    DrawList::Build({{&draws_, view_projection}}, camera_transform.position_,
+                    selected_entities_, !unlit_);
   }
 
   // Start gizmos frame

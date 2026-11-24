@@ -14,6 +14,7 @@
 
 #include "engine/memory/resource.h"
 
+#include "engine/renderer/model/draw_settings.h"
 #include "engine/renderer/model/mesh.h"
 
 class Model : public Resource {
@@ -66,6 +67,11 @@ public:
       const std::vector<uint32_t>& mesh_filter) const;
 
   const std::vector<Content::MaterialData>& GetMaterials() const;
+
+  // Applies its draw settings to its meshes; lods[i] is settings.lods[i]'s
+  // model (null: that LOD is skipped)
+  void SetDraw(const DrawSettings& settings,
+               const std::vector<const Model*>& lods);
 
   // An animated model's skeleton and clips (its meshes are skinned to it);
   // null for the rest

@@ -15,15 +15,38 @@ static constexpr const char* primitive_prefix = "primitive:";
 
 // ponytail: models are never evicted, add refcounting when scenes get
 // swapped often
-static const Model* _LoadModel(const std::filesystem::path& path) {
+static std::unordered_map<std::string, std::shared_ptr<Model>>& _Models() {
   static std::unordered_map<std::string, std::shared_ptr<Model>> cache;
-  const std::string key = path.lexically_normal().string();  // ModelKey
+  return cache;
+}
+
+static const Model* _LoadModel(const std::string& source,
+                               const std::filesystem::path& root);
+
+// Reads the model's draw settings and loads its LOD models
+static void _ApplyDraw(Model& model, const std::string& source,
+                       const std::filesystem::path& root) {
+  const DrawSettings settings = DrawSettings::Read(root / source);
+  std::vector<const Model*> lods;
+  for (const DrawSettings::Lod& lod : settings.lods)
+    lods.push_back(lod.source.empty() ? nullptr : _LoadModel(lod.source, root));
+  model.SetDraw(settings, lods);
+}
+
+static const Model* _LoadModel(const std::string& source,
+                               const std::filesystem::path& root) {
+  auto& cache = _Models();
+  const std::string key = ModelEntityFactory::ModelKey(source, root);
   if (auto it = cache.find(key); it != cache.end())
     return it->second.get();
 
   // ! Synchronous loading
-  // Failures are cached too (as null), so a missing model loads once
-  return cache.emplace(key, Model::Load(key)).first->second.get();
+  // Failures are cached too (as null), so a missing model loads once. Cached
+  // before its LODs load, so a model naming itself doesn't recurse
+  Model* model = cache.emplace(key, Model::Load(key)).first->second.get();
+  if (model)
+    _ApplyDraw(*model, source, root);
+  return model;
 }
 
 // Each shape's mesh is created once and shared by its entities
@@ -53,7 +76,7 @@ static bool _Bind(MeshRendererComponent& renderer,
     return renderer.mesh_ != nullptr;
   }
 
-  const Model* model = _LoadModel(root / renderer.source_);
+  const Model* model = _LoadModel(renderer.source_, root);
   if (!model)
     return false;
   renderer.mesh_ = model->QueryMesh(renderer.mesh_index_);
@@ -80,7 +103,7 @@ static bool _Bind(MeshRendererComponent& renderer,
 
 Entity ModelEntityFactory::InstanceModel(ECS& ecs, const std::string& source,
                                          const std::filesystem::path& root) {
-  const Model* model = _LoadModel(root / source);
+  const Model* model = _LoadModel(source, root);
   if (!model || model->NLoadedMeshes() == 0) {
     // Once per source: a model can be placed many times
     static std::unordered_set<std::string> reported;
@@ -122,7 +145,7 @@ std::vector<std::pair<const Mesh*, MaterialHandle>> ModelEntityFactory::Meshes(
   renderer.source_ = source;
   const Model* model = source.rfind(primitive_prefix, 0) == 0
                            ? nullptr
-                           : _LoadModel(root / source);
+                           : _LoadModel(source, root);
   const uint32_t count = model ? model->NLoadedMeshes() : 1;
   for (uint32_t i = 0; i < count; ++i) {
     renderer.mesh_index_ = i;
@@ -135,6 +158,13 @@ std::vector<std::pair<const Mesh*, MaterialHandle>> ModelEntityFactory::Meshes(
 std::string ModelEntityFactory::ModelKey(const std::string& source,
                                          const std::filesystem::path& root) {
   return (root / source).lexically_normal().string();
+}
+
+void ModelEntityFactory::ReloadDrawSettings(const std::string& source,
+                                           const std::filesystem::path& root) {
+  auto it = _Models().find(ModelKey(source, root));
+  if (it != _Models().end() && it->second)
+    _ApplyDraw(*it->second, source, root);
 }
 
 void ModelEntityFactory::AttachPrimitive(ECS& ecs, Entity entity,

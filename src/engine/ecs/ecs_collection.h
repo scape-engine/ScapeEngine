@@ -7,6 +7,7 @@
 #include <entt/entt.hpp>
 
 #include <engine/ecs/components/camera_component.h>
+#include <engine/ecs/components/fade_component.h>
 #include <engine/ecs/components/light_component.h>
 #include <engine/ecs/components/mesh_renderer_component.h>
 #include <engine/ecs/components/procedural_instance_component.h>

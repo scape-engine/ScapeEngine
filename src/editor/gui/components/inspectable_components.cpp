@@ -576,6 +576,25 @@ void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight) {
     _EcsRemove<SpotlightComponent>(entity);
 }
 
+void DrawFadeComponent(Entity entity, FadeComponent& fade) {
+  bool removed = false;
+
+  if (_BeginComponent("Fade", 0, nullptr, &removed)) {
+    _Headline("Visibility");
+    ImGui::SliderFloat("Visibility", &fade.visibility_, 0.0f, 1.0f);
+    ImGui::SliderFloat("Target", &fade.target_, 0.0f, 1.0f);
+    ImGui::DragFloat("Duration", &fade.duration_, 0.01f, 0.0f, 60.0f,
+                     "%.2f s");
+    ImGui::TextDisabled("Visibility moves to the target over this long");
+    IMComponents::Input("Destroy When Hidden", fade.destroy_when_hidden_);
+    ImGui::TextDisabled("Children fade with the entity");
+    _EndComponent();
+  }
+
+  if (removed)
+    _EcsRemove<FadeComponent>(entity);
+}
+
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
   bool removed = false;
 

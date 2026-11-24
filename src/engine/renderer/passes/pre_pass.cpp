@@ -74,6 +74,7 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
     if (DrawList::BlendOf(single.material) != Content::MaterialBlend::Opaque)
       continue;
     bgfx::setTransform(glm::value_ptr(*single.model));
+    DrawList::SetFade(single.fade);
     single.mesh->Bind();
     bgfx::setState(state | DrawList::Cull(single.material,
                                           DrawList::Mirrored(*single.model)));

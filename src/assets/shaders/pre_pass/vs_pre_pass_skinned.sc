@@ -1,7 +1,8 @@
 $input a_position, a_normal, a_indices, a_weight
-$output v_viewNormal, v_viewDepth
+$output v_viewNormal, v_viewDepth, v_fade
 
 #include <bgfx_shader.sh>
+#include "../includes/fade.sh"
 
 // The bones' blend of a model-space point (w 1) or direction (w 0); a vertex
 // without weights stays as it is
@@ -28,6 +29,7 @@ void main()
     // For uniform scale, transpose(inverse(modelView)) ~ modelView
     v_viewNormal = mul(u_modelView, Skin(vec4(a_normal, 0.0), a_indices, a_weight)).xyz;
     v_viewDepth = viewPos.z;
+    v_fade = FadeAmount(mul(u_model[0], vec4(0.0, 0.0, 0.0, 1.0)).xyz);
 
     gl_Position = mul(u_modelViewProj, position);
 }

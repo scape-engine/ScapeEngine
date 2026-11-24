@@ -170,3 +170,15 @@ void Model::Destroy() {
   mesh_data_.clear();
   metrics_ = Metrics{};
 }
+
+void Model::SetDraw(const DrawSettings& settings,
+                    const std::vector<const Model*>& lods) {
+  for (uint32_t i = 0; i < meshes_.size(); ++i) {
+    std::vector<Mesh::Lod> chain;
+    for (size_t l = 0; l < settings.lods.size() && l < lods.size(); ++l)
+      if (lods[l] && lods[l] != this)
+        chain.push_back({settings.lods[l].distance, lods[l]->QueryMesh(i)});
+    meshes_[i]->SetDraw(settings.fade_start, settings.fade_end,
+                        std::move(chain));
+  }
+}

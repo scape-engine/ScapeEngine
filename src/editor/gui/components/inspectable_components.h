@@ -17,6 +17,7 @@ void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight);
 void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight);
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
 void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator);
+void DrawFadeComponent(Entity entity, FadeComponent& fade);
 
 // The inspector's section look (a component's header bar and body), for
 // asset inspectors too: draw the body and call EndSection when it returns true

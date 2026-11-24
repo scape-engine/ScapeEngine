@@ -35,6 +35,7 @@
 #include "engine/core/logger.h"
 #include "engine/diagnostics/frame_stats.h"
 #include "engine/ecs/world.h"
+#include "engine/fade/fade_system.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/herd_movement.h"
 #include "engine/renderer/graphics_renderer.h"
@@ -113,6 +114,8 @@ void NextFrame() {
   // Creatures move, then skinned models' poses, before anything draws them
   ProcWorld::HerdMovement::Update(ECS::Main(), Time::Deltaf());
   Animation::Update(ECS::Main(), Time::Deltaf());
+  // Fades run on real time, so they finish while the world is paused
+  FadeSystem::Update(ECS::Main(), static_cast<float>(Time::UnscaledDelta()));
 
   if (resource_manager_) {
     resource_manager_->UpdateContext();

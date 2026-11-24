@@ -198,7 +198,8 @@ bool RegionInstancer::InstanceObjects(
     }
     if (!more())
       return false;
-    const std::string& id = content.objects[instances.object].id;
+    const Worldgen::RegionObject& object = content.objects[instances.object];
+    const std::string& id = object.id;
     const uint64_t seed = ++progress.seed;
     glm::mat4 matrix = glm::make_mat4(
         instances.matrices[progress.at].data());  // rows read as glm columns
@@ -208,8 +209,10 @@ bool RegionInstancer::InstanceObjects(
     matrix[3][3] = 1.0f;
     if (const auto parts = _ObjectParts(id, seed, root, planet, models)) {
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
-        progress.instances[{part.mesh, part.material}].push_back(matrix *
-                                                                 part.matrix);
+        progress
+            .instances[{part.mesh, part.material, object.spawn.fade_start,
+                        object.spawn.fade_end}]
+            .push_back(matrix * part.matrix);
       progress.at++;
       progress.made++;
       continue;
@@ -234,8 +237,7 @@ bool RegionInstancer::InstanceObjects(
     auto& set = ecs.Add<InstancedMeshComponent>(entity);
     for (auto& [key, matrices] : progress.instances) {
       InstancedMeshComponent::Part part;
-      part.mesh = key.first;
-      part.material = key.second;
+      std::tie(part.mesh, part.material, part.fade_start, part.fade_end) = key;
       part.first = static_cast<uint32_t>(set.locals_.size());
       part.count = static_cast<uint32_t>(matrices.size());
       set.parts_.push_back(part);
@@ -243,6 +245,8 @@ bool RegionInstancer::InstanceObjects(
     }
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();
+    if (made)
+      made->push_back(entity);
   }
   return true;
 }

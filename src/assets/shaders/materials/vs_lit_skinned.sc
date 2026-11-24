@@ -1,7 +1,8 @@
 $input a_position, a_normal, a_texcoord0, a_tangent, a_bitangent, a_indices, a_weight
-$output v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent
+$output v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent, v_fade
 
 #include "../common/common.sh"
+#include "../includes/fade.sh"
 
 // The bones' blend of a model-space point (w 1) or direction (w 0); a vertex
 // without weights stays as it is
@@ -32,6 +33,7 @@ void main()
     v_bitangent = mul(u_model[0], Skin(vec4(a_bitangent, 0.0), a_indices, a_weight)).xyz;
 
     v_texcoord0 = a_texcoord0;
+    v_fade = FadeAmount(mul(u_model[0], vec4(0.0, 0.0, 0.0, 1.0)).xyz);
 
     gl_Position = mul(u_viewProj, worldPos);
 }

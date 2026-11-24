@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -73,18 +74,20 @@ public:
     uint64_t seed = 0;
     bool started = false;
     size_t made = 0;  // objects, instanced or not
-    // The instanced ones' matrices in the region, by mesh and material
-    std::map<std::pair<const Mesh*, MaterialHandle>, std::vector<glm::mat4>>
+    // The instanced ones' matrices in the region, by mesh, material and
+    // their kind's fade distances
+    std::map<std::tuple<const Mesh*, MaterialHandle, float, float>,
+             std::vector<glm::mat4>>
         instances;
   };
   // The region's objects (as Instance makes them) from where `progress`
   // stands, one at a time while `more` allows, so a frame can stop partway;
   // true once every one is made. Static models are drawn as instances, one
   // InstancedMeshComponent for the region made once all are gathered;
-  // animated ones and primitives get an entity each, which `made` collects.
-  // TODO: Distance limits. Apply the ported per-kind LOD and fade distances
-  // (the game draws each kind only so far), and give the models coarser
-  // meshes; that brings the triangle count down
+  // animated ones and primitives get an entity each. `made` collects the
+  // entities, the instanced set's among them.
+  // Instanced parts take their kind's fade distances (ObjectSpawn).
+  // TODO: Coarser meshes at the kind's LOD distances
   // TODO: Other engine runtime systems. The game's own streaming, LOD
   // selection and render batching can be decompiled like the PCG code was;
   // a larger project of its own

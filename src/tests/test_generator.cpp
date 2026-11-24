@@ -513,6 +513,8 @@ void TestTerrainTiles();
 void TestModelGenerator();
 void TestAnimation();
 void TestBuildings();
+void TestFade();
+void TestDrawSettings();
 int PrintPicks(int argc, char** argv);
 }
 
@@ -527,6 +529,8 @@ int main(int argc, char** argv) {
   Tests::TestModelGenerator();
   Tests::TestAnimation();
   Tests::TestBuildings();
+  Tests::TestFade();
+  Tests::TestDrawSettings();
   Tests::RunAllGeneratorTests();
   return 0;
 }

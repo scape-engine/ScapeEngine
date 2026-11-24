@@ -168,3 +168,17 @@ void Mesh::SkinMatrices(const glm::mat4* pose, uint32_t count,
 uint32_t Mesh::MaterialIndex() const {
   return material_index_;
 }
+
+const Mesh& Mesh::ForDistance(float distance) const {
+  const Mesh* drawn = this;
+  for (const Lod& lod : lods_)
+    if (distance >= lod.distance && lod.mesh)
+      drawn = lod.mesh;
+  return *drawn;
+}
+
+void Mesh::SetDraw(float fade_start, float fade_end, std::vector<Lod> lods) {
+  fade_start_ = fade_start;
+  fade_end_ = fade_end;
+  lods_ = std::move(lods);
+}

@@ -4,6 +4,7 @@
 
 #include <iostream>
 
+#include "engine/ecs/components/fade_component.h"
 #include "engine/ecs/world.h"
 #include "engine/scene/scene_serializer.h"
 
@@ -18,6 +19,7 @@ void TestSceneSerializer() {
     first_transform.position_ = glm::vec3(1.0f, 2.0f, 3.0f);
     auto [child, child_transform] = ecs.CreateEntity("Child", first);
     ecs.Add<PointLightComponent>(child).range_ = 42.0f;
+    ecs.Reg().emplace<FadeComponent>(child, 0.25f, 0.0f, 3.0f, true);
     auto& renderer = ecs.Add<MeshRendererComponent>(child);
     renderer.source_ = "models/tower.glb";
     renderer.mesh_index_ = 2;
@@ -44,6 +46,9 @@ void TestSceneSerializer() {
       assert(loaded.Get<TransformComponent>(transform.parent_).name_ ==
              "First");
       assert(loaded.Get<PointLightComponent>(entity).range_ == 42.0f);
+      const auto& fade = loaded.Get<FadeComponent>(entity);
+      assert(fade.visibility_ == 0.25f && fade.target_ == 0.0f &&
+             fade.duration_ == 3.0f && fade.destroy_when_hidden_);
       const auto& renderer = loaded.Get<MeshRendererComponent>(entity);
       assert(renderer.source_ == "models/tower.glb");
       assert(renderer.mesh_index_ == 2 && renderer.mesh_ == nullptr);

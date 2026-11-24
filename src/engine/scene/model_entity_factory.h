@@ -38,6 +38,11 @@ public:
   static std::string ModelKey(const std::string& source,
                               const std::filesystem::path& root);
 
+  // Applies a loaded model's draw settings again (after they were edited);
+  // nothing if it isn't loaded
+  static void ReloadDrawSettings(const std::string& source,
+                                 const std::filesystem::path& root);
+
   // Resolves the mesh and material of every mesh renderer that has a source
   // but no mesh
   static void BindMeshRenderers(ECS& ecs, const std::filesystem::path& root);

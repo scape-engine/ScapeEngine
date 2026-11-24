@@ -134,6 +134,9 @@ void Create() {
       "Animator", InspectableComponents::DrawAnimatorComponent, std::nullopt,
       false);
 
+  RegisterComponent<FadeComponent>(
+      "Fade", InspectableComponents::DrawFadeComponent, std::nullopt, false);
+
   // TODO: velocity blur component, box collider, sphere collider, rigidbody,
   // audio listener, audio source
 }

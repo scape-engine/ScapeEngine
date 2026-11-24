@@ -17,6 +17,15 @@ class Mesh;
 // matrices in an instance buffer, as is each InstancedMeshComponent part (from
 // the component's buffer); the rest are drawn one by one
 struct DrawList {
+  // How much of a draw the standard shaders show (dithered; fade.sh): it
+  // fades out from `start` to `end` from the viewer (end <= start: it
+  // doesn't), times `visibility` (FadeSystem::Visibility)
+  struct Fade {
+    glm::vec3 viewer{0.0f};
+    float start = 0.0f;
+    float end = 0.0f;
+    float visibility = 1.0f;
+  };
   struct Batch {
     const Mesh* mesh;
     MaterialHandle material;
@@ -26,6 +35,7 @@ struct DrawList {
     uint32_t first = 0;
     uint32_t count = 0;
     bool mirrored = false;  // its matrices turn triangles over
+    Fade fade;  // each instance fades by its own origin
   };
   struct Single {
     Entity entity;
@@ -35,6 +45,7 @@ struct DrawList {
     // A skinned mesh's pose (its animator's) and node count; null: none
     const glm::mat4* pose;
     uint32_t pose_count;
+    Fade fade = {};
   };
 
   std::vector<Batch> batches;
@@ -50,12 +61,17 @@ struct DrawList {
   // in one pass over the scene, once per frame after the transforms are
   // evaluated. `apart` entities always draw one by one (e.g. the selection,
   // which passes skip or draw differently), as everything does without
-  // `instanced`
+  // `instanced`, and anything partly faded. Instanced parts draw only as far
+  // from the viewer as they allow; hidden entities don't draw
   static void Build(std::initializer_list<Frustum> frusta,
-                    const std::vector<Entity>& apart, bool instanced = true);
+                    const glm::vec3& viewer, const std::vector<Entity>& apart,
+                    bool instanced = true);
 
-  // Binds the batch's instances and mesh for the next submit
+  // Binds the batch's instances, its fade and its mesh for the next submit
   static void Bind(const Batch& batch);
+  // Sets the fade of the next submit with the standard shaders: every draw
+  // with them sets one (bgfx keeps a uniform's last value)
+  static void SetFade(const Fade& fade);
 
   // The material's blend mode (Opaque for a missing one): depth passes draw
   // only Opaque, the scene draws Blend and Additive after the rest

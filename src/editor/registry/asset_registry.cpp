@@ -2,6 +2,7 @@
 
 #include "editor/gui/inspector_panel.h"
 #include "editor/systems/fallback_asset.h"
+#include "editor/systems/model_asset.h"
 #include "editor/systems/texture_asset.h"
 #include "engine/core/logger.h"
 
@@ -57,6 +58,7 @@ void Create() {
   // Register every asset type
   RegisterAsset<TextureAsset>(
       AssetType::TEXTURE, {"png", "jpg", "jpeg", "bmp", "tga", "gif", "hdr"});
+  RegisterAsset<ModelAsset>(AssetType::MODEL, {"glb", "gltf", "fbx", "obj"});
 
   // TODO: add more asset types here when needed
 

@@ -15,6 +15,7 @@
 
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/ecs/components/fade_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
@@ -62,6 +63,9 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     SpotlightComponent, enabled_, color_, intensity_, range_, falloff_,
     inner_angle_, outer_angle_, cast_shadows_, shadow_bias_, shadow_resolution_,
     shadow_softness_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(FadeComponent, visibility_,
+                                                target_, duration_,
+                                                destroy_when_hidden_)
 // recapture_ is a one-shot request, not state
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     SkyLightComponent, enabled_, color_, intensity_, cast_shadows_,
@@ -387,6 +391,7 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
     _Write<DirectionalLightComponent>(world, entity, out, "directional_light");
     _Write<PointLightComponent>(world, entity, out, "point_light");
     _Write<SpotlightComponent>(world, entity, out, "spotlight");
+    _Write<FadeComponent>(world, entity, out, "fade");
 
     if (world.Has<SkyLightComponent>(entity)) {
       SkyLightComponent sky = world.Get<SkyLightComponent>(entity);
@@ -454,6 +459,7 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
       _Read<DirectionalLightComponent>(world, entity, in, "directional_light");
       _Read<PointLightComponent>(world, entity, in, "point_light");
       _Read<SpotlightComponent>(world, entity, in, "spotlight");
+      _Read<FadeComponent>(world, entity, in, "fade");
 
       if (auto it = in.find("sky_light"); it != in.end()) {
         auto& sky =

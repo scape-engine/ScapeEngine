@@ -24,6 +24,12 @@ struct InstancedMeshComponent {
     MaterialHandle material = INVALID_MATERIAL;
     uint32_t first = 0;  // into locals_
     uint32_t count = 0;
+    // How far from the viewer its instances draw: each dithers out from
+    // fade_start to fade_end by its own origin, and none draw past it
+    // (fade_end <= fade_start: no limit). The entity's FadeComponent fades
+    // them all
+    float fade_start = 0.0f;
+    float fade_end = 0.0f;
 
     // Kept by the draw list: how many of the run are mirrored (moved last), a
     // sphere around its instances and the largest one's radius

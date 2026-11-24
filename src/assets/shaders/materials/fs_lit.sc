@@ -1,7 +1,8 @@
-$input v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent
+$input v_worldPos, v_normal, v_texcoord0, v_tangent, v_bitangent, v_fade
 
 #include "../common/common.sh"
 #include "../includes/lit.sh"
+#include "../includes/dither.sh"
 
 //
 // Standard material: metallic-roughness PBR (glTF 2.0 material model)
@@ -51,6 +52,7 @@ vec3 SurfaceNormal(vec3 N, vec3 T, vec3 B, vec2 uv)
 
 void main()
 {
+    DitherDiscard(v_fade, gl_FragCoord.xy);
     vec3 V = normalize(u_viewPos.xyz - v_worldPos);
     // A double-sided surface seen from behind is lit as its back
     vec3 n = normalize(v_normal);

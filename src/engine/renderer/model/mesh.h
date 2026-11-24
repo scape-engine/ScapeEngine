@@ -56,6 +56,19 @@ public:
   const glm::vec3& BoundsCenter() const { return bounds_center_; }
   float BoundsRadius() const { return bounds_radius_; }
 
+  // How far it draws and what draws in its place farther away (its model's
+  // DrawSettings): it dithers out from FadeStart to FadeEnd metres from the
+  // viewer (FadeEnd <= FadeStart: no limit)
+  struct Lod {
+    float distance;
+    const Mesh* mesh;
+  };
+  float FadeStart() const { return fade_start_; }
+  float FadeEnd() const { return fade_end_; }
+  // The coarsest LOD whose distance it is past, or itself
+  const Mesh& ForDistance(float distance) const;
+  void SetDraw(float fade_start, float fade_end, std::vector<Lod> lods);
+
 private:
   bgfx::VertexBufferHandle vbo_ = BGFX_INVALID_HANDLE;
   bgfx::IndexBufferHandle ibo_ = BGFX_INVALID_HANDLE;
@@ -70,6 +83,9 @@ private:
 
   glm::vec3 bounds_center_{0.0f};
   float bounds_radius_{0.0f};
+  float fade_start_{0.0f};
+  float fade_end_{0.0f};
+  std::vector<Lod> lods_;  // nearest first
   void SetBounds(const uint8_t* positions, uint32_t count, uint32_t stride);
 
   // Vertex layout: VertexData + smoothed normal (TexCoord1) for outlines

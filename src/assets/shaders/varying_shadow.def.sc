@@ -1,5 +1,6 @@
 vec3 a_position  : POSITION;
 float v_depth    : TEXCOORD0;
+float v_fade     : TEXCOORD1 = 1.0;
 
 // four bones and their weights (skinned draws)
 vec4 a_indices : BLENDINDICES;

@@ -11,6 +11,7 @@
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
+#include "engine/fade/fade_system.h"
 #include "engine/renderer/graphics_renderer.h"
 #include "engine/renderer/model/mesh.h"
 
@@ -20,9 +21,14 @@ struct BatchKey {
   const Mesh* mesh;
   MaterialHandle material;
   bool mirrored;
+  // The draw settings' fade of the model it stands for (a LOD mesh can serve
+  // several)
+  float fade_start;
+  float fade_end;
   bool operator==(const BatchKey& other) const {
     return mesh == other.mesh && material == other.material &&
-           mirrored == other.mirrored;
+           mirrored == other.mirrored && fade_start == other.fade_start &&
+           fade_end == other.fade_end;
   }
 };
 
@@ -127,7 +133,8 @@ void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
 }  // namespace
 
 void DrawList::Build(std::initializer_list<Frustum> frusta,
-                     const std::vector<Entity>& apart, bool instanced) {
+                     const glm::vec3& viewer, const std::vector<Entity>& apart,
+                     bool instanced) {
   auto& registry = MaterialRegistry::Instance();
   struct Group {
     BatchKey key;
@@ -154,8 +161,17 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
     if (!renderer.enabled_ || !renderer.mesh_ ||
         ECS::Main().Has<WaterSurfaceTag>(entity))
       continue;
+    const float visibility = FadeSystem::Visibility(ECS::Main(), entity);
+    if (visibility <= 0.0f)
+      continue;
     const glm::mat4& model = transform.model_;
     const Mesh& mesh = *renderer.mesh_;
+    // The model's draw settings: past its fade, nothing; farther, a coarser
+    // mesh
+    const float distance = glm::distance(viewer, glm::vec3(model[3]));
+    if (mesh.FadeEnd() > mesh.FadeStart() && distance > mesh.FadeEnd())
+      continue;
+    const Mesh& drawn = mesh.ForDistance(distance);
     const glm::vec3 center = model * glm::vec4(mesh.BoundsCenter(), 1.0f);
     const float radius =
         mesh.BoundsRadius() *
@@ -167,11 +183,14 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
         renderer.mesh_->Skinned()
             ? Animation::Pose(ECS::Main(), renderer.animator_, pose_count)
             : nullptr;
-    const Single single{entity,           &model, renderer.mesh_,
-                        renderer.material_, pose,  pose_count};
-    // Skinned meshes have their own bones: never instanced
+    const Single single{
+        entity, &model,     &drawn,
+        renderer.material_, pose,
+        pose_count,         {viewer, mesh.FadeStart(), mesh.FadeEnd(), visibility}};
+    // Skinned meshes have their own bones and fading ones their own
+    // visibility: never instanced
     const bool alone =
-        !instanced || pose ||
+        !instanced || pose || visibility < 1.0f ||
         std::find(apart.begin(), apart.end(), entity) != apart.end();
 
     for (Fill& fill : fills) {
@@ -182,8 +201,8 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
         continue;
       }
       // The material is looked up once per group, not per mesh
-      const BatchKey key{renderer.mesh_, renderer.material_,
-                         Mirrored(model)};
+      const BatchKey key{&drawn, renderer.material_, Mirrored(model),
+                         mesh.FadeStart(), mesh.FadeEnd()};
       auto [it, added] = fill.group_of.try_emplace(key, fill.groups.size());
       if (added) {
         const Material* material = registry.Get(renderer.material_);
@@ -204,6 +223,9 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
        ECS::Main().View<TransformComponent, InstancedMeshComponent>().each()) {
     if (!set.enabled_ || set.locals_.empty())
       continue;
+    const float visibility = FadeSystem::Visibility(ECS::Main(), entity);
+    if (visibility <= 0.0f)
+      continue;
     if (set.model_ != transform.model_ ||
         set.worlds_.size() != set.locals_.size())
       Upload(set, transform.model_);
@@ -214,6 +236,17 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
       const bool batched = instanced && material &&
                            bgfx::isValid(material->instanced_program) &&
                            bgfx::isValid(set.buffer_.handle);
+      // None of the part's instances within its draw distance (the part's
+      // own, else its mesh's draw settings)
+      // TODO: LODs for instanced parts (Mesh::ForDistance per instance)
+      const bool own = part.fade_end > part.fade_start;
+      const float fade_start = own ? part.fade_start : part.mesh->FadeStart();
+      const float fade_end = own ? part.fade_end : part.mesh->FadeEnd();
+      const Fade fade{viewer, fade_start, fade_end, visibility};
+      const bool limited = fade_end > fade_start;
+      if (limited &&
+          glm::distance(viewer, part.center) - part.radius > fade_end)
+        continue;
       for (Fill& fill : fills) {
         if (!InFrustum(fill.planes, part.center, part.radius) ||
             TooSmall(fill.view_projection, part.center, part.radius,
@@ -226,17 +259,20 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
           if (plain > 0)
             fill.list->batches.push_back({part.mesh, part.material, {},
                                           set.buffer_.handle, part.first,
-                                          plain, flip});
+                                          plain, flip, fade});
           if (part.mirrored > 0)
             fill.list->batches.push_back({part.mesh, part.material, {},
                                           set.buffer_.handle,
                                           part.first + plain, part.mirrored,
-                                          !flip});
+                                          !flip, fade});
           continue;
         }
+        // One by one, those within the distance
         for (uint32_t i = part.first; i < part.first + part.count; ++i)
-          fill.list->singles.push_back(
-              {entity, &set.worlds_[i], part.mesh, part.material, nullptr, 0});
+          if (!limited ||
+              glm::distance(viewer, glm::vec3(set.worlds_[i][3])) <= fade_end)
+            fill.list->singles.push_back({entity, &set.worlds_[i], part.mesh,
+                                          part.material, nullptr, 0, fade});
       }
     }
   }
@@ -252,6 +288,7 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
       if (room > 0) {
         Batch batch{group.key.mesh, group.key.material, {}};
         batch.mirrored = group.key.mirrored;
+        batch.fade = {viewer, group.key.fade_start, group.key.fade_end, 1.0f};
         bgfx::allocInstanceDataBuffer(&batch.instances, room, instance_stride);
         for (uint32_t i = 0; i < room; ++i)
           std::memcpy(batch.instances.data + i * instance_stride,
@@ -265,7 +302,20 @@ void DrawList::Build(std::initializer_list<Frustum> frusta,
   }
 }
 
+void DrawList::SetFade(const Fade& fade) {
+  auto& graphics = static_cast<GraphicsRenderer&>(EngineContext::Renderer());
+  static const bgfx::UniformHandle viewer =
+      graphics.CreateUniform("u_fadeViewer", bgfx::UniformType::Vec4);
+  static const bgfx::UniformHandle range =
+      graphics.CreateUniform("u_fadeRange", bgfx::UniformType::Vec4);
+  const glm::vec4 at(fade.viewer, 0.0f);
+  const glm::vec4 values(fade.start, fade.end, fade.visibility, 0.0f);
+  bgfx::setUniform(viewer, &at);
+  bgfx::setUniform(range, &values);
+}
+
 void DrawList::Bind(const Batch& batch) {
+  SetFade(batch.fade);
   if (bgfx::isValid(batch.buffer))
     bgfx::setInstanceDataBuffer(batch.buffer, batch.first, batch.count);
   else
