@@ -7,6 +7,7 @@
 
 #include <glm/gtc/quaternion.hpp>
 
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/animation/animation.h"
 #include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/transform_component.h"
@@ -97,6 +98,9 @@ static void _SetOut(const HerdComponent& herd, const TransformComponent& own,
 
 void Update(ECS& ecs, float dt) {
   auto& registry = ecs.Reg();
+  if (registry.storage<RoamComponent>().empty())
+    return;
+  Diagnostics::ScopedSection section("Herds");
   const glm::vec3 viewer = Animation::Viewer();
   registry.view<RoamComponent, TransformComponent>().each(
       [&](Entity entity, RoamComponent& roam, TransformComponent& own) {

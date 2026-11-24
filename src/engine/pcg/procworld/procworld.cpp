@@ -7,6 +7,7 @@
 #include <sstream>
 #include <thread>
 
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/context/engine_context.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/core/logger.h"
@@ -219,6 +220,7 @@ void Subsystem::Update() {
         Build(entity, region);
       volume.dirty = false;
     } else if (is_type(generator, PCG::GeneratorType::Planet)) {
+      Diagnostics::ScopedSection section("Planets");
       auto& planet = static_cast<PlanetGenerator&>(*generator);
       PlanetState& state = planets_[entity];
       // A reload's colours apply from the next frame on, the look then

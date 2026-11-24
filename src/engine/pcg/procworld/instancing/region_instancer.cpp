@@ -6,6 +6,7 @@
 #include "engine/context/engine_context.h"
 #include "engine/content/cache/material_cache.h"
 #include "engine/content/cache/mesh_cache.h"
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/ecs/components/animator_component.h"
 #include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
@@ -152,6 +153,7 @@ RegionInstancer::InstanceResult RegionInstancer::Instance(
     MaterialHandle terrain_material, const std::filesystem::path& root,
     float skirt_depth, const Worldgen::TextureInput* planet,
     const ObjectModels* models, bool objects) {
+  Diagnostics::ScopedSection section("Terrain");
   InstanceResult result;
 
   if (!region.mesh.empty()) {
@@ -185,6 +187,7 @@ bool RegionInstancer::InstanceObjects(
     const std::filesystem::path& root, const Worldgen::TextureInput* planet,
     const ObjectModels* models, ObjectProgress& progress,
     const std::function<bool()>& more, std::vector<Entity>* made) {
+  Diagnostics::ScopedSection section("Objects");
   if (!progress.started) {
     progress.seed = _ObjectSeed(region);
     progress.started = true;
@@ -256,6 +259,7 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     const Worldgen::RegionContent& content, Entity source,
     const std::filesystem::path& root, const Worldgen::TextureInput* planet,
     const ObjectModels* models) {
+  Diagnostics::ScopedSection section("Creatures");
   std::vector<Entity> creatures;
   // The region's terrain as ground for the creatures' feet, in the source's
   // space (region-local, as the herd matrices); up is away from the planet's
@@ -357,6 +361,7 @@ RegionInstancer::BuildingPieces RegionInstancer::GatherBuildings(
 std::vector<Entity> RegionInstancer::InstanceBuildings(
     ECS& ecs, const BuildingPieces& pieces, Entity source,
     const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
+  Diagnostics::ScopedSection section("Buildings");
   std::vector<Entity> entities;
   if (!pieces.models.empty()) {
     auto [entity, transform] = ecs.CreateEntity("Building pieces", source);

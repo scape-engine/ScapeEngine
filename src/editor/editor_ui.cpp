@@ -21,6 +21,7 @@
 #include "gui/model_preview.h"
 #include "gui/model_viewer.h"
 #include "gui/pcg_graph_editor.h"
+#include "gui/profiler_window.h"
 #include "gui/scene_panel.h"
 #include "gui/search/search_popup.h"
 #include "gui/status_bar.h"
@@ -30,6 +31,7 @@
 #include "gui/viewport/action_overlay.h"
 #include "gui/viewport/toolbar.h"
 
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/scene/scene_serializer.h"
 #include "platform/paths.h"
 #include "platform/window_manager.h"
@@ -170,6 +172,8 @@ void EditorUI::Initialize() {
        [console_ptr] { return console_ptr->UnseenErrors(); }});
   bottom_tabs.push_back({ICON_FA_FOLDER_OPEN, "Asset Browser", "Asset Browser",
                          std::make_unique<AssetBrowserWindow>(), 0});
+  bottom_tabs.push_back({ICON_FA_CHART_LINE, "Profiler", "Profiler",
+                         std::make_unique<ProfilerWindow>(), 0});
 
   _AddWindow<TabContainer>("Bottom Panels", std::move(bottom_tabs),
                            ImGuiDir_Down, false);
@@ -296,16 +300,22 @@ void EditorUI::Run() {
 
     // The canvas only displays the scene while the game runs, skip the
     // shadow/forward passes otherwise
-    if (is_game_started_)
+    if (is_game_started_) {
+      Diagnostics::ScopedSection section("Scene");
       Runtime::GetSceneViewPipeline().Render();
+    }
 
-    RenderUI();
+    {
+      Diagnostics::ScopedSection section("Editor UI");
+      RenderUI();
 
-    /* 4 - Finalize ImGui frame definition */
-    ImGui::Render();  // prepare imgui draw data (no rendering yet)
+      /* 4 - Finalize ImGui frame definition */
+      ImGui::Render();  // prepare imgui draw data (no rendering yet)
+    }
 
     /* 5 - Render game content to framebuffer */
     if (is_game_started_) {
+      Diagnostics::ScopedSection section("Game");
       Runtime::Game()->Render();  // Render 3D scene
     }
 
@@ -314,6 +324,8 @@ void EditorUI::Run() {
 
     /* 7 - Submit frame to display */
     renderer_->Render();  // finalize rendering
+    // Waits for the render thread (and with it the GPU) to take the frame
+    Diagnostics::ScopedSection section("Submit");
     bgfx::frame();        // submit to GPU and swap buffers
   }
   Logger::getInstance().Log(LogLevel::Info, "EditorUI loop exited");

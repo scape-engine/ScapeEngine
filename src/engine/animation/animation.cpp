@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/ecs/components/animator_component.h"
 #include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/transform_component.h"
@@ -135,6 +136,9 @@ void Play(AnimatorComponent& animator, int clip, float fade) {
 
 void Update(ECS& ecs, float dt) {
   ++_frame;
+  if (ecs.Reg().storage<AnimatorComponent>().empty())
+    return;
+  Diagnostics::ScopedSection section("Animation");
   ecs.View<AnimatorComponent>().each([&](Entity entity,
                                          AnimatorComponent& animator) {
     if (!animator.data_ || !animator.playing_)

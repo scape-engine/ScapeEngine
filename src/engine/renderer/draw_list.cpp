@@ -10,6 +10,7 @@
 #include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/diagnostics/frame_stats.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/fade/fade_system.h"
 #include "engine/renderer/graphics_renderer.h"
@@ -88,6 +89,10 @@ bool Switches(const Mesh& mesh, float from, float to) {
 
 // An instanced mesh's world matrices, its parts' bounds and its buffer from
 // the entity's model matrix
+// TODO: Spread new buffers over frames (a per-frame upload budget). While
+// streaming, frames miss vsync inside bgfx::frame now and then (main thread
+// and workers ruled out): every set new this frame uploads here at once, as
+// do new terrain meshes. Measure the bytes per frame first
 void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
   static bgfx::VertexLayout layout;
   if (layout.getStride() == 0)
@@ -143,6 +148,7 @@ void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
 void DrawList::Build(std::initializer_list<Frustum> frusta,
                      const glm::vec3& viewer, const std::vector<Entity>& apart,
                      bool instanced) {
+  Diagnostics::ScopedSection section("Draw list");
   auto& registry = MaterialRegistry::Instance();
   struct Group {
     BatchKey key;
