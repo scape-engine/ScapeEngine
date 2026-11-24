@@ -390,14 +390,6 @@ std::optional<InstanceData> ModelGenerator::Generate(
       }
     }
 
-    Logger::getInstance().Log(
-        LogLevel::Debug,
-        "[Generator][Diag] attempt=" + std::to_string(attempt) +
-            " seed=" + std::to_string(seed + attempt) +
-            " failed=" + std::to_string(failed ? 1 : 0) +
-            " selected=" + std::to_string(selected_ids.size()) +
-            " resolved=" + std::to_string(resolved_descriptors.size()));
-
     if (failed)
       continue;
 
@@ -461,13 +453,6 @@ std::optional<InstanceData> ModelGenerator::Generate(
               "[Generator] Attempt " + std::to_string(attempt) +
                   " accepted (seed=" + std::to_string(seed + attempt) + ")");
         }
-
-        Logger::getInstance().Log(
-            LogLevel::Debug,
-            "[Generator] Returning InstanceData: descriptors=" +
-                std::to_string(out.model.descriptors.size()) +
-                " geometry_count=" +
-                std::to_string(out.instance_geometry.size()));
 
         return out;
       }
