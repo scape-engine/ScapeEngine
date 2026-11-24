@@ -4,6 +4,7 @@ vec4 v_tiles     : TEXCOORD2 = vec4(0.0, 0.0, 0.0, 0.0);
 vec3 v_centrePos : TEXCOORD3 = vec3(0.0, 0.0, 0.0);
 vec3 v_up        : TEXCOORD4 = vec3(0.0, 1.0, 0.0);
 vec3 v_centreNormal : TEXCOORD5 = vec3(0.0, 1.0, 0.0);
+float v_fade     : TEXCOORD6 = 1.0;
 
 vec3 a_position  : POSITION;
 vec3 a_normal    : NORMAL;

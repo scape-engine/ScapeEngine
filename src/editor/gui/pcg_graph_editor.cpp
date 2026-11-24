@@ -372,8 +372,8 @@ void PCGGraphEditorPanel::DrawPlanetProperties() {
   ImGui::TextDisabled("Creatures come from regions of this level; -1: none");
   ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);
   ImGui::TextDisabled("Regions building at once; 0: one per core but one");
-  ImGui::DragFloat("Fade In", &planet.fade_in, 0.01f, 0.0f, 10.0f, "%.2f s");
-  ImGui::TextDisabled("New objects, buildings and creatures fade in; 0: at once");
+  ImGui::DragFloat("Fade Time", &planet.fade_time, 0.01f, 0.0f, 10.0f, "%.2f s");
+  ImGui::TextDisabled("Regions' content fades in and out; 0: at once");
 
   if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
     ImGui::TextDisabled("Kinds of object it places (.object assets), after");

@@ -272,7 +272,7 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
                         {"building_level", planet.building_level},
                         {"herd_level", planet.herd_level},
                         {"worker_jobs", planet.worker_jobs},
-                        {"fade_in", planet.fade_in},
+                        {"fade_time", planet.fade_time},
                         {"planet", planet.planet_path},
                         {"seed", planet.seed},
                         {"biome", planet.biome},
@@ -319,7 +319,7 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
     planet->building_level =
         it->value("building_level", planet->building_level);
     planet->herd_level = it->value("herd_level", planet->herd_level);
-    planet->fade_in = it->value("fade_in", planet->fade_in);
+    planet->fade_time = it->value("fade_time", planet->fade_time);
     planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
     planet->planet_path = it->value("planet", planet->planet_path);
     planet->seed = it->value("seed", planet->seed);

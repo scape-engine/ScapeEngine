@@ -47,9 +47,9 @@ public:
   // Regions building at once on worker threads, nearest first; 0: one per
   // core but one
   int worker_jobs = 0;
-  // Seconds a region's new objects, buildings and creatures take to fade in
-  // (FadeComponent); 0: they appear at once
-  float fade_in = 0.5f;
+  // Seconds its regions' terrain, buildings, objects and creatures take to
+  // fade in as they load and out as they unload (FadeComponent); 0: at once
+  float fade_time = 0.5f;
   // The terrain's tile colours and material settings
   TerrainMaterialData look = DefaultTerrainLook();
   // The planet itself, optional: worldgen planet content (JSON,

@@ -70,6 +70,9 @@ private:
     // Shared with the jobs building from it, so a reload leaves them intact
     std::shared_ptr<const Worldgen::RegionContent> content;
     std::unordered_map<uint64_t, LoadedRegion> regions;  // by cell key
+    // Unloaded regions fading out: kept until their entity is gone, as it
+    // draws their terrain mesh
+    std::vector<LoadedRegion> leaving;
     std::unordered_map<uint64_t, std::future<RegionBuild>> building;
     // Herds come from regions of the herd level and objects from regions of
     // their placement sizes, apart from the terrain (whose level changes

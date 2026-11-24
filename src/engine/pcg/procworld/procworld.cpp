@@ -355,6 +355,7 @@ void Subsystem::Clear(Entity volume) {
   }
   if (auto it = planets_.find(volume); it != planets_.end()) {
     it->second.regions.clear();
+    it->second.leaving.clear();  // destroyed above
     for (auto& [key, build] : it->second.building)
       discarded_.push_back(std::move(build));
     it->second.building.clear();
@@ -577,9 +578,6 @@ static Worldgen::PlanetCell _CellOf(uint64_t key) {
 }
 
 // Makes the entities fade in over `seconds` (0: they show at once)
-// TODO: Fade the terrain in too, and terrain regions and herds out as they
-// merge or unload, as the placement regions do (FadeComponent::
-// destroy_when_hidden_)
 static void _FadeIn(ECS& ecs, const std::vector<Entity>& entities,
                     float seconds) {
   if (seconds <= 0.0f)
@@ -587,6 +585,26 @@ static void _FadeIn(ECS& ecs, const std::vector<Entity>& entities,
   for (const Entity entity : entities)
     ecs.Reg().emplace_or_replace<FadeComponent>(entity, 0.0f, 1.0f, seconds,
                                                 false);
+}
+
+// Fades the entity out from where it is over `seconds`, then destroys it
+// (0: at once)
+static void _FadeOut(ECS& ecs, Entity entity, float seconds) {
+  if (!ecs.Reg().valid(entity))
+    return;
+  if (seconds <= 0.0f) {
+    ecs.DestroyEntity(entity);
+    return;
+  }
+  const auto* fade = ecs.Reg().try_get<FadeComponent>(entity);
+  ecs.Reg().emplace_or_replace<FadeComponent>(
+      entity, fade ? fade->visibility_ : 1.0f, 0.0f, seconds, true);
+}
+
+// Whether the entity has finished fading in
+static bool _Shown(ECS& ecs, Entity entity) {
+  const auto* fade = ecs.Reg().try_get<FadeComponent>(entity);
+  return !fade || fade->visibility_ >= 1.0f;
 }
 
 // The planet's regions form a quadtree per cube face: a region splits while
@@ -824,7 +842,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       ecs.Add<HerdComponent>(entity).settings_ = generator.creatures;
       RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
                                      root_, &state.textures, &build.objects);
-      _FadeIn(ecs, {entity}, generator.fade_in);
+      _FadeIn(ecs, {entity}, generator.fade_time);
       state.herds[it->first] = entity;
     }
     it = state.herd_building.erase(it);
@@ -835,7 +853,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         herd->settings_ = generator.creatures;
       return false;
     }
-    ecs.DestroyEntity(entry.second);
+    _FadeOut(ecs, entry.second, generator.fade_time);
     return true;
   });
 
@@ -887,16 +905,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   std::erase_if(state.placements, [&](auto& entry) {
     if (placement_cells.count(entry.first))
       return false;
-    if (generator.fade_in > 0.0f && ecs.Reg().valid(entry.second)) {
-      const float shown =
-          ecs.Has<FadeComponent>(entry.second)
-              ? ecs.Get<FadeComponent>(entry.second).visibility_
-              : 1.0f;
-      ecs.Reg().emplace_or_replace<FadeComponent>(
-          entry.second, shown, 0.0f, generator.fade_in, true);
-    } else if (ecs.Reg().valid(entry.second)) {
-      ecs.DestroyEntity(entry.second);
-    }
+    _FadeOut(ecs, entry.second, generator.fade_time);
     return true;
   });
 
@@ -915,7 +924,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         RegionInstancer::InstanceObjects(
             ecs, work.build.region, *work.content, work.region, root_,
             &state.textures, &work.build.objects, work.progress, more, &made);
-    _FadeIn(ecs, made, generator.fade_in);
+    _FadeIn(ecs, made, generator.fade_time);
     objects_made += work.progress.made - before;
     if (done)
       state.making.pop_front();
@@ -951,10 +960,10 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                     looks_[volume].material, root_,
                                     skirt_depth, &state.textures,
                                     &build.objects, false);
-      _FadeIn(ecs,
-              RegionInstancer::InstanceBuildings(ecs, build.pieces, entity,
-                                                 root_, &state.textures),
-              generator.fade_in);
+      // Its buildings fade in and out with it
+      RegionInstancer::InstanceBuildings(ecs, build.pieces, entity, root_,
+                                         &state.textures);
+      _FadeIn(ecs, {entity}, generator.fade_time);
       state.regions[it->first] = {entity, std::move(result.terrain_mesh)};
       if (!build.region.objects.empty())
         state.making.push_back({entity, content_of, std::move(build)});
@@ -970,16 +979,25 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
             std::to_string(state.making.size()) + " regions still making)");
 
   // Unload the regions no longer wanted once every wanted region over their
-  // ground is loaded
+  // ground is loaded and shown (two half-faded layers would leave holes):
+  // they fade out over them
+  std::erase_if(state.leaving, [&](const LoadedRegion& region) {
+    return !ecs.Reg().valid(region.entity);
+  });
   std::erase_if(state.regions, [&](auto& entry) {
     if (is_wanted.count(entry.first))
       return false;
     const Worldgen::PlanetCell cell = _CellOf(entry.first);
     for (const Wanted& w : wanted) {
-      if (_Overlap(cell, w.cell) && !state.regions.count(_CellKey(w.cell)))
+      if (!_Overlap(cell, w.cell))
+        continue;
+      const auto loaded = state.regions.find(_CellKey(w.cell));
+      if (loaded == state.regions.end() ||
+          !_Shown(ecs, loaded->second.entity))
         return false;
     }
-    ecs.DestroyEntity(entry.second.entity);
+    _FadeOut(ecs, entry.second.entity, generator.fade_time);
+    state.leaving.push_back(std::move(entry.second));
     return true;
   });
 

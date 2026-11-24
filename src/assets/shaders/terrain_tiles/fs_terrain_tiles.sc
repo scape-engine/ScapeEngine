@@ -1,7 +1,8 @@
-$input v_worldPos, v_normal, v_tiles, v_centrePos, v_up, v_centreNormal
+$input v_worldPos, v_normal, v_tiles, v_centrePos, v_up, v_centreNormal, v_fade
 
 #include "../common/common.sh"
 #include "../includes/lit.sh"
+#include "../includes/dither.sh"
 
 //
 // Tiled terrain material (TerrainMaterial): each point mixes up to eight
@@ -54,6 +55,7 @@ float TerrainValueNoise(vec3 p)
 
 void main()
 {
+    DitherDiscard(v_fade, gl_FragCoord.xy);
     vec3 N = normalize(v_normal);
     vec3 V = normalize(u_viewPos.xyz - v_worldPos);
 
