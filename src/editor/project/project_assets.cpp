@@ -20,7 +20,8 @@ AssetSID ProjectAssets::Load(const FileSystem::Path& path) {
   // Create asset instance
   AssetRef asset = asset_info->create_instance_();
   asset->asset_type_ = asset_info->type_;
-  asset->asset_path_ = path;
+  // The project scan gives absolute paths
+  asset->asset_path_ = Runtime::Project().RelativePath(path);
   asset->asset_key_.sid_ = CreateSID();
 
   // LOAD OR CREATE METADATA
@@ -122,7 +123,7 @@ void ProjectAssets::UpdateLocation(AssetSID id, const FileSystem::Path& path) {
 
   // Cache old relative path and update it
   FileSystem::Path old_relative_path = asset->asset_path_;
-  asset->asset_path_ = path;
+  asset->asset_path_ = Runtime::Project().RelativePath(path);
 
   // Cache old and current absolute path
   FileSystem::Path old_absolute_path =
