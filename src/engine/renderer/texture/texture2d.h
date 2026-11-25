@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <array>
+#include <vector>
 
 #include "engine/content/image_data.h"
 
@@ -27,6 +28,18 @@ enum class TextureType {
   HEIGHT,
   HDR,   // float image (e.g. .hdr), kept linear in RGBA16F
   EMPTY  // uninitialised or invalid
+};
+
+// CPU side of a texture upload: every level (mips included), ready for the
+// GPU. Prepared on any thread, uploaded on the render API thread
+struct TextureUpload {
+  uint16_t width = 0;
+  uint16_t height = 0;
+  bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8;
+  TextureType type = TextureType::EMPTY;
+  bool srgb = false;
+  bool mips = false;
+  std::vector<uint8_t> data;  // tightly packed levels, empty if invalid
 };
 
 // Manage GPU texture resources
@@ -49,6 +62,13 @@ public:
   static std::shared_ptr<Texture> Create(
       const Content::ImageData& image, TextureType type,
       uint64_t sampler_flags = BGFX_SAMPLER_NONE);
+
+  // The CPU work of Create (format, mip chain), safe on any thread
+  static TextureUpload Prepare(const Content::ImageData& image,
+                               TextureType type);
+  // The GPU half: upload prepared data (render API thread only)
+  static std::shared_ptr<Texture> Create(
+      const TextureUpload& upload, uint64_t sampler_flags = BGFX_SAMPLER_NONE);
 
   // load texture from file
   static std::shared_ptr<Texture> Load2D(

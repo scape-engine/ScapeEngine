@@ -4,7 +4,7 @@ $input v_ndc
 
 SAMPLER2D(s_ssaoInput, 0);
 
-uniform vec4 u_ssaoScreen;  // xy = 1 / target size
+uniform vec4 u_ssaoScreen;  // xy = 1 / AO target size
 
 // 4x4 box blur, the size of the noise tile, removes the noise pattern
 void main()

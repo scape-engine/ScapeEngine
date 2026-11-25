@@ -11,7 +11,8 @@ SAMPLER2D(s_ssaoNoise, 2);
 uniform vec4 u_ssaoKernel[KERNEL_SIZE];  // xyz = hemisphere sample (tangent space)
 uniform vec4 u_ssaoParams;      // x = samples, y = radius, z = bias, w = power
 uniform vec4 u_ssaoProjection;  // x = proj[0][0], y = proj[1][1]
-uniform vec4 u_ssaoScreen;      // xy = 1 / target size, z = NDC y sign, w = 1 / noise size
+uniform vec4 u_ssaoScreen;      // xy = AO pixel to input uv (inputs are full
+                                // resolution), z = NDC y sign, w = 1 / noise size
 
 // Pixels are read from gl_FragCoord: targets are larger than the view (they
 // grow with the scene framebuffer) and the view covers their top left

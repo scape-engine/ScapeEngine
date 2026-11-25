@@ -297,8 +297,9 @@ void AssetGraphEditor::SaveGraph(const std::string& filepath) {
 
   if (data_) {
     auto& pcg = EngineContext::PCG().GetProcModel();
-    data_->archetype_id = pcg.LoadArchetype(filepath);
-    data_->instances.clear();
+    // Reload: LoadArchetype would return the cached, unedited archetype.
+    // The preview starts over when the archetype changes
+    data_->archetype_id = pcg.ReloadArchetype(filepath);
   }
 }
 

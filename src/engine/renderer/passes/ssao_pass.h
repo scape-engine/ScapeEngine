@@ -23,8 +23,9 @@ public:
   void Create();
   void Destroy();
 
-  // AO of the top left width x height area. Targets are target_width x
-  // target_height, the pre-pass size, and are recreated when it changes
+  // AO of the top left width x height area of the pre-pass, whose targets
+  // are target_width x target_height. AO is computed at 1 / kResolutionDivisor
+  // of that size, its targets are recreated when the pre-pass size changes
   void Render(const AmbientOcclusionSettings& settings,
               const glm::mat4& projection, bgfx::TextureHandle normal_input,
               bgfx::TextureHandle depth_input, uint16_t width, uint16_t height,
@@ -32,6 +33,14 @@ public:
 
   // Blurred ambient occlusion (R8), 1 = unoccluded
   bgfx::TextureHandle GetOutput() const;
+
+  // Multiply a full resolution pixel position (gl_FragCoord) by this to get
+  // the output's texture coordinate
+  glm::vec2 GetOutputPixelScale() const;
+
+  // AO is soft and blurred: computing it at half resolution costs a quarter
+  // of the samples for nearly the same look
+  static constexpr uint16_t kResolutionDivisor = 2;
 
 private:
   std::vector<glm::vec4> GenerateKernel();

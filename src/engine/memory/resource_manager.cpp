@@ -1,5 +1,9 @@
 #include "resource_manager.h"
 
+#include <chrono>
+
+#include "engine/diagnostics/activity.h"
+
 ResourceManager::ResourceManager()
     : id_counter_(0),
       resources_(),
@@ -23,6 +27,7 @@ ResourceManager::~ResourceManager() {
   }
   if (processor_.joinable()) {
     cv_next_pipe_.notify_all();  // Wake up the processor to check running flag
+    cv_awaiting_context_.notify_all();  // or stop it waiting on a render task
     processor_.join();
   }
 
@@ -66,7 +71,11 @@ bool ResourceManager::Execute(ResourcePipe&& pipe) {
     return false;
   }
 
+  // Shown in the status bar until the pipe completes
+  pipe.activity_ = Diagnostics::BeginTask("Loading " + resource->GetName());
+
   // Queue the pipe
+  const uint64_t activity = pipe.activity_;
   auto pipe_handle = std::make_unique<ResourcePipe>(std::move(pipe));
   bool success = async_pipes_.try_enqueue(std::move(pipe_handle));
 
@@ -77,6 +86,7 @@ bool ResourceManager::Execute(ResourcePipe&& pipe) {
     cv_next_pipe_.notify_all();
   } else {
     resource->resource_state_ = ResourceState::FAILED;
+    Diagnostics::EndTask(activity);
   }
 
   return success;
@@ -126,10 +136,12 @@ void ResourceManager::Release(ResourceID id) {
   // Call the resource's destroy method to clean up GPU resources
   resource->Destroy();
   resource->resource_state_ = ResourceState::EMPTY;
+  std::lock_guard lock(mtx_resources_);
   resources_.erase(id);
 }
 
 void ResourceManager::CleanupAll() {
+  std::lock_guard lock(mtx_resources_);
   // First, set all resources to EMPTY state
   for (auto& [id, resource] : resources_) {
     if (resource) {
@@ -162,8 +174,10 @@ void ResourceManager::AsyncPipeProcessor() {
             LogLevel::Warning,
             "ResourceManager: Failed to process pipe, owner resource ID " +
                 std::to_string(pipe->Owner()) + " is invalid");
+        Diagnostics::EndTask(pipe->activity_);
         continue;
       }
+      const auto start = std::chrono::steady_clock::now();
 
       // Update processor state
       processor_state_.SetLoading(resource->GetName());
@@ -179,11 +193,14 @@ void ResourceManager::AsyncPipeProcessor() {
         if (task.flags & TaskFlags::UseRenderThread) {
           context_task_ = task.func;
           context_next_ = true;
-          // Predicate guards against spurious and lost wake-ups
-          cv_awaiting_context_.wait(lock,
-                                    [this] { return !context_next_.load(); });
+          // Predicate guards against spurious and lost wake-ups. Shutdown
+          // also wakes it: the render thread won't run the task anymore
+          cv_awaiting_context_.wait(lock, [this] {
+            return !context_next_.load() || !processor_running_;
+          });
+          success = !context_next_ && context_result_;
+          context_next_ = false;
           context_task_ = nullptr;
-          success = context_result_;
         } else {
           // Execute on this thread
           success = task.func();
@@ -198,7 +215,15 @@ void ResourceManager::AsyncPipeProcessor() {
       // Check if all tasks were successful
       if (resource->resource_state_ != ResourceState::FAILED) {
         resource->resource_state_ = ResourceState::READY;
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - start)
+                            .count();
+        Logger::getInstance().Log(LogLevel::Info,
+                                  "ResourceManager: Loaded '" +
+                                      resource->GetName() + "' in " +
+                                      std::to_string(ms) + " ms");
       }
+      Diagnostics::EndTask(pipe->activity_);
     } else {
       // No pipes to process, wait for notification
       processor_state_.SetSleeping();

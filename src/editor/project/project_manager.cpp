@@ -47,6 +47,12 @@ ProjectManager::ProjectManager() : project_(), observer_(), assets_() {}
 
 void ProjectManager::PollEvents() {
   observer_.PollEvents();
+
+  // Models finishing their background load. One more pass once the last
+  // one is done, to bind it
+  if (models_waiting_ > 0 || ModelEntityFactory::IsLoading())
+    models_waiting_ =
+        ModelEntityFactory::BindPending(ECS::Main(), project_.path_);
 }
 
 bool ProjectManager::Load(const std::filesystem::path& directory) {
@@ -200,7 +206,8 @@ bool ProjectManager::OpenScene(const std::filesystem::path& path) {
   if (!scene ||
       !SceneSerializer::Deserialize(ECS::Main(), *scene, project_.path_))
     return false;
-  ModelEntityFactory::BindMeshRenderers(ECS::Main(), project_.path_);
+  // Models load in the background, PollEvents binds them when ready
+  models_waiting_ = ModelEntityFactory::BindPending(ECS::Main(), project_.path_);
 
   scene_path_ = RelativePath(path);
   scene_dirty_ = false;

@@ -283,8 +283,12 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
             Logger::getInstance().Log(
                 LogLevel::Info, "Importing glTF model: " + abs_path.string());
 
+            // Sources are stored project-relative, so scenes survive the
+            // project moving (the payload holds an absolute path)
+            const std::string source =
+                Runtime::Project().RelativePath(rel).generic_string();
             const Entity entity = ModelEntityFactory::InstanceModel(
-                ECS::Main(), rel, Runtime::Project().GetProject().path_);
+                ECS::Main(), source, Runtime::Project().GetProject().path_);
             if (entity != entt::null)
               Runtime::Project().MarkSceneDirty();
           }

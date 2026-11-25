@@ -48,6 +48,18 @@ public:
                const glm::vec3& scale = glm::vec3(1.0f),
                const glm::quat& rotation = glm::identity<glm::quat>());
 
+  // Wire shapes, built from lines (world space, +Z forward)
+  void Circle(const glm::vec3& center, const glm::vec3& normal, float radius,
+              uint32_t segments = 48);
+  void WireSphere(const glm::vec3& center, float radius,
+                  const glm::quat& rotation = glm::identity<glm::quat>());
+  // Cone opening along forward from the apex; angle from the axis in degrees
+  void WireCone(const glm::vec3& apex, const glm::quat& rotation, float length,
+                float angle);
+  // Camera frustum; vertical fov in degrees
+  void Frustum(const glm::vec3& position, const glm::quat& rotation, float fov,
+               float aspect, float near_plane, float far_plane);
+
   // Icons
   void Icon3D(uint32_t IconTexture, const glm::vec3& position,
               TransformComponent& CameraTransform);

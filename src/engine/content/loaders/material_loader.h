@@ -16,7 +16,8 @@ public:
   // Load materials from a scene file (GLTF, FBX, OBJ, etc.)
   static std::vector<MaterialData> LoadFromScene(const std::string& path);
 
-private:
+  // Materials of a scene that is already imported, so a model is parsed
+  // once for both its meshes and its materials
   static std::vector<MaterialData> ExtractMaterials(
       const aiScene* scene, const std::string& model_path);
 };

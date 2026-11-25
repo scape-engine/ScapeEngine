@@ -319,12 +319,11 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
   const glm::vec4 view_pos(camera_transform.position_, 0.0f);
   bgfx::setUniform(renderer->GetViewPosUniform(), glm::value_ptr(view_pos));
 
-  // Ambient occlusion of the sky light, from the SSAO node (same size as
-  // the scene framebuffer)
-  const float ambient_occlusion[4] = {
-      ambient_occlusion_.enabled ? 1.0f : 0.0f,
-      1.0f / float(renderer->GetFramebufferWidth()),
-      1.0f / float(renderer->GetFramebufferHeight()), 0.0f};
+  // Ambient occlusion of the sky light, from the SSAO node (at a fraction of
+  // the scene framebuffer's resolution)
+  const glm::vec2 ao_scale = ssao_pass_.GetOutputPixelScale();
+  const float ambient_occlusion[4] = {ambient_occlusion_.enabled ? 1.0f : 0.0f,
+                                      ao_scale.x, ao_scale.y, 0.0f};
   bgfx::setUniform(renderer->GetAmbientOcclusionUniform(), ambient_occlusion);
 
   // Sky light: only the first enabled one is used, as in UE
@@ -546,17 +545,22 @@ void SceneViewPipeline::RenderShadowNode(const Node::Context& context) {
   }
 
   // Render all meshes to shadow map
+  MaterialRegistry& materials = MaterialRegistry::Instance();
   for (auto [entity, transform, renderer_comp] : world.GetRenderQueue()) {
     if (!renderer_comp.enabled_ || !renderer_comp.mesh_)
       continue;
 
+    // The alpha mask's inputs: masked holes let light through
+    materials.Bind(renderer_comp.material_);
+
     bgfx::setTransform(glm::value_ptr(transform.model_));
     renderer_comp.mesh_->Bind();
 
-    // Shadow pass state
-    // write depth, cull front faces
-    bgfx::setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
-                   BGFX_STATE_CULL_CW);
+    // Shadow pass state: write depth, cull back faces unless double-sided
+    const uint64_t cull = materials.IsDoubleSided(renderer_comp.material_)
+                              ? 0
+                              : BGFX_STATE_CULL_CW;
+    bgfx::setState(BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | cull);
     bgfx::submit(ViewID::SHADOW_PASS, shadow_program_);
   }
 }
@@ -661,8 +665,10 @@ void SceneViewPipeline::RenderMesh(TransformComponent& transform,
   bgfx::setTransform(glm::value_ptr(transform.model_));
   renderer.mesh_->Bind();
 
-  // Set culling/state
-  uint64_t render_state = BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW;
+  // Set culling/state: double-sided materials draw their back faces
+  uint64_t render_state = BGFX_STATE_DEFAULT & ~BGFX_STATE_CULL_MASK;
+  if (!MaterialRegistry::Instance().IsDoubleSided(renderer.material_))
+    render_state |= BGFX_STATE_CULL_CW;
 
   // Enable wireframe
   if (wireframe_) {
@@ -806,6 +812,11 @@ void SceneViewPipeline::Render() {
   gizmos.icon_scale = billboard_params_.size;
   gizmos.foreground = !billboard_params_.depth_aware;
   ComponentGizmos::DrawSceneViewIcons(gizmos, std::get<0>(god_camera_));
+
+  // Light reach and camera frustum of the selected entity
+  ComponentGizmos::DrawEntityGizmos(
+      gizmos, Runtime::State().selected_entity, component_gizmo_params_.cameras,
+      component_gizmo_params_.lights, CanvasAspect());
 
   // Execute frame graph
   Runtime::GetFrameGraph().Render();

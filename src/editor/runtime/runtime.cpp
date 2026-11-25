@@ -212,7 +212,8 @@ static void _LaunchEditor() {
   else
     std::filesystem::create_directories(project_path);
 
-  // Loading a project opens its startup scene
+  // Loading a project opens its startup scene; its models load in the
+  // background, so the window shows right away
   if (g_project_manager.Load(project_path))
     g_editor_settings.AddRecentProject(project_path.string());
 

@@ -12,6 +12,7 @@
 #include "editor/gui/styles/editor_styles.h"
 
 #include "engine/context/engine_context.h"
+#include "engine/diagnostics/activity.h"
 #include "engine/ecs/components/transform_component.h"
 #include "engine/memory/resource_manager.h"
 #include "engine/renderer/model/model.h"
@@ -21,6 +22,7 @@
 ModelPreview::ModelPreview(PreviewData* data) : data_(data) {}
 
 ModelPreview::~ModelPreview() {
+  Diagnostics::EndTask(generate_task_);
   if (initialized_) {
     preview_pipeline_.Destroy();
   }
@@ -42,45 +44,65 @@ void ModelPreview::Init() {
 void ModelPreview::LoadDescriptor(const std::string& path) {
   descriptor_path_ = path;
 
-  data_->instances.clear();
-  data_->instance_model_data.clear();
-  images_generated_ = 0;
-  images_submitted_ = 0;
-
+  // Loads in the background, TickGenerate starts once it's resolved
   auto& pcg = EngineContext::PCG().GetProcModel();
   data_->archetype_id = pcg.LoadArchetype(descriptor_path_);
-
-  if (data_->archetype_id == 0) {
-    Logger::getInstance().Log(
-        LogLevel::Error, "[ModelPreview] Failed to load archetype: " + path);
-    data_->model = nullptr;
-    return;
-  }
-
-  auto& resource_mgr = EngineContext::resourceManager();
-  auto resource = resource_mgr.GetResourceAs<ProcModel::ProcModelResource>(
-      data_->archetype_id);
-  if (resource) {
-    data_->model = Model::FromMeshData(resource->GetGraph().mesh_data,
-                                       resource->GetGraph().materials);
-  }
 }
 
 // TODO: Move per-instance Model construction out of editor
 // - Implement a 'BuildRenderModel' for it (instantiator?)
 // - do not implement the TODO into the procmodel subsystem
 void ModelPreview::TickGenerate() {
-  if (images_generated_ >= total_instances_)
+  // New archetype (a descriptor was loaded, or reloaded after an Asset
+  // Graph save): start over
+  if (data_->archetype_id != shown_archetype_) {
+    shown_archetype_ = data_->archetype_id;
+    data_->instances.clear();
+    data_->instance_model_data.clear();
+    data_->model = nullptr;
+    images_generated_ = 0;
+    images_submitted_ = 0;
+  }
+
+  if (images_generated_ >= total_instances_) {
+    Diagnostics::EndTask(generate_task_);
+    generate_task_ = 0;
     return;
+  }
 
   if (data_->archetype_id == 0)
     return;
+
+  // Wait for the archetype's background load
+  auto archetype =
+      EngineContext::resourceManager()
+          .GetResourceAs<ProcModel::ProcModelResource>(data_->archetype_id);
+  if (!archetype)
+    return;
+  if (archetype->GetState() == ResourceState::FAILED) {
+    Logger::getInstance().Log(
+        LogLevel::Error,
+        "[ModelPreview] Failed to load archetype: " + descriptor_path_);
+    data_->archetype_id = 0;
+    return;
+  }
+  if (!archetype->IsResolved())
+    return;
+
+  if (!data_->model)
+    data_->model = Model::FromMeshData(archetype->GetGraph().mesh_data,
+                                       archetype->GetGraph().materials);
+
+  // Generation is spread over frames (images_per_frame_), so the status bar
+  // keeps animating while it runs
+  if (!generate_task_)
+    generate_task_ = Diagnostics::BeginTask("Generating previews");
 
   auto& procmodel = EngineContext::PCG().GetProcModel();
 
   int budget = images_per_frame_;
   while (budget-- > 0 && images_generated_ < total_instances_) {
-    auto output = procmodel.GenerateInstance(descriptor_path_,
+    auto output = procmodel.GenerateInstance(data_->archetype_id,
                                              current_seed_ + images_generated_);
 
     if (output) {

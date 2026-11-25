@@ -6,6 +6,13 @@
 
 namespace Content {
 
+// How a material's base color alpha is used (glTF 2.0 alphaMode)
+enum class AlphaMode {
+  Opaque,  // alpha ignored
+  Mask,    // fragments below alpha_cutoff are discarded (foliage, chains)
+  Blend    // TODO: needs sorted transparent rendering, drawn opaque for now
+};
+
 struct MaterialData {
   std::string name;
   bool is_pbr{false};
@@ -26,6 +33,11 @@ struct MaterialData {
   // Emission
   glm::vec3 emissive{0.0f};
   float emissive_strength{1.0f};
+
+  // Transparency and culling
+  AlphaMode alpha_mode{AlphaMode::Opaque};
+  float alpha_cutoff{0.5f};  // Mask only
+  bool double_sided{false};  // back faces are drawn and lit
 };
 
 }  // namespace Content

@@ -51,6 +51,12 @@ private:
   int images_per_frame_ = 1;
   int images_generated_ = 0;
   int images_submitted_ = 0;
+
+  // Archetype the previews were generated from
+  ResourceID shown_archetype_ = 0;
+
+  // Status bar task while previews generate (0 when idle)
+  uint64_t generate_task_ = 0;
 };
 
 #endif  // MODEL_PREVIEW_H

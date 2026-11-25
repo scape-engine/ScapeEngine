@@ -296,6 +296,12 @@ void TryIcon(const char* icon, ImU32 color, float y_padding) {
   ImGui::PopStyleColor();
 }
 
+void Spinner(ImDrawList& draw_list, ImVec2 center, float radius, ImU32 color) {
+  const float start = static_cast<float>(ImGui::GetTime()) * 6.0f;
+  draw_list.PathArcTo(center, radius, start, start + IM_PI * 1.5f, 16);
+  draw_list.PathStroke(color, 0, std::max(1.5f, radius * 0.3f));
+}
+
 void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,
           ImVec2 slot_min, ImVec2 slot_size, ImU32 color) {
   if (icon_id) {
@@ -365,7 +371,8 @@ void Input(std::string label, int32_t& value, float speed) {
   ImGui::PopID();
 }
 
-void Input(std::string label, float& value, float speed) {
+void Input(std::string label, float& value, float speed, float min,
+           float max) {
   label += ":";
   ImGui::PushID(EditorUI::Get()->GenerateId());
   if (ImGui::BeginTable("##table", 2,
@@ -382,7 +389,9 @@ void Input(std::string label, float& value, float speed) {
     ImGui::TableSetColumnIndex(1);
     ImGui::PushItemWidth(-1);
     std::string id = EditorUI::Get()->GenerateIdString();
-    ImGui::DragFloat(id.c_str(), &value, speed, 0.0f, 0.0f, "%.2f");
+    const ImGuiSliderFlags flags =
+        min < max ? ImGuiSliderFlags_AlwaysClamp : ImGuiSliderFlags_None;
+    ImGui::DragFloat(id.c_str(), &value, speed, min, max, "%.2f", flags);
     ImGui::PopItemWidth();
 
     ImGui::EndTable();

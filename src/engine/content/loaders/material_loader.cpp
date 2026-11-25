@@ -1,6 +1,7 @@
 #include "material_loader.h"
 
 #include <assimp/DefaultIOSystem.h>
+#include <assimp/GltfMaterial.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
@@ -117,6 +118,21 @@ std::vector<MaterialData> MaterialLoader::ExtractMaterials(
     aiColor3D emissive;
     if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
       mat.emissive = glm::vec3(emissive.r, emissive.g, emissive.b);
+
+    // Transparency (glTF alphaMode and alphaCutoff) and culling
+    aiString alpha_mode;
+    if (ai_mat->Get(AI_MATKEY_GLTF_ALPHAMODE, alpha_mode) == AI_SUCCESS) {
+      const std::string mode = alpha_mode.C_Str();
+      if (mode == "MASK")
+        mat.alpha_mode = AlphaMode::Mask;
+      else if (mode == "BLEND")
+        mat.alpha_mode = AlphaMode::Blend;
+    }
+    ai_mat->Get(AI_MATKEY_GLTF_ALPHACUTOFF, mat.alpha_cutoff);
+
+    int two_sided = 0;
+    if (ai_mat->Get(AI_MATKEY_TWOSIDED, two_sided) == AI_SUCCESS)
+      mat.double_sided = two_sided != 0;
 
     // ? store on MaterialData for shader selection later
     mat.is_pbr = is_pbr;

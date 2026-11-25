@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <string>
 
+#include "editor/gui/components/im_components.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/runtime/runtime.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
@@ -73,9 +74,17 @@ inline void StatusBar() {
 
     // ENGINE ACTIVITY
     const std::string activity = Diagnostics::GetActivity();
-    if (!activity.empty())
-      colored(EditorColor::accent_border,
-              (std::string(ICON_FA_SPINNER " ") + activity).c_str());
+    if (!activity.empty()) {
+      const float size = ImGui::GetTextLineHeight();
+      const ImVec2 pos = ImGui::GetCursorScreenPos();
+      ImGui::Dummy(ImVec2(size, size));
+      IMComponents::Spinner(
+          *ImGui::GetWindowDrawList(),
+          ImVec2(pos.x + size * 0.5f,
+                 pos.y + ImGui::GetFrameHeight() * 0.5f),
+          size * 0.35f, EditorColor::accent_border);
+      colored(EditorColor::accent_border, activity.c_str());
+    }
 
     // VERSION (right-aligned)
     char version[32];

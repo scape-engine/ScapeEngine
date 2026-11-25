@@ -11,6 +11,15 @@
 //---------------------------------------------------------------------------
 namespace Diagnostics {
 
+// Time spent in one group of render views (shadows, sky light, ...)
+struct PassTiming {
+  const char* name = "";
+  float gpu_ms = 0.0f;  // 0 if the backend has no per-view GPU timers
+  float cpu_ms = 0.0f;  // submit time on the CPU
+};
+
+constexpr int kMaxPassTimings = 8;
+
 struct FrameStatsSnapshot {
   float fps = 0.0f;
   float frame_ms_avg = 0.0f;  // over the last publish interval
@@ -23,7 +32,14 @@ struct FrameStatsSnapshot {
   uint32_t entities = 0;  // entities with a TransformComponent
   uint16_t viewport_w = 0;
   uint16_t viewport_h = 0;
+
+  // Per pass, only while pass timings are enabled
+  PassTiming passes[kMaxPassTimings];
+  int pass_count = 0;
 };
+
+// Per-view timings cost GPU timer queries: enable them only while shown
+void SetPassTimingsEnabled(bool enabled);
 
 // Call once per frame
 void UpdateStats();

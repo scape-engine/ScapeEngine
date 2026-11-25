@@ -30,7 +30,9 @@ uniform vec4 u_viewPos;  // xyz = camera position
 // Material (StandardMaterial, stages 0-4). Unset textures are bound to
 // neutral defaults: white, or a flat normal for the normal map
 uniform vec4 u_meshColor;       // base color factor
-uniform vec4 u_materialParams;  // x = metallic factor, y = roughness factor
+uniform vec4 u_materialParams;  // x = metallic factor, y = roughness factor,
+                                // z = alpha cutoff (0 = opaque),
+                                // w = 1 if double-sided
 uniform vec4 u_emissive;        // rgb = emissive factor * strength
 
 SAMPLER2D(s_albedo, 0);               // base color (sRGB)
@@ -47,7 +49,8 @@ SAMPLER2D(s_skySH, 5);
 SAMPLERCUBE(s_skyPrefilter, 6);
 
 // Ambient occlusion of the sky light (screen space)
-uniform vec4 u_ambientOcclusion;  // x = 1 if enabled, yz = 1 / target size
+uniform vec4 u_ambientOcclusion;  // x = 1 if enabled, yz = pixel to AO uv
+                                  // (AO is half resolution, upsampled here)
 
 SAMPLER2D(s_ambientOcclusion, 7);
 
@@ -239,11 +242,21 @@ vec3 SurfaceNormal(vec3 N, vec3 T, vec3 B, vec2 uv)
 
 void main()
 {
-    vec3 N = SurfaceNormal(normalize(v_normal), v_tangent, v_bitangent, v_texcoord0);
     vec3 V = normalize(u_viewPos.xyz - v_worldPos);
 
     // Material inputs: factors multiplied by their textures
     vec4 baseColor = texture2D(s_albedo, v_texcoord0) * u_meshColor;
+
+    // Alpha mask (glTF MASK): cut out leaves, chains, fences
+    if (u_materialParams.z > 0.0 && baseColor.a < u_materialParams.z)
+        discard;
+
+    // Double-sided: a back face is lit as seen from its own side
+    vec3 geometryNormal = normalize(v_normal);
+    if (u_materialParams.w > 0.5 && dot(geometryNormal, V) < 0.0)
+        geometryNormal = -geometryNormal;
+
+    vec3 N = SurfaceNormal(geometryNormal, v_tangent, v_bitangent, v_texcoord0);
     vec4 metallicRoughness = texture2D(s_metallicRoughnessMap, v_texcoord0);
     float roughness = clamp(u_materialParams.y * metallicRoughness.g, 0.04, 1.0);
     float metallic = clamp(u_materialParams.x * metallicRoughness.b, 0.0, 1.0);
@@ -307,7 +320,7 @@ void main()
     result += emissive;
 
     // Output with gamma correction
-    // TODO: alpha modes (opaque, mask, blend)
+    // TODO: alpha blending (sorted transparent pass), opaque until then
     result = toGamma(result);
-    gl_FragColor = vec4(result, baseColor.a);
+    gl_FragColor = vec4(result, 1.0);
 }

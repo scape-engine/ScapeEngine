@@ -1,6 +1,7 @@
 #ifndef IMAGE_CACHE_H
 #define IMAGE_CACHE_H
 
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -9,7 +10,9 @@
 namespace Content {
 
 // Decoded images by key: a file path, or a generated key for images that
-// only exist inside another file (e.g. "model.glb#*0" for embedded textures)
+// only exist inside another file (e.g. "model.glb#*0" for embedded textures).
+// Thread safe: models load on a worker thread. References stay valid until
+// the image is evicted
 class ImageCache {
 public:
   static ImageCache& Instance();
@@ -29,6 +32,7 @@ public:
 
 private:
   ImageCache() = default;
+  mutable std::mutex mutex_;
   std::unordered_map<std::string, ImageData> cache_;
 };
 

@@ -1,5 +1,6 @@
 #include "mesh_cache.h"
 
+#include "engine/content/cache/material_cache.h"
 #include "engine/content/loaders/mesh_loader.h"
 #include "engine/core/logger.h"
 
@@ -15,7 +16,12 @@ const std::vector<Geometry::MeshData>& MeshCache::Get(const std::string& path) {
   if (it != cache_.end())
     return it->second;
 
-  auto mesh_data = MeshLoader::Load(path);
+  // One import for meshes and materials: Model::Load asks for both
+  std::vector<MaterialData> materials;
+  auto mesh_data = MeshLoader::Load(path, &materials);
+  if (!materials.empty())
+    MaterialCache::Instance().Put(path, std::move(materials));
+
   if (mesh_data.empty()) {
     Logger::getInstance().Log(LogLevel::Warning,
                               "[MeshCache] No mesh_data loaded from: " + path);

@@ -34,6 +34,14 @@ BillboardParams ToBillboardParams(const Viewport::GizmoSettings& settings) {
   return billboards;
 }
 
+ComponentGizmoParams ToComponentGizmoParams(
+    const Viewport::GizmoSettings& settings) {
+  ComponentGizmoParams params;
+  params.cameras = settings.camera_gizmos;
+  params.lights = settings.light_gizmos;
+  return params;
+}
+
 }  // namespace
 
 namespace Viewport {
@@ -44,6 +52,7 @@ void ApplySettings(const ViewportSettings& settings,
   pipeline.SetGridParams(ToGridParams(settings.grid));
   pipeline.SetShowGizmos(settings.gizmos.enabled);
   pipeline.SetBillboardParams(ToBillboardParams(settings.gizmos));
+  pipeline.SetComponentGizmoParams(ToComponentGizmoParams(settings.gizmos));
   pipeline.SetShowSelectionOutline(settings.gizmos.selection_outline);
   pipeline.SetWireframe(settings.view_mode == ViewMode::Wireframe);
   pipeline.SetUnlit(settings.view_mode == ViewMode::Unlit);

@@ -15,6 +15,7 @@
 #include "engine/memory/resource.h"
 
 #include "engine/renderer/model/mesh.h"
+#include "engine/renderer/texture/texture_registry.h"
 
 class Model : public Resource {
 public:
@@ -36,7 +37,9 @@ public:
 
   const Metrics& GetMetrics() const { return metrics_; }
 
-  // Resource pipeline for async loading
+  // Resource pipeline for async loading: parsing and texture decoding on the
+  // resource worker, then GPU upload on the render thread. Its textures are
+  // uploaded too, so registering its materials doesn't decode anything
   ResourcePipe Create() {
     return std::move(
         Pipe() >> BIND_TASK(Model, LoadData) >>
@@ -77,7 +80,7 @@ private:
 
   std::string source_path_;
 
-  //  Parse file, compute metrics
+  // Parse file (meshes and materials), compute metrics, decode textures
   bool LoadData();
 
   // Create BGFX resources
@@ -86,6 +89,7 @@ private:
   // Intermediate CPU data
   std::vector<Geometry::MeshData> mesh_data_;
   std::vector<Content::MaterialData> materials_;
+  std::vector<TextureRegistry::PendingTexture> textures_;
 
   // Final GPU mesh_data
   std::vector<std::unique_ptr<Mesh>> meshes_;

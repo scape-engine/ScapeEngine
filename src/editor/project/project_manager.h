@@ -63,6 +63,9 @@ public:
   const std::filesystem::path& ScenePath() const { return scene_path_; }
   // Name of the open scene, "Untitled" until it is saved
   std::string SceneName() const;
+  // True while models of the open scene load in the background (its
+  // entities are there, their meshes appear as each model finishes)
+  bool IsSceneLoading() const { return models_waiting_ > 0; }
   // Where a scene with the given name is saved (scenes/<name>.scene)
   std::filesystem::path ScenePathFromName(const std::string& name) const;
 
@@ -84,6 +87,9 @@ private:
   // Open scene, empty if it was never saved
   std::filesystem::path scene_path_;
   bool scene_dirty_ = false;
+
+  // Entities of the open scene still waiting on their model
+  size_t models_waiting_ = 0;
 };
 
 #endif  // PROJECT_MANAGER_H

@@ -34,6 +34,24 @@ std::unordered_map<uint32_t, bool> g_opened;
 // Top-left of the component currently being drawn
 ImVec2 g_component_top;
 
+//=============================================================================
+// VALUE LIMITS
+//=============================================================================
+
+// Upper bound for unbounded values (DragFloat can't clamp up to FLT_MAX)
+constexpr float max_value = 1.0e6f;
+
+// Camera (fov is vertical, in degrees)
+constexpr float min_fov = 1.0f;
+constexpr float max_fov = 179.0f;
+constexpr float min_near_plane = 0.01f;
+constexpr float min_plane_gap = 0.01f;  // between near and far
+
+// Lights
+constexpr float min_range = 0.01f;
+// From the axis: past 90 degrees a spot light lights behind itself
+constexpr float max_spot_angle = 89.0f;
+
 // Return pointer to opened state
 bool* _IsOpened(uint32_t component_id) {
   return &g_opened[component_id];
@@ -267,9 +285,13 @@ void DrawCamera(Entity entity, CameraComponent& camera) {
   if (_BeginComponent("Camera", 0, &camera.enabled_, &removed)) {
     _Headline("General");
 
-    IMComponents::Input("FOV", camera.fov_);
-    IMComponents::Input("Near", camera.near_plane_);
-    IMComponents::Input("Far", camera.far_plane_);
+    // Near stays in front of the camera and before far
+    IMComponents::Input("FOV", camera.fov_, 0.1f, min_fov, max_fov);
+    IMComponents::Input("Near", camera.near_plane_, 0.01f, min_near_plane,
+                        glm::max(camera.far_plane_ - min_plane_gap,
+                                 min_near_plane));
+    IMComponents::Input("Far", camera.far_plane_, 1.0f,
+                        camera.near_plane_ + min_plane_gap, max_value);
 
     _EndComponent();
   }
@@ -287,7 +309,8 @@ void DrawDirectionalLightComponent(
                       &removed)) {
     _Headline("Properties");
 
-    IMComponents::Input("Intensity", directional_light.intensity_);
+    IMComponents::Input("Intensity", directional_light.intensity_, 0.1f, 0.0f,
+                        max_value);
     IMComponents::ColorPicker("Color", directional_light.color_);
 
     _SpacingS();
@@ -317,7 +340,8 @@ void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight) {
   if (_BeginComponent("Skylight", 0, &skylight.enabled_, &removed)) {
     _Headline("Properties");
 
-    IMComponents::Input("Intensity", skylight.intensity_);
+    IMComponents::Input("Intensity", skylight.intensity_, 0.1f, 0.0f,
+                        max_value);
     IMComponents::ColorPicker("Color", skylight.color_);
 
     _SpacingS();
@@ -402,10 +426,13 @@ void DrawPointLightComponent(Entity entity, PointLightComponent& point_light) {
   if (_BeginComponent("Point Light", 0, &point_light.enabled_, &removed)) {
     _Headline("Properties");
 
-    IMComponents::Input("Intensity", point_light.intensity_);
+    IMComponents::Input("Intensity", point_light.intensity_, 0.1f, 0.0f,
+                        max_value);
     IMComponents::ColorPicker("Color", point_light.color_);
-    IMComponents::Input("Range", point_light.range_);
-    IMComponents::Input("Falloff", point_light.falloff_);
+    IMComponents::Input("Range", point_light.range_, 0.1f, min_range,
+                        max_value);
+    IMComponents::Input("Falloff", point_light.falloff_, 0.1f, 0.0f,
+                        max_value);
 
     _SpacingS();
     _Headline("Shadows");
@@ -434,12 +461,17 @@ void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight) {
   if (_BeginComponent("Spotlight", 0, &spotlight.enabled_, &removed)) {
     _Headline("Properties");
 
-    IMComponents::Input("Intensity", spotlight.intensity_);
+    IMComponents::Input("Intensity", spotlight.intensity_, 0.1f, 0.0f,
+                        max_value);
     IMComponents::ColorPicker("Color", spotlight.color_);
-    IMComponents::Input("Range", spotlight.range_);
-    IMComponents::Input("Falloff", spotlight.falloff_);
-    IMComponents::Input("Inner Angle", spotlight.inner_angle_);
-    IMComponents::Input("Outer Angle", spotlight.outer_angle_);
+    IMComponents::Input("Range", spotlight.range_, 0.1f, min_range,
+                        max_value);
+    IMComponents::Input("Falloff", spotlight.falloff_, 0.1f, 0.0f, max_value);
+    // Angles from the light's axis: inner stays within outer
+    IMComponents::Input("Inner Angle", spotlight.inner_angle_, 0.1f, 0.0f,
+                        spotlight.outer_angle_);
+    IMComponents::Input("Outer Angle", spotlight.outer_angle_, 0.1f,
+                        spotlight.inner_angle_, max_spot_angle);
 
     _SpacingS();
     _Headline("Shadows");

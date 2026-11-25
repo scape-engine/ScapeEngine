@@ -6,6 +6,7 @@
 #include <assimp/scene.h>
 #include <assimp/Importer.hpp>
 
+#include "engine/content/loaders/material_loader.h"
 #include "engine/core/logger.h"
 
 namespace Content {
@@ -90,7 +91,8 @@ SceneNode ProcessNodeHierarchy(const aiNode* node, const aiScene* scene,
 }
 }  // namespace
 
-std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
+std::vector<Geometry::MeshData> MeshLoader::Load(
+    const std::string& path, std::vector<MaterialData>* materials) {
   Assimp::Importer importer;
 
   // PreTransformVertices joins meshes that share a material by default;
@@ -124,6 +126,10 @@ std::vector<Geometry::MeshData> MeshLoader::Load(const std::string& path) {
 
   std::vector<Geometry::MeshData> mesh_data;
   ProcessNode(scene->mRootNode, scene, mesh_data);
+
+  // Same import, the vertex processing above doesn't change materials
+  if (materials)
+    *materials = MaterialLoader::ExtractMaterials(scene, path);
 
   Logger::getInstance().Log(LogLevel::Debug,
                             "[MeshLoader] Loaded " +

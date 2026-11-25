@@ -3,6 +3,7 @@
 #include <bgfx/bgfx.h>
 #include <bx/math.h>
 
+#include <array>
 #include <memory>
 #include <string>
 
@@ -14,6 +15,7 @@
 #include "engine/renderer/primitives/global_quad.h"
 #include "engine/renderer/skybox/skybox.h"
 #include "engine/renderer/texture/texture2d.h"
+#include "engine/time/time.h"
 
 namespace SkyLight {
 
@@ -48,6 +50,42 @@ std::string equirect_path;
 
 // Captured since the sky light was last enabled
 bool captured = false;
+
+// Real-time capture: recapture only when what it captures changed, and at
+// most this often. Each capture renders 6 faces, then prefilters every
+// roughness mip and projects the SH, so per-frame capture is expensive
+constexpr float REALTIME_INTERVAL = 0.1f;  // seconds
+float since_capture = 0.0f;
+
+// What a scene capture depends on: the sky's look (not its animation time,
+// which only moves stars and clouds) and the lower hemisphere settings
+using CaptureState = std::array<float, 20>;
+CaptureState captured_state{};
+
+CaptureState CurrentCaptureState(const Skybox& skybox,
+                                 const SkyLightComponent& light) {
+  const SkyboxParams& sky = skybox.GetParams();
+  return {sky._parametersArray[0],
+          sky._parametersArray[1],
+          sky._parametersArray[2],
+          sky._sunColorArray[0],
+          sky._sunColorArray[1],
+          sky._sunColorArray[2],
+          sky._sunColorArray[3],
+          sky._skyAmbientArray[0],
+          sky._skyAmbientArray[1],
+          sky._skyAmbientArray[2],
+          sky.sunDirShader[0],
+          sky.sunDirShader[1],
+          sky.sunDirShader[2],
+          light.lower_hemisphere_is_solid_color_ ? 1.0f : 0.0f,
+          light.lower_hemisphere_color_.r,
+          light.lower_hemisphere_color_.g,
+          light.lower_hemisphere_color_.b,
+          light.color_.r,
+          light.color_.g,
+          light.color_.b};
+}
 
 GraphicsRenderer& Graphics() {
   return static_cast<GraphicsRenderer&>(EngineContext::Renderer());
@@ -243,7 +281,16 @@ void Update(Skybox& skybox, SkyLightComponent& light) {
 
   // Real-time capture only applies to the scene, an image never changes
   const bool real_time = light.real_time_capture_ && !source_cubemap;
-  if (real_time || !captured || light.recapture_) {
+  bool recapture = !captured || light.recapture_;
+
+  // Real-time: follow the sky as it changes (e.g. the day cycle), throttled
+  const CaptureState state = CurrentCaptureState(skybox, light);
+  since_capture += static_cast<float>(Time::UnscaledDeltaf());
+  if (real_time && state != captured_state &&
+      since_capture >= REALTIME_INTERVAL)
+    recapture = true;
+
+  if (recapture) {
     if (source_cubemap) {
       CaptureCubemap(light);
     } else {
@@ -253,6 +300,8 @@ void Update(Skybox& skybox, SkyLightComponent& light) {
 
     captured = true;
     light.recapture_ = false;
+    captured_state = state;
+    since_capture = 0.0f;
   }
 
   auto& graphics = Graphics();

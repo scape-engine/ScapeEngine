@@ -27,6 +27,11 @@ const std::vector<MaterialData>& MaterialCache::Get(const std::string& path) {
   return emplace_it->second;
 }
 
+void MaterialCache::Put(const std::string& path,
+                        std::vector<MaterialData> materials) {
+  cache_[path] = std::move(materials);
+}
+
 void MaterialCache::Evict(const std::string& path) {
   cache_.erase(path);
 }

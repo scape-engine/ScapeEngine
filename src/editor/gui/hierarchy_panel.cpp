@@ -13,6 +13,7 @@
 
 #include "editor/events.h"
 
+#include "editor/gui/components/im_components.h"
 #include "editor/gui/icons/component_icons.h"
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/gui/inspector_panel.h"
@@ -484,11 +485,26 @@ bool HierarchyPanel::RenderItemIcons(ImDrawList& draw_list, HierarchyItem& item,
             item.visible ? ICON_FA_EYE : ICON_FA_EYE_SLASH,
             item.visible ? EditorColor::text : EditorColor::text_disabled);
 
-  // Data icon (component type, green) — non-interactive for now
+  // Data icon (component type, green) — non-interactive for now. A spinner
+  // while the entity's model loads
+  const Entity entity = item.entity.Handle();
+  ECS& ecs = ECS::Main();
+  const bool loading =
+      Runtime::Project().IsSceneLoading() &&
+      (ecs.Has<PendingModelComponent>(entity) ||
+       (ecs.Has<MeshRendererComponent>(entity) &&
+        !ecs.Get<MeshRendererComponent>(entity).mesh_));
   const char* data_icon = EntityDataIcon(item);
-  if (data_icon)
+  if (loading) {
+    const ImVec2 min = slot_min(2);
+    IMComponents::Spinner(
+        draw_list,
+        ImVec2(min.x + icon_slot_ * 0.5f, min.y + row_height_ * 0.5f),
+        row_height_ * 0.22f, EditorColor::accent_border);
+  } else if (data_icon) {
     DrawGlyph(draw_list, slot_min(2), ImVec2(icon_slot_, row_height_),
               data_icon, EditorColor::success);
+  }
 
   return any_clicked;
 }
@@ -663,6 +679,11 @@ void HierarchyPanel::RenderPopupMenu() {
       if (PopupMenu::ItemLight("Spotlight"))
         CreateEntity("Spotlight",
                      [](Entity e) { ECS::Main().Add<SpotlightComponent>(e); });
+      // Only one sky light is used per scene
+      if (PopupMenu::ItemLight("Sky Light"))
+        CreateEntity("Sky Light", [](Entity e) {
+          ECS::Main().Add<SkyLightComponent>(e).real_time_capture_ = true;
+        });
 
       PopupMenu::EndMenu();
     }

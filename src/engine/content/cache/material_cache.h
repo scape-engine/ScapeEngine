@@ -14,6 +14,9 @@ public:
   static MaterialCache& Instance();
 
   const std::vector<MaterialData>& Get(const std::string& path);
+
+  // Store materials extracted elsewhere (MeshCache imports both at once)
+  void Put(const std::string& path, std::vector<MaterialData> materials);
   void Evict(const std::string& path);
   void Clear();
 

@@ -4,6 +4,7 @@
 #include "engine/content/cache/mesh_cache.h"
 
 #include "engine/core/logger.h"
+#include "engine/renderer/material/material_registry.h"
 
 Model::Model()
     : metrics_(), source_path_(), mesh_data_(), meshes_(), materials_() {}
@@ -44,7 +45,7 @@ std::shared_ptr<Model> Model::Load(const std::string& file) {
 }
 
 bool Model::LoadData() {
-  auto mesh_data = Content::MeshLoader::Load(source_path_);
+  auto mesh_data = Content::MeshLoader::Load(source_path_, &materials_);
 
   if (mesh_data.empty()) {
     Logger::getInstance().Log(
@@ -58,6 +59,7 @@ bool Model::LoadData() {
 
   // Store for upload phase
   mesh_data_ = std::move(mesh_data);
+  textures_ = MaterialRegistry::Instance().PrepareTextures(materials_);
 
   Logger::getInstance().Log(
       LogLevel::Debug, "[Model] Data loaded: " + source_path_ +
@@ -113,6 +115,9 @@ bool Model::UploadBuffers() {
   for (auto& md : mesh_data_)
     meshes_.emplace_back(std::make_unique<Mesh>(md));
 
+  TextureRegistry::Instance().Upload(std::move(textures_));
+  textures_.clear();
+
   // Free intermediate CPU data
   mesh_data_.clear();
 
@@ -167,5 +172,6 @@ const std::vector<Content::MaterialData>& Model::GetMaterials() const {
 void Model::Destroy() {
   meshes_.clear();
   mesh_data_.clear();
+  textures_.clear();
   metrics_ = Metrics{};
 }

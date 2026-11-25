@@ -30,6 +30,12 @@ struct BillboardParams {
   bool depth_aware = false;
 };
 
+// Component shapes drawn for the selected entity
+struct ComponentGizmoParams {
+  bool cameras = true;  // frustum
+  bool lights = true;   // direction and reach
+};
+
 class SceneViewPipeline {
 public:
   SceneViewPipeline();
@@ -57,6 +63,9 @@ public:
   void SetGridParams(const GridParams& params) { grid_params_ = params; }
   void SetBillboardParams(const BillboardParams& params) {
     billboard_params_ = params;
+  }
+  void SetComponentGizmoParams(const ComponentGizmoParams& params) {
+    component_gizmo_params_ = params;
   }
 
   // Pipeline settings
@@ -151,6 +160,9 @@ private:
 
   // Scene icon settings
   BillboardParams billboard_params_;
+
+  // Selected entity's component shapes
+  ComponentGizmoParams component_gizmo_params_;
 
   // Screen space ambient occlusion of the sky light
   PrePass pre_pass_;

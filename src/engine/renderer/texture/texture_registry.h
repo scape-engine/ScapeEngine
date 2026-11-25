@@ -8,6 +8,8 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "engine/renderer/texture/texture2d.h"
 
@@ -25,6 +27,27 @@ public:
   // first use. INVALID_TEXTURE if the key is empty or the image can't load
   TextureId Acquire(const std::string& key, TextureType type,
                     uint64_t sampler_flags = BGFX_SAMPLER_NONE);
+
+  // A texture decoded and ready to upload, see Prepare
+  struct PendingTexture {
+    std::string key;
+    std::string id_key;
+    TextureType type = TextureType::EMPTY;
+    bool cached = false;         // image already in the ImageCache
+    Content::ImageData decoded;  // decoded by Prepare otherwise
+    TextureUpload upload;
+  };
+
+  // Many textures at once, much faster than Acquire one by one for a whole
+  // model; Acquire then finds them. Prepare is the CPU half, safe on any
+  // thread: decodes the images and builds their mips in parallel, skipping
+  // uploaded ones
+  std::vector<PendingTexture> Prepare(
+      const std::vector<std::pair<std::string, TextureType>>& textures);
+
+  // The GPU half: uploads prepared textures (render API thread only)
+  void Upload(std::vector<PendingTexture> textures,
+              uint64_t sampler_flags = BGFX_SAMPLER_NONE);
 
   // GPU handle, invalid for unknown ids
   bgfx::TextureHandle Get(TextureId id) const;

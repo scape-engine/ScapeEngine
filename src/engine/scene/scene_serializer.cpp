@@ -3,6 +3,7 @@
 // Scene format (version 1):
 // { "version": 1, "entities": [ { "name", "parent": <index|-1>, "position",
 //   "rotation", "euler", "scale", "<component>": {...} } ] }
+// "model": {"source"} is a model that was still loading when saved
 // Parents are always written before their children.
 // ---------------------------------------------------------------------------
 
@@ -125,10 +126,20 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
 
     if (world.Has<MeshRendererComponent>(entity)) {
       const auto& renderer = world.Get<MeshRendererComponent>(entity);
-      out["mesh_renderer"] = {{"source", renderer.source_},
+      // Older scenes stored absolute model paths: written relative from now
+      // on. "primitive:<shape>" sources aren't file paths and stay as is
+      const std::string source = fs::path(renderer.source_).is_absolute()
+                                     ? _Relative(renderer.source_, root)
+                                     : renderer.source_;
+      out["mesh_renderer"] = {{"source", source},
                               {"mesh_index", renderer.mesh_index_},
                               {"enabled", renderer.enabled_}};
     }
+
+    // Saved while its model was still loading: loads as pending again
+    if (world.Has<PendingModelComponent>(entity))
+      out["model"] = {
+          {"source", world.Get<PendingModelComponent>(entity).source_}};
 
     entities.push_back(std::move(out));
 
@@ -193,6 +204,10 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
         renderer.mesh_index_ = it->value("mesh_index", 0u);
         renderer.enabled_ = it->value("enabled", true);
       }
+
+      if (auto it = in.find("model"); it != in.end())
+        world.Add<PendingModelComponent>(
+            entity, PendingModelComponent{it->value("source", std::string())});
 
       created.push_back(entity);
     }

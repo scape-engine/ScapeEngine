@@ -21,8 +21,10 @@ public:
   void Shutdown();
   void ResetSamples();
 
-  std::optional<ProcModel::InstanceData> GenerateInstance(
-      const std::string& descriptor_path, uint64_t seed);
+  // Instance of a loaded archetype (see LoadArchetype), nullopt while it
+  // loads or if generation fails
+  std::optional<ProcModel::InstanceData> GenerateInstance(ResourceID archetype,
+                                                          uint64_t seed);
 
   // TODO: Add logic to instantiate deformation (missing)
   ModelInstantiator::InstantiateResult SpawnInstance(
@@ -36,7 +38,13 @@ public:
 
   ValidationLogger& ValidationLog();
 
+  // Starts loading the archetype in the background (cached by path) and
+  // returns its resource right away. Usable once the ProcModelResource
+  // IsResolved(); a failed load is retried on the next call
   ResourceID LoadArchetype(const std::string& descriptor_path);
+
+  // Loads the descriptor again, e.g. after it was edited and saved
+  ResourceID ReloadArchetype(const std::string& descriptor_path);
 
 private:
   PCG::OperationRegistry operation_registry_;

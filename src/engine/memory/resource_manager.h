@@ -41,6 +41,7 @@ public:
                   "Type must inherit from Resource");
 
     ResourceID id = ++id_counter_;
+    std::lock_guard lock(mtx_resources_);
     auto result = resources_.emplace(
         id, std::make_shared<T>(std::forward<Args>(args)...));
     auto& resource = result.first->second;
@@ -51,6 +52,7 @@ public:
 
   // Get resource by ID
   ResourceRef<Resource> GetResource(ResourceID id) {
+    std::lock_guard lock(mtx_resources_);
     auto it = resources_.find(id);
     return (it != resources_.end()) ? it->second : nullptr;
   }
@@ -61,6 +63,7 @@ public:
     static_assert(std::is_base_of<Resource, T>::value,
                   "Type must inherit from Resource");
 
+    std::lock_guard lock(mtx_resources_);
     auto it = resources_.find(id);
     return (it != resources_.end()) ? std::static_pointer_cast<T>(it->second)
                                     : nullptr;
@@ -97,8 +100,9 @@ private:
   // Resource ID counter
   std::atomic<ResourceID> id_counter_;
 
-  // Resource registry
+  // Resource registry, also read by the processor thread
   std::unordered_map<ResourceID, ResourceRef<Resource>> resources_;
+  std::mutex mtx_resources_;
 
   // Async processing
   ConcurrentQueue<std::unique_ptr<ResourcePipe>> async_pipes_;

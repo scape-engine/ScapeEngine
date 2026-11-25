@@ -25,11 +25,12 @@ void GizmosMenu(GizmoSettings& settings) {
   IMComponents::PopupCheckbox("Camera", &settings.billboard_camera, false);
   IMComponents::PopupCheckbox("Light", &settings.billboard_light, false);
 
-  // Roadmap: needs ComponentGizmos shape drawing (frustums, ranges, bounds)
+  // Shapes of the selected entity's components
+  // Roadmap: model bounds and sound ranges
   IMComponents::PopupSection("Component Gizmos");
-  IMComponents::PopupCheckbox("Camera Gizmos", &settings.camera_gizmos, false);
+  IMComponents::PopupCheckbox("Camera Gizmos", &settings.camera_gizmos);
   IMComponents::PopupCheckbox("Model Gizmos", &settings.model_gizmos, false);
-  IMComponents::PopupCheckbox("Light Gizmos", &settings.light_gizmos, false);
+  IMComponents::PopupCheckbox("Light Gizmos", &settings.light_gizmos);
   IMComponents::PopupCheckbox("Sound Gizmos", &settings.sound_gizmos, false);
 }
 

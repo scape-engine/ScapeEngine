@@ -21,7 +21,9 @@ void TestSceneSerializer() {
     auto& renderer = ecs.Add<MeshRendererComponent>(child);
     renderer.source_ = "models/tower.glb";
     renderer.mesh_index_ = 2;
-    ecs.CreateEntity("Second");
+    auto [second, second_transform] = ecs.CreateEntity("Second");
+    ecs.Add<PendingModelComponent>(second,
+                                   PendingModelComponent{"models/sponza.gltf"});
   }
 
   const nlohmann::json scene = SceneSerializer::Serialize(ecs, "/project");
@@ -50,6 +52,12 @@ void TestSceneSerializer() {
     }
   }
   assert(count == 3);
+
+  // A model still loading when saved loads as pending again
+  auto pending = loaded.View<PendingModelComponent>();
+  assert(pending.size() == 1);
+  assert(loaded.Get<PendingModelComponent>(pending.front()).source_ ==
+         "models/sponza.gltf");
 
   // Unknown versions are rejected without touching the ECS
   assert(!SceneSerializer::Deserialize(loaded, {{"version", 99}}, "/project"));

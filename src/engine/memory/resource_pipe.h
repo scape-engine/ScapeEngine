@@ -53,15 +53,20 @@ using NextTask = std::optional<ResourceTask>;
 class ResourcePipe {
 public:
   ResourcePipe(ResourcePipe&& other) noexcept
-      : owner_id_(other.owner_id_), tasks_(std::move(other.tasks_)) {
+      : owner_id_(other.owner_id_),
+        tasks_(std::move(other.tasks_)),
+        activity_(other.activity_) {
     other.owner_id_ = 0;
+    other.activity_ = 0;
   }
 
   ResourcePipe& operator=(ResourcePipe&& other) noexcept {
     if (this != &other) {
       owner_id_ = other.owner_id_;
       tasks_ = std::move(other.tasks_);
+      activity_ = other.activity_;
       other.owner_id_ = 0;
+      other.activity_ = 0;
     }
     return *this;
   }
@@ -90,14 +95,19 @@ public:
 
 private:
   friend class Resource;
+  friend class ResourceManager;
 
-  explicit ResourcePipe(uint32_t owner_id) : owner_id_(owner_id), tasks_() {}
+  explicit ResourcePipe(uint32_t owner_id)
+      : owner_id_(owner_id), tasks_(), activity_(0) {}
 
   // Resource ID that owns this pipe
   uint32_t owner_id_;
 
   // Task queue
   std::queue<ResourceTask> tasks_;
+
+  // Diagnostics task shown while the pipe is queued or running
+  uint64_t activity_;
 };
 
 #endif  // RESOURCE_PIPE_H

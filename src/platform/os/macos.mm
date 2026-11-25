@@ -39,7 +39,8 @@ void SetupBGFXPlatformData(bgfx::Init& init, SDL_Window* window) {
   GetDrawableSize(window, &dw, &dh);
   init.resolution.width = dw;
   init.resolution.height = dh;
-  init.resolution.reset = BGFX_RESET_VSYNC;
+  // Max anisotropy: anisotropic samplers use the device's highest level
+  init.resolution.reset = BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY;
 
   SDL_SysWMinfo wmi;
   SDL_VERSION(&wmi.version);

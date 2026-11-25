@@ -6,6 +6,7 @@
 #include "engine/memory/resource.h"
 
 #include "engine/pcg/pipeline/linear_pipeline.h"
+#include "engine/pcg/pipeline/operation_registry.h"
 #include "engine/pcg/pipeline/pipeline_descriptor.h"
 
 #include "engine/pcg/procmodel/descriptor/model_descriptor.h"
@@ -18,6 +19,22 @@ namespace ProcModel {
 class ProcModelResource : public Resource {
 public:
   ProcModelResource() = default;
+
+  // Set the descriptor to load, and the operations its pipeline compiles to
+  void SetSource(const std::string& descriptor_path,
+                 const PCG::OperationRegistry& registry) {
+    descriptor_path_ = descriptor_path;
+    registry_ = &registry;
+  }
+
+  // Resource pipeline for async loading: descriptor parsing, model import,
+  // graph building, resolving and pipeline compilation on the resource
+  // worker, then mesh upload on the render thread. Resolved once done
+  ResourcePipe Create() {
+    return std::move(Pipe() >> BIND_TASK(ProcModelResource, LoadData) >>
+                     BIND_TASK_WITH_FLAGS(ProcModelResource, UploadMeshes,
+                                          TaskFlags::UseRenderThread));
+  }
 
   ModelGraph& GetGraph() { return graph_; }
   const ModelGraph& GetGraph() const { return graph_; }
@@ -49,6 +66,12 @@ public:
   std::string GetName() const { return descriptor_.model_id; }
 
 private:
+  bool LoadData();
+  bool UploadMeshes();
+
+  std::string descriptor_path_;
+  const PCG::OperationRegistry* registry_ = nullptr;
+
   ModelGraph graph_;
   ModelDescriptor descriptor_;
   bool resolved_ = false;

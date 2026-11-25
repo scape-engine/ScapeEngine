@@ -1,5 +1,5 @@
-$input a_position, a_normal
-$output v_viewNormal, v_viewDepth
+$input a_position, a_normal, a_texcoord0
+$output v_viewNormal, v_viewDepth, v_texcoord0, v_viewPos
 
 #include <bgfx_shader.sh>
 
@@ -10,6 +10,8 @@ void main()
     // For uniform scale, transpose(inverse(modelView)) ≈ modelView
     v_viewNormal = mul(u_modelView, vec4(a_normal, 0.0)).xyz;
     v_viewDepth = viewPos.z;
+    v_viewPos = viewPos.xyz;
+    v_texcoord0 = a_texcoord0;
 
     gl_Position = mul(u_modelViewProj, vec4(a_position, 1.0));
 }

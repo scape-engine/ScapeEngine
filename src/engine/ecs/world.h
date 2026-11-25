@@ -13,6 +13,7 @@
 #include "engine/ecs/components/camera_component.h"
 #include "engine/ecs/components/light_component.h"
 #include "engine/ecs/components/mesh_renderer_component.h"
+#include "engine/ecs/components/pending_model_component.h"
 #include "engine/ecs/components/transform_component.h"
 
 using Entity = entt::entity;

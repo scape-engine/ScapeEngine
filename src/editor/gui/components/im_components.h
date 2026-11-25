@@ -41,7 +41,9 @@ void TryIcon(const char* icon, ImU32 color, float y_padding = 2.5f);
 
 void Input(std::string label, bool& value);
 void Input(std::string label, int32_t& value, float speed = 0.1f);
-void Input(std::string label, float& value, float speed = 0.1f);
+// min < max keeps the value in range, also when typed in
+void Input(std::string label, float& value, float speed = 0.1f,
+           float min = 0.0f, float max = 0.0f);
 void Input(std::string label, glm::vec3& value, float speed = 0.1f);
 
 void IndicatorLabel(std::string label, std::string value,
@@ -82,6 +84,9 @@ bool IconButton(const char* icon, ImDrawList& draw_list, ImVec2 position,
                 ImVec2 offset = ImVec2(-1.0f, 2.0f),
                 ImU32 color = IM_COL32(0, 0, 0, 0),
                 ImU32 hovered_color = IM_COL32(65, 65, 80, 120));
+
+// Rotating arc, for work in progress
+void Spinner(ImDrawList& draw_list, ImVec2 center, float radius, ImU32 color);
 
 // Icon centered in a slot: IconLoader PNG if icon_id is set, else font glyph
 void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,

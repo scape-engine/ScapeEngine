@@ -6,6 +6,7 @@
 #include "engine/core/logger.h"
 #include "engine/core/view_ids.h"
 #include "engine/ecs/world.h"
+#include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
 
 PrePass::PrePass()
@@ -55,16 +56,24 @@ void PrePass::Render(const glm::mat4& view, const glm::mat4& projection,
   bgfx::touch(ViewID::PRE_PASS);
 
   // Render every mesh (transforms must have been evaluated beforehand)
+  MaterialRegistry& materials = MaterialRegistry::Instance();
   for (auto [entity, transform, renderer] : ECS::Main().GetRenderQueue()) {
     if (!renderer.enabled_ || !renderer.mesh_)
       continue;
 
+    // The alpha mask's inputs (base color and cutoff)
+    // ponytail: binds the whole material per draw, bind only stage 0 and the
+    // params if this shows up in profiles
+    materials.Bind(renderer.material_);
+
     bgfx::setTransform(glm::value_ptr(transform.model_));
     renderer.mesh_->Bind();
 
+    const uint64_t cull = materials.IsDoubleSided(renderer.material_)
+                              ? 0
+                              : BGFX_STATE_CULL_CW;
     bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                   BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
-                   BGFX_STATE_CULL_CW);
+                   BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS | cull);
     bgfx::submit(ViewID::PRE_PASS, program_);
   }
 }

@@ -4,17 +4,11 @@
 
 #include "engine/core/logger.h"
 
-#include "engine/content/io/json.h"
-#include "engine/content/loaders/mesh_loader.h"
 #include "engine/context/engine_context.h"
+#include "engine/ecs/world.h"
 
-#include "engine/pcg/pipeline/linear_pipeline.h"
-#include "engine/pcg/pipeline/pipeline_descriptor_parser.h"
 
-#include "engine/pcg/procmodel/descriptor/model_descriptor_parser.h"
-#include "engine/pcg/procmodel/generator/descriptor_resolver.h"
 #include "engine/pcg/procmodel/generator/model_generator.h"
-#include "engine/pcg/procmodel/model_graph/model_graph_builder.h"
 #include "engine/pcg/procmodel/procmodel_resource.h"
 #include "engine/pcg/procmodel/validation/procmodel_evaluation.h"
 
@@ -35,101 +29,68 @@ void Subsystem::Init() {
 }
 
 ResourceID Subsystem::LoadArchetype(const std::string& descriptor_path) {
-  auto cache_it = procmodel_cache_.find(descriptor_path);
-  if (cache_it != procmodel_cache_.end())
-    return cache_it->second;
-
   auto& resource_mgr = EngineContext::resourceManager();
 
-  auto [id, resource] =
-      resource_mgr.Create<ProcModel::ProcModelResource>(descriptor_path);
-
-  auto json_opt = Content::ReadJsonFile(descriptor_path);
-  if (!json_opt) {
-    resource_mgr.Release(id);
-    return 0;
+  auto cache_it = procmodel_cache_.find(descriptor_path);
+  if (cache_it != procmodel_cache_.end()) {
+    // A failed load is retried: the descriptor may have been fixed since
+    auto cached = resource_mgr.GetResource(cache_it->second);
+    if (cached && cached->GetState() != ResourceState::FAILED)
+      return cache_it->second;
+    procmodel_cache_.erase(cache_it);
   }
 
-  if (!ProcModel::ModelDescriptorParser::FromJson(*json_opt,
-                                                  resource->GetDescriptor())) {
-    Logger::getInstance().Log(
-        LogLevel::Error, "[ProcModel::Subsystem] Failed to parse descriptor: " +
-                             descriptor_path);
-    resource_mgr.Release(id);
-    return 0;
-  }
+  // Named after the file: the status bar shows "Loading <name>"
+  auto [id, resource] = resource_mgr.Create<ProcModel::ProcModelResource>(
+      std::filesystem::path(descriptor_path).filename().string());
+  resource->SetSource(descriptor_path, operation_registry_);
+  resource_mgr.Execute(resource->Create());  // sets FAILED if it can't queue
 
-  PCG::ParsePipelineDescriptor(*json_opt, resource->GetPipelineDescriptor());
-
-  const auto& descriptor = resource->GetDescriptor();
-  Content::SceneData scene = Content::MeshLoader::LoadScene(descriptor.path);
-  if (scene.mesh_data.empty()) {
-    Logger::getInstance().Log(
-        LogLevel::Error,
-        "[ProcModel::Subsystem] Failed to load scene: " + descriptor.path);
-    resource_mgr.Release(id);
-    return 0;
-  }
-
-  resource->GetGraph() =
-      ProcModel::ModelGraphBuilder::Build(scene, descriptor.path);
-
-  if (!resource->GetGraph().UploadMeshes()) {
-    Logger::getInstance().Log(LogLevel::Error,
-                              "[ProcModel::Subsystem] Failed to upload meshes");
-    resource_mgr.Release(id);
-    return 0;
-  }
-
-  auto resolve_result = ProcModel::DescriptorResolver::Resolve(
-      resource->GetGraph(), resource->GetDescriptor());
-  if (!resolve_result.success) {
-    Logger::getInstance().Log(
-        LogLevel::Error, "[ProcModel::Subsystem] Descriptor resolution failed");
-    resource_mgr.Release(id);
-    return 0;
-  }
-
-  {
-    std::vector<std::string> errors;
-    auto compiled = PCG::LinearPipeline::Compile(
-        resource->GetPipelineDescriptor(), operation_registry_, errors);
-    Logger::getInstance().Log(
-        LogLevel::Info,
-        "[ProcModel::Subsystem] Pipeline compiled with " +
-            std::to_string(resource->GetPipelineDescriptor().entries.size()) +
-            " entries");
-    if (!compiled) {
-      for (const auto& err : errors) {
-        Logger::getInstance().Log(
-            LogLevel::Error,
-            "[ProcModel::Subsystem] Pipeline compilation: " + err);
-      }
-      resource_mgr.Release(id);
-      return 0;
-    }
-    resource->GetPipeline() = std::move(*compiled);
-  }
-
-  resource->SetResolved(true);
   procmodel_cache_[descriptor_path] = id;
   return id;
 }
 
-std::optional<ProcModel::InstanceData> Subsystem::GenerateInstance(
-    const std::string& descriptor_path, uint64_t seed) {
-  ResourceID resource_id = LoadArchetype(descriptor_path);
-  if (resource_id == 0)
-    return std::nullopt;
+// True if a mesh renderer draws one of the graph's GPU meshes (entities
+// created by SpawnInstance point at them)
+static bool _MeshesInUse(const ModelGraph& graph) {
+  for (auto [entity, renderer] :
+       ECS::Main().View<MeshRendererComponent>().each()) {
+    for (const auto& mesh : graph.gpu_meshes) {
+      if (renderer.mesh_ == mesh.get())
+        return true;
+    }
+  }
+  return false;
+}
 
+ResourceID Subsystem::ReloadArchetype(const std::string& descriptor_path) {
+  auto it = procmodel_cache_.find(descriptor_path);
+  if (it != procmodel_cache_.end()) {
+    auto& resource_mgr = EngineContext::resourceManager();
+    auto previous =
+        resource_mgr.GetResourceAs<ProcModel::ProcModelResource>(it->second);
+
+    // Released unless the worker is still loading it, or spawned entities
+    // still draw its meshes
+    // ponytail: a kept one stays until shutdown, refcount the meshes if
+    // spawning from edited archetypes becomes common
+    const bool loading =
+        previous && (previous->GetState() == ResourceState::QUEUED ||
+                     previous->GetState() == ResourceState::LOADING);
+    if (previous && !loading && !_MeshesInUse(previous->GetGraph()))
+      resource_mgr.Release(it->second);
+    procmodel_cache_.erase(it);
+  }
+  return LoadArchetype(descriptor_path);
+}
+
+std::optional<ProcModel::InstanceData> Subsystem::GenerateInstance(
+    ResourceID archetype, uint64_t seed) {
   auto& resource_mgr = EngineContext::resourceManager();
   auto resource =
-      resource_mgr.GetResourceAs<ProcModel::ProcModelResource>(resource_id);
-  if (!resource || !resource->IsResolved()) {
-    Logger::getInstance().Log(LogLevel::Error,
-                              "[ProcModel::Subsystem] Resource not ready");
-    return std::nullopt;
-  }
+      resource_mgr.GetResourceAs<ProcModel::ProcModelResource>(archetype);
+  if (!resource || !resource->IsResolved())
+    return std::nullopt;  // still loading in the background, or failed
 
   std::vector<ProcModelSample> attempt_samples;
   auto output = ProcModel::ModelGenerator::Generate(
@@ -155,9 +116,6 @@ std::optional<ProcModel::InstanceData> Subsystem::GenerateInstance(
   return output;
 }
 
-// TODO: move load/build/resolve steps into a background ResourcePipe task,
-// and the GPU upload into a UseRenderThread task. This will be needed
-// so the pipeline doesn't block the frame
 // TODO: Instantiate() currently ignores InstanceData::instance_geometry,
 // so ECS-instantiated entities render undeformed source meshes.
 // We need to wire instance_geometry through Instantiate when scene placement
@@ -173,8 +131,9 @@ ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
   auto resource =
       resource_mgr.GetResourceAs<ProcModel::ProcModelResource>(resource_id);
   if (!resource || !resource->IsResolved()) {
-    Logger::getInstance().Log(LogLevel::Error,
-                              "[ProcModel::Subsystem] Resource not ready");
+    Logger::getInstance().Log(
+        LogLevel::Warning,
+        "[ProcModel::Subsystem] Archetype still loading: " + descriptor_path);
     return {};
   }
 

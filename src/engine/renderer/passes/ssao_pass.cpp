@@ -55,11 +55,18 @@ void SSAOPass::Render(const AmbientOcclusionSettings& settings,
       !bgfx::isValid(normal_input) || !bgfx::isValid(depth_input))
     return;
 
-  // Follow the pre-pass size
-  if (target_width != target_width_ || target_height != target_height_) {
+  // Follow the pre-pass size, at a fraction of its resolution
+  const auto reduce = [](uint16_t size) {
+    return uint16_t((size + kResolutionDivisor - 1) / kResolutionDivisor);
+  };
+  const uint16_t ao_target_width = reduce(target_width);
+  const uint16_t ao_target_height = reduce(target_height);
+  if (ao_target_width != target_width_ || ao_target_height != target_height_) {
     DestroyTargets();
-    CreateTargets(target_width, target_height);
+    CreateTargets(ao_target_width, ao_target_height);
   }
+  const uint16_t ao_width = reduce(width);
+  const uint16_t ao_height = reduce(height);
 
   if (!bgfx::isValid(ao_fbo_) || !bgfx::isValid(blur_fbo_))
     return;
@@ -74,16 +81,21 @@ void SSAOPass::Render(const AmbientOcclusionSettings& settings,
                            settings.power};
   const float projection_params[4] = {projection[0][0], projection[1][1], 0.0f,
                                       0.0f};
-  // NDC y grows with the pixel row only on bottom left origin backends
-  const float screen[4] = {1.0f / float(target_width_),
-                           1.0f / float(target_height_),
-                           bgfx::getCaps()->originBottomLeft ? 1.0f : -1.0f,
-                           1.0f / float(noise_resolution_)};
+  // NDC y grows with the pixel row only on bottom left origin backends.
+  // xy maps an AO pixel to the pre-pass inputs (full resolution)
+  const float ndc_y_sign = bgfx::getCaps()->originBottomLeft ? 1.0f : -1.0f;
+  const float screen[4] = {float(kResolutionDivisor) / float(target_width),
+                           float(kResolutionDivisor) / float(target_height),
+                           ndc_y_sign, 1.0f / float(noise_resolution_)};
+  // The blur reads the AO target itself
+  const float blur_screen[4] = {1.0f / float(target_width_),
+                                1.0f / float(target_height_), ndc_y_sign,
+                                1.0f / float(noise_resolution_)};
   const uint32_t point_clamp =
       BGFX_SAMPLER_POINT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
 
   // Ambient occlusion pass
-  bgfx::setViewRect(ViewID::SSAO, 0, 0, width, height);
+  bgfx::setViewRect(ViewID::SSAO, 0, 0, ao_width, ao_height);
   bgfx::setViewFrameBuffer(ViewID::SSAO, ao_fbo_);
   bgfx::setUniform(graphics.GetSSAOKernelUniform(), kernel_.data(),
                    uint16_t(kernel_.size()));
@@ -98,9 +110,9 @@ void SSAOPass::Render(const AmbientOcclusionSettings& settings,
   GlobalQuad::Submit(ViewID::SSAO, ao_program_);
 
   // Blur pass: separate target, it can't read the one it writes
-  bgfx::setViewRect(ViewID::SSAO_BLUR, 0, 0, width, height);
+  bgfx::setViewRect(ViewID::SSAO_BLUR, 0, 0, ao_width, ao_height);
   bgfx::setViewFrameBuffer(ViewID::SSAO_BLUR, blur_fbo_);
-  bgfx::setUniform(graphics.GetSSAOScreenUniform(), screen);
+  bgfx::setUniform(graphics.GetSSAOScreenUniform(), blur_screen);
   bgfx::setTexture(0, graphics.GetSSAOInputSamplerUniform(),
                    bgfx::getTexture(ao_fbo_), point_clamp);
   GlobalQuad::Submit(ViewID::SSAO_BLUR, blur_program_);
@@ -112,6 +124,13 @@ bgfx::TextureHandle SSAOPass::GetOutput() const {
     return invalid;
   }
   return bgfx::getTexture(blur_fbo_);
+}
+
+glm::vec2 SSAOPass::GetOutputPixelScale() const {
+  if (target_width_ == 0 || target_height_ == 0)
+    return glm::vec2(0.0f);
+  return glm::vec2(1.0f / float(target_width_ * kResolutionDivisor),
+                   1.0f / float(target_height_ * kResolutionDivisor));
 }
 
 std::vector<glm::vec4> SSAOPass::GenerateKernel() {

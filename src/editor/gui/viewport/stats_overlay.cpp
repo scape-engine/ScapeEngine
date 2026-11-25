@@ -36,6 +36,8 @@ void StatsOverlay(ImVec2 canvas_min, ImVec2 canvas_size, float camera_speed,
     visible = !visible;
     PostAction(visible ? "Stats on" : "Stats off", "F3");
   }
+  // Per-pass timings cost GPU queries, only measured while shown
+  Diagnostics::SetPassTimingsEnabled(visible);
   if (!visible)
     return;
 
@@ -69,6 +71,19 @@ void StatsOverlay(ImVec2 canvas_min, ImVec2 canvas_size, float camera_speed,
   ImGui::Text("Viewport  %ux%u", static_cast<unsigned>(stats.viewport_w),
               static_cast<unsigned>(stats.viewport_h));
   ImGui::Text("Cam speed %8.1f", camera_speed);
+
+  // Where the frame goes. GPU time when the backend has per-view timers,
+  // otherwise the CPU time spent submitting the pass
+  if (stats.pass_count > 0) {
+    ImGui::Spacing();
+    for (int i = 0; i < stats.pass_count; ++i) {
+      const Diagnostics::PassTiming& pass = stats.passes[i];
+      if (pass.gpu_ms > 0.0f)
+        ImGui::Text("%-9s %8.2f ms", pass.name, pass.gpu_ms);
+      else
+        ImGui::Text("%-9s %8.2f ms cpu", pass.name, pass.cpu_ms);
+    }
+  }
 
   IMComponents::EndOverlay(kPadding);
   ImGui::PopStyleVar();

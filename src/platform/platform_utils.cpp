@@ -26,7 +26,7 @@ void RefreshFramebufferSize(SDL_Window* win) {
   if (dw == 0 || dh == 0)  // window is minimised or off-screen
     return;                // skip reset
 
-  bgfx::reset(dw, dh, BGFX_RESET_VSYNC);
+  bgfx::reset(dw, dh, BGFX_RESET_VSYNC | BGFX_RESET_MAXANISOTROPY);
 
   const float scale = GetFramebufferScale(win);
   ImGuiIO& io = ImGui::GetIO();

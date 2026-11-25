@@ -11,6 +11,16 @@ MaterialRegistry& MaterialRegistry::Instance() {
   return instance;
 }
 
+std::vector<TextureRegistry::PendingTexture> MaterialRegistry::PrepareTextures(
+    const std::vector<Content::MaterialData>& materials) const {
+  std::vector<std::pair<std::string, TextureType>> textures;
+  for (const Content::MaterialData& data : materials) {
+    for (auto& texture : StandardMaterial::Textures(data))
+      textures.push_back(std::move(texture));
+  }
+  return TextureRegistry::Instance().Prepare(textures);
+}
+
 MaterialHandle MaterialRegistry::Register(const Content::MaterialData& data) {
   return Register(StandardMaterial::Build(data));
 }
@@ -60,6 +70,11 @@ bgfx::ProgramHandle MaterialRegistry::Bind(MaterialHandle handle) {
   }
 
   return material->program;
+}
+
+bool MaterialRegistry::IsDoubleSided(MaterialHandle handle) const {
+  const Material* material = Get(handle);
+  return material && material->double_sided;
 }
 
 const Material& MaterialRegistry::DefaultMaterial() {

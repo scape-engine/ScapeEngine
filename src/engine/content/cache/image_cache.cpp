@@ -10,6 +10,7 @@ ImageCache& ImageCache::Instance() {
 }
 
 const ImageData& ImageCache::Get(const std::string& key) {
+  std::scoped_lock lock(mutex_);
   auto it = cache_.find(key);
   if (it != cache_.end())
     return it->second;
@@ -20,18 +21,22 @@ const ImageData& ImageCache::Get(const std::string& key) {
 }
 
 void ImageCache::Put(const std::string& key, ImageData image) {
+  std::scoped_lock lock(mutex_);
   cache_[key] = std::move(image);
 }
 
 bool ImageCache::Contains(const std::string& key) const {
+  std::scoped_lock lock(mutex_);
   return cache_.find(key) != cache_.end();
 }
 
 void ImageCache::Evict(const std::string& key) {
+  std::scoped_lock lock(mutex_);
   cache_.erase(key);
 }
 
 void ImageCache::Clear() {
+  std::scoped_lock lock(mutex_);
   cache_.clear();
 }
 

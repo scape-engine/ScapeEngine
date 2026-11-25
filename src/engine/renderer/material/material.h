@@ -36,7 +36,10 @@ struct Material {
   std::vector<MaterialTexture> textures;  // stages below MATERIAL_STAGE_COUNT
   std::vector<MaterialParam> params;
 
-  // TODO: render state (blend/alpha mode, culling for double-sided)
+  // Back faces are drawn: passes skip culling for this material
+  bool double_sided = false;
+
+  // TODO: blending (sorted transparent pass)
 };
 
 #endif  // MATERIAL_H

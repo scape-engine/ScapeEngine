@@ -17,7 +17,7 @@ public:
   static nlohmann::json Serialize(ECS& ecs, const std::filesystem::path& root);
 
   // Replaces the content of the ECS. Mesh renderers get their source back but
-  // no mesh: bind them with ModelEntityFactory::BindMeshRenderers
+  // no mesh: bind them with ModelEntityFactory::BindPending
   static bool Deserialize(ECS& ecs, const nlohmann::json& scene,
                           const std::filesystem::path& root);
 };
