@@ -89,7 +89,14 @@ private:
       float reach;
     };
     std::vector<ObjectLevel> object_levels;
-    std::unordered_map<uint64_t, Entity> placements;  // by cell key
+    // An object cell's entity and the sphere round its objects' origins
+    // (radius < 0: it has none)
+    struct ObjectCell {
+      Entity entity = entt::null;
+      glm::vec3 centre{0.0f};
+      float radius = -1.0f;
+    };
+    std::unordered_map<uint64_t, ObjectCell> placements;  // by cell key
     std::unordered_map<uint64_t, std::future<RegionBuild>> placing;
     // The procmodels of its objects and creatures, loaded with the content
     RegionInstancer::Archetypes archetypes;

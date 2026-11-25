@@ -894,13 +894,18 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   };
   // A cell's objects lie within this share of its width from its centre
   constexpr float extent = 0.75f;
+  // Cells load this many of their widths before their objects' reach, so
+  // they're made before the objects can show
+  constexpr float lead = 1.0f;
   if (state.object_content)
     for (const auto& objects : state.object_levels) {
       const int level = objects.level;
       const bool limited = std::isfinite(objects.reach);
+      const float cell_width = static_cast<float>(32 << level);
+      const float reach = objects.reach + lead * cell_width;
       for (const Wanted& w : wanted) {
         const float width = static_cast<float>(32 << w.cell.level);
-        if (limited && w.distance - extent * width > objects.reach)
+        if (limited && w.distance - extent * width > reach)
           continue;
         if (w.cell.level <= level) {
           const int shift = level - w.cell.level;
@@ -913,14 +918,13 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         // A coarser leaf: its cells of the level within reach
         const int shift = w.cell.level - level;
         const int cells = Worldgen::PlanetGrid::CellsPerSide(radius, level);
-        const float cell_width = static_cast<float>(32 << level);
         for (int i = w.cell.i << shift;
              i < std::min((w.cell.i + 1) << shift, cells); ++i)
           for (int j = w.cell.j << shift;
                j < std::min((w.cell.j + 1) << shift, cells); ++j) {
             const Worldgen::PlanetCell cell{w.cell.face, i, j, level};
             const float distance = distance_to(cell);
-            if (distance - extent * cell_width <= objects.reach)
+            if (distance - extent * cell_width <= reach)
               place(cell, distance);
           }
       }
@@ -943,18 +947,44 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
       ecs.Add<ProceduralInstanceComponent>(entity, volume);
-      state.placements[it->first] = entity;
+      PlanetState::ObjectCell& placed = state.placements[it->first];
+      placed.entity = entity;
+      glm::vec3 low(std::numeric_limits<float>::max());
+      glm::vec3 high(std::numeric_limits<float>::lowest());
+      for (const Worldgen::ObjectInstances& kind : region.objects)
+        for (const auto& matrix : kind.matrices) {
+          const glm::vec3 origin(matrix[12], matrix[13], matrix[14]);
+          low = glm::min(low, origin);
+          high = glm::max(high, origin);
+        }
+      if (low.x <= high.x) {
+        placed.centre = transform.position_ + 0.5f * (low + high);
+        placed.radius = 0.5f * glm::length(high - low);
+      }
       // Made a few per frame, with the other regions' objects
       if (!build.region.objects.empty())
         state.making.push_back({entity, state.object_content, std::move(build)});
     }
     it = state.placing.erase(it);
   }
-  // Those no longer wanted fade out, then go
+  // The farthest an object of the level draws (infinite: no limit)
+  const auto reach_of = [&](int level) {
+    for (const auto& objects : state.object_levels)
+      if (objects.level == level)
+        return objects.reach;
+    return 0.0f;
+  };
+  // Those no longer wanted fade out once their objects are all past their
+  // reach (the cells' test goes by their centres, roughly), then go
   std::erase_if(state.placements, [&](auto& entry) {
     if (placement_cells.count(entry.first))
       return false;
-    _FadeOut(ecs, entry.second, generator.fade_time);
+    const PlanetState::ObjectCell& placed = entry.second;
+    const float reach = reach_of(_CellOf(entry.first).level);
+    if (placed.radius >= 0.0f && std::isfinite(reach) &&
+        glm::distance(viewer, placed.centre) - placed.radius <= reach)
+      return false;
+    _FadeOut(ecs, placed.entity, generator.fade_time);
     return true;
   });
 
@@ -1050,15 +1080,40 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     return true;
   });
 
-  // Start the nearest missing ones
+  // Start the missing ones, those seen soonest first: terrain and herds by
+  // their distance, object cells by how far they are inside their reach (so
+  // far terrain doesn't hold up the objects about to show)
   std::erase_if(wanted, [&](const Wanted& w) {
     const uint64_t key = _CellKey(w.cell);
     return state.regions.count(key) > 0 || state.building.count(key) > 0;
   });
-  std::sort(wanted.begin(), wanted.end(),
-            [](const Wanted& a, const Wanted& b) {
-              return a.distance < b.distance;
-            });
+  std::vector<std::pair<uint64_t, Worldgen::PlanetCell>> missing_herds;
+  for (const auto& [key, cell] : herd_cells)
+    if (!state.herds.count(key) && !state.herd_building.count(key))
+      missing_herds.emplace_back(key, cell);
+  std::vector<Placement> missing;
+  for (const auto& [key, placement] : placement_cells)
+    if (!state.placements.count(key) && !state.placing.count(key))
+      missing.push_back(placement);
+  enum class Job { Terrain, Herds, Objects };
+  struct Start {
+    float soon;
+    Job job;
+    size_t index;
+  };
+  std::vector<Start> starts;
+  for (size_t i = 0; i < wanted.size(); ++i)
+    starts.push_back({wanted[i].distance, Job::Terrain, i});
+  for (size_t i = 0; i < missing_herds.size(); ++i)
+    starts.push_back({distance_to(missing_herds[i].second), Job::Herds, i});
+  for (size_t i = 0; i < missing.size(); ++i) {
+    const float reach = reach_of(missing[i].cell.level);
+    starts.push_back({missing[i].distance -
+                          (std::isfinite(reach) ? reach : 0.0f),
+                      Job::Objects, i});
+  }
+  std::sort(starts.begin(), starts.end(),
+            [](const Start& a, const Start& b) { return a.soon < b.soon; });
   const int cores = static_cast<int>(std::thread::hardware_concurrency());
   const size_t jobs = static_cast<size_t>(
       generator.worker_jobs > 0 ? generator.worker_jobs
@@ -1069,9 +1124,44 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                state.placing.size() >=
            jobs;
   };
-  for (const Wanted& w : wanted) {
+  for (const Start& start : starts) {
     if (busy())
       break;
+    if (start.job == Job::Herds) {
+      const auto& [key, cell] = missing_herds[start.index];
+      int centre[3];
+      Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
+      state.herd_building[key] = std::async(
+          std::launch::async,
+          [content = state.herd_content, x = centre[0], y = centre[1],
+           z = centre[2], level = cell.level, archetypes = state.archetypes,
+           planet = state.textures,
+           &procmodel = EngineContext::PCG().GetProcModel()] {
+            RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
+            build.objects = RegionInstancer::GenerateObjects(
+                build.region, *content, true, archetypes, procmodel, &planet);
+            return build;
+          });
+      continue;
+    }
+    if (start.job == Job::Objects) {
+      const Placement& placement = missing[start.index];
+      int centre[3];
+      Worldgen::PlanetGrid::CellCentre(placement.cell, radius, centre);
+      state.placing[_CellKey(placement.cell)] = std::async(
+          std::launch::async,
+          [content = state.object_content, x = centre[0], y = centre[1],
+           z = centre[2], level = placement.cell.level,
+           archetypes = state.archetypes,
+           &procmodel = EngineContext::PCG().GetProcModel()] {
+            RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
+            build.objects = RegionInstancer::GenerateObjects(
+                build.region, *content, false, archetypes, procmodel, nullptr);
+            return build;
+          });
+      continue;
+    }
+    const Wanted& w = wanted[start.index];
     std::shared_ptr<const Worldgen::RegionContent> content = state.content;
     int centre[3];
     Worldgen::PlanetGrid::CellCentre(w.cell, radius, centre);
@@ -1096,54 +1186,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         });
     started++;
   }
-  // Herds after the ground
   // TODO: a herd cell that is also a wanted region is built twice
-  for (const auto& [key, cell] : herd_cells) {
-    if (busy())
-      break;
-    if (state.herds.count(key) || state.herd_building.count(key))
-      continue;
-    int centre[3];
-    Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
-    state.herd_building[key] = std::async(
-        std::launch::async,
-        [content = state.herd_content, x = centre[0], y = centre[1],
-         z = centre[2], level = cell.level, archetypes = state.archetypes,
-         planet = state.textures,
-         &procmodel = EngineContext::PCG().GetProcModel()] {
-          RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
-          build.objects = RegionInstancer::GenerateObjects(
-              build.region, *content, true, archetypes, procmodel, &planet);
-          return build;
-        });
-  }
-
-  // Objects after the herds, nearest first
-  std::vector<Placement> missing;
-  for (const auto& [key, placement] : placement_cells)
-    if (!state.placements.count(key) && !state.placing.count(key))
-      missing.push_back(placement);
-  std::sort(missing.begin(), missing.end(),
-            [](const Placement& a, const Placement& b) {
-              return a.distance < b.distance;
-            });
-  for (const Placement& placement : missing) {
-    if (busy())
-      break;
-    int centre[3];
-    Worldgen::PlanetGrid::CellCentre(placement.cell, radius, centre);
-    state.placing[_CellKey(placement.cell)] = std::async(
-        std::launch::async,
-        [content = state.object_content, x = centre[0], y = centre[1],
-         z = centre[2], level = placement.cell.level,
-         archetypes = state.archetypes,
-         &procmodel = EngineContext::PCG().GetProcModel()] {
-          RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
-          build.objects = RegionInstancer::GenerateObjects(
-              build.region, *content, false, archetypes, procmodel, nullptr);
-          return build;
-        });
-  }
 
   const bool was_loading =
       generator.queued_regions + generator.building_regions > 0;
