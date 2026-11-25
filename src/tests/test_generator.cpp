@@ -511,6 +511,7 @@ void TestShapes();
 void TestSceneSerializer();
 void TestTerrainTiles();
 void TestModelGenerator();
+void TestModelOperations();
 void TestAnimation();
 void TestBuildings();
 void TestFade();
@@ -527,6 +528,7 @@ int main(int argc, char** argv) {
   Tests::TestSceneSerializer();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
+  Tests::TestModelOperations();
   Tests::TestAnimation();
   Tests::TestBuildings();
   Tests::TestFade();

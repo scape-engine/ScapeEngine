@@ -3,6 +3,8 @@
 #include <nlohmann/json.hpp>
 #include <random>
 
+#include <glm/gtc/matrix_transform.hpp>
+
 #include "engine/pcg/pipeline/operation_context.h"
 #include "engine/pcg/pipeline/operation_registry.h"
 #include "engine/pcg/procmodel/descriptor/model_descriptor.h"
@@ -17,6 +19,14 @@ static std::shared_ptr<PCG::OperationData> ParseDuplicateInstances(
   data->target_group_id = params.value("target_group_id", std::string(""));
   data->min_count = params.value("min_count", 1u);
   data->max_count = params.value("max_count", 1u);
+  const auto vec3 = [&](const char* key) {
+    const nlohmann::json v = params.value(key, nlohmann::json::array());
+    return v.size() == 3 ? glm::vec3(v[0].get<float>(), v[1].get<float>(),
+                                     v[2].get<float>())
+                         : glm::vec3(0.0f);
+  };
+  data->offset = vec3("offset");
+  data->rotation = glm::radians(vec3("rotation"));
 
   if (data->min_count > data->max_count) {
     return nullptr;  // invalid range
@@ -56,6 +66,22 @@ static void ApplyDuplicateInstances(const PCG::OperationData& base_data,
       ResolvedDescriptor copy = ctx.model.descriptors[src_idx];
       copy.descriptor_id = ctx.model.descriptors[src_idx].descriptor_id +
                            "_dup_" + std::to_string(copy_n);
+      ctx.sampler.Set(copy.descriptor_id);
+      glm::vec3 offset, rotation;
+      for (int a = 0; a < 3; ++a) {
+        const std::string axis(1, "xyz"[a]);
+        offset[a] = ctx.sampler.Uniform("duplicate_offset", axis,
+                                        -data.offset[a], data.offset[a],
+                                        ctx.rng);
+        rotation[a] = ctx.sampler.Uniform("duplicate_rotation", axis,
+                                          -data.rotation[a], data.rotation[a],
+                                          ctx.rng);
+      }
+      glm::mat4 move = glm::translate(glm::mat4(1.0f), offset);
+      move = glm::rotate(move, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+      move = glm::rotate(move, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+      move = glm::rotate(move, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+      copy.local_transform = copy.local_transform * move;
       ctx.model.descriptors.push_back(std::move(copy));
     }
   }

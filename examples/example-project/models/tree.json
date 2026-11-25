@@ -56,5 +56,23 @@
   "transform_ranges": [
     { "part_id": "BRANCH_A", "rotation_min": [-12, -40, -12], "rotation_max": [12, 40, 12] },
     { "part_id": "BRANCH_B", "rotation_min": [-12, -40, -12], "rotation_max": [12, 40, 12] }
+  ],
+  "part_deformation_ranges": [
+    { "group_id": "trunk", "bend_angle_min": 8, "bend_angle_max": 25, "twist_angle_min": 90, "twist_angle_max": 240,
+      "ridge_amplitude_min": 0.12, "ridge_amplitude_max": 0.3, "wander_amplitude_min": 0.2, "wander_amplitude_max": 0.45 },
+    { "group_id": "branches_a", "bend_angle_min": 15, "bend_angle_max": 45, "twist_angle_min": 60, "twist_angle_max": 180,
+      "ridge_amplitude_min": 0.1, "ridge_amplitude_max": 0.25, "wander_amplitude_min": 0.15, "wander_amplitude_max": 0.4 },
+    { "group_id": "branches_b", "bend_angle_min": 15, "bend_angle_max": 45, "twist_angle_min": 60, "twist_angle_max": 180,
+      "ridge_amplitude_min": 0.1, "ridge_amplitude_max": 0.25, "wander_amplitude_min": 0.15, "wander_amplitude_max": 0.4 },
+    { "group_id": "twigs_a", "bend_angle_min": 10, "bend_angle_max": 35, "twist_angle_min": 30, "twist_angle_max": 120,
+      "ridge_amplitude_min": 0.1, "ridge_amplitude_max": 0.2, "wander_amplitude_min": 0.1, "wander_amplitude_max": 0.3 },
+    { "group_id": "twigs_b", "bend_angle_min": 10, "bend_angle_max": 35, "twist_angle_min": 30, "twist_angle_max": 120,
+      "ridge_amplitude_min": 0.1, "ridge_amplitude_max": 0.2, "wander_amplitude_min": 0.1, "wander_amplitude_max": 0.3 }
+  ],
+  "model_deformation_range": { "bend_angle_min": 0, "bend_angle_max": 10 },
+  "pipeline": [
+    { "kind": "per_part_deform", "params": { "apply_ridges": true, "ridge_count": 4, "apply_twist": true,
+                                              "apply_wander": true, "wander_waves": 1.5, "apply_bend": true } },
+    { "kind": "instance_deform", "params": { "apply_bend": true } }
   ]
 }

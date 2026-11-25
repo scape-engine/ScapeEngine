@@ -13,6 +13,7 @@
 #include "engine/content/io/json.h"
 #include "engine/content/loaders/mesh_loader.h"
 #include "engine/context/engine_context.h"
+#include "engine/ecs/components/mesh_owner_component.h"
 
 #include "engine/pcg/pipeline/linear_pipeline.h"
 #include "engine/pcg/pipeline/pipeline_descriptor_parser.h"
@@ -188,6 +189,7 @@ std::shared_ptr<const ProcModelResource> Subsystem::AddArchetype(
 
 void Subsystem::ApplyDraw(const ModelGraph& graph) {
   const DrawSettings settings = DrawSettings::Read(graph.source_path);
+  draw_settings_[graph.source_path] = settings;
   std::vector<std::vector<const Mesh*>> lods;
   for (const DrawSettings::Lod& lod : settings.lods) {
     std::vector<const Mesh*>& meshes = lods.emplace_back();
@@ -223,8 +225,9 @@ void Subsystem::ReloadDrawSettings(const std::filesystem::path& model) {
     if (archetype && std::filesystem::equivalent(
                          archetype->GetGraph().source_path, model, error))
       ApplyDraw(archetype->GetGraph());
-    // TODO: rebake its imposters; regions still draw the old cards, so they
-    // stay until the planet reloads
+    // TODO: rebake its imposters and remake its deformed meshes; regions
+    // still draw the old cards and LODs, so they stay until the planet
+    // reloads
   }
 }
 
@@ -279,10 +282,6 @@ std::optional<ProcModel::InstanceData> Subsystem::GenerateInstance(
 // TODO: move load/build/resolve steps into a background ResourcePipe task,
 // and the GPU upload into a UseRenderThread task. This will be needed
 // so the pipeline doesn't block the frame
-// TODO: Instantiate() currently ignores InstanceData::instance_geometry,
-// so ECS-instantiated entities render undeformed source meshes.
-// We need to wire instance_geometry through Instantiate when scene placement
-// UX is needed. No need to refactor Editor preview path
 ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
     const std::string& descriptor_path, uint64_t seed, Entity parent,
     const Worldgen::TextureInput* planet) {
@@ -339,17 +338,159 @@ ProcModel::ModelInstantiator::InstantiateResult Subsystem::SpawnInstance(
                             : nullptr);
 }
 
+std::shared_ptr<const Subsystem::DeformedMeshes> Subsystem::Deformed(
+    const ProcModelResource& archetype,
+    const ProcModel::InstanceData& instance, bool merge) {
+  if (instance.instance_geometry.empty())
+    return nullptr;
+  const std::tuple key(&archetype, instance.model.seed, merge);
+  if (const auto it = deformed_.find(key); it != deformed_.end())
+    if (auto held = it->second.lock())
+      return held;
+  if (deformed_.size() >= deformed_sweep_) {
+    std::erase_if(deformed_,
+                  [](const auto& entry) { return entry.second.expired(); });
+    deformed_sweep_ = std::max<size_t>(64, deformed_.size() * 2);
+  }
+
+  const ModelGraph& graph = archetype.GetGraph();
+  const auto settings = draw_settings_.find(graph.source_path);
+  const auto& parts = instance.model.descriptors;
+  // Authored LOD models are per part, so only simplified LODs merge
+  merge = merge && settings != draw_settings_.end() &&
+          std::all_of(settings->second.lods.begin(),
+                      settings->second.lods.end(),
+                      [](const auto& lod) { return lod.source.empty(); }) &&
+          std::all_of(parts.begin(), parts.end(), [&](const auto& part) {
+            return std::none_of(
+                part.mesh_indices.begin(), part.mesh_indices.end(),
+                [&](int index) {
+                  const Mesh* mesh = graph.GetMesh(index);
+                  return mesh && mesh->Skinned();
+                });
+          });
+
+  auto made = std::make_shared<DeformedMeshes>();
+  // `data` uploaded with LODs as ApplyDraw gives `source`'s (null: the
+  // settings' simplified ones)
+  const auto upload = [&](const Geometry::MeshData& data,
+                          const Mesh* source) {
+    std::vector<Mesh::Lod> chain;
+    if (settings != draw_settings_.end())
+      for (const DrawSettings::Lod& lod : settings->second.lods) {
+        if (lod.source.empty()) {
+          made->owned.push_back(std::make_unique<Mesh>(
+              LodGeneration::Simplify(data, lod.detail)));
+          chain.push_back({lod.distance, made->owned.back().get()});
+          continue;
+        }
+        for (const Mesh::Lod& authored : source->Lods())
+          if (authored.distance == lod.distance)
+            chain.push_back(authored);
+      }
+    made->owned.push_back(std::make_unique<Mesh>(data));
+    if (source)
+      made->owned.back()->SetDraw(source->FadeStart(), source->FadeEnd(),
+                                  source->LodFade(), std::move(chain));
+    else
+      made->owned.back()->SetDraw(settings->second.fade_start,
+                                  settings->second.fade_end,
+                                  settings->second.lod_fade, std::move(chain));
+    return made->owned.back().get();
+  };
+
+  std::map<uint32_t, Geometry::MeshData> by_material;
+  for (const ResolvedDescriptor& part : parts) {
+    const auto geometry = std::find_if(
+        instance.instance_geometry.begin(), instance.instance_geometry.end(),
+        [&](const auto& g) { return g.descriptor_id == part.descriptor_id; });
+    const bool deformed = geometry != instance.instance_geometry.end();
+    if (!deformed && !merge)
+      continue;
+    std::vector<const Mesh*>* slots = nullptr;
+    if (!merge) {
+      slots = &made->meshes[part.descriptor_id];
+      slots->assign(part.mesh_indices.size(), nullptr);
+    }
+    const glm::mat4 world = ModelGenerator::PartWorld(part);
+    const glm::mat3 axes(world);
+    const glm::mat3 normals = glm::transpose(glm::inverse(axes));
+    const bool mirrored = glm::determinant(axes) < 0.0f;
+    // The geometry skips the part's mesh indices that name no mesh
+    size_t at = 0;
+    for (size_t slot = 0; slot < part.mesh_indices.size(); ++slot) {
+      const int index = part.mesh_indices[slot];
+      const Mesh* source = graph.GetMesh(index);
+      if (!source)
+        continue;
+      const Geometry::MeshData* data =
+          deformed ? (at < geometry->mesh_data.size()
+                          ? &geometry->mesh_data[at++]
+                          : nullptr)
+                   : (index < static_cast<int>(graph.mesh_data.size())
+                          ? &graph.mesh_data[index]
+                          : nullptr);
+      if (!data)
+        continue;
+      if (!merge) {
+        (*slots)[slot] = upload(*data, source);
+        continue;
+      }
+      Geometry::MeshData& into = by_material[data->material_index];
+      into.material_index = data->material_index;
+      const auto base = static_cast<uint32_t>(into.vertices.size());
+      for (Geometry::VertexData v : data->vertices) {
+        v.position = glm::vec3(world * glm::vec4(v.position, 1.0f));
+        v.normal = glm::normalize(normals * v.normal);
+        v.tangent = glm::normalize(axes * v.tangent);
+        v.bitangent = glm::normalize(axes * v.bitangent);
+        into.vertices.push_back(v);
+      }
+      // A mirroring part turns its triangles' winding over; turn it back
+      for (size_t i = 0; i + 2 < data->indices.size(); i += 3) {
+        into.indices.push_back(base + data->indices[i]);
+        into.indices.push_back(base + data->indices[mirrored ? i + 2 : i + 1]);
+        into.indices.push_back(base + data->indices[mirrored ? i + 1 : i + 2]);
+      }
+    }
+  }
+  for (const auto& [material, data] : by_material)
+    made->merged.push_back(upload(data, nullptr));
+  deformed_[key] = made;
+  return made;
+}
+
 std::optional<std::vector<ProcModel::ModelInstantiator::Part>>
 Subsystem::InstanceParts(const std::string& descriptor_path,
                          const ProcModel::InstanceData& instance,
-                         const Worldgen::TextureInput* planet) {
+                         const Worldgen::TextureInput* planet,
+                         std::shared_ptr<const DeformedMeshes>* deformed) {
   const auto resource = Archetype(descriptor_path);
   if (!resource)
     return std::vector<ProcModel::ModelInstantiator::Part>();
-  return ProcModel::ModelInstantiator::Parts(
-      instance.model, resource->GetGraph(),
+  const std::vector<MaterialHandle>* materials =
       planet ? TexturedMaterials(descriptor_path, *resource, *planet)
-             : nullptr);
+             : nullptr;
+  if (deformed)
+    *deformed = Deformed(*resource, instance, true);
+  if (deformed && *deformed && !(*deformed)->merged.empty()) {
+    const std::vector<MaterialHandle>& handles =
+        materials ? *materials : resource->GetGraph().material_handles;
+    const glm::mat4 scale =
+        glm::scale(glm::mat4(1.0f), instance.model.model_scale);
+    std::vector<ProcModel::ModelInstantiator::Part> parts;
+    for (const Mesh* mesh : (*deformed)->merged) {
+      const uint32_t material = mesh->MaterialIndex();
+      parts.push_back({mesh,
+                       material < handles.size() ? handles[material]
+                                                 : INVALID_MATERIAL,
+                       scale});
+    }
+    return parts;
+  }
+  return ProcModel::ModelInstantiator::Parts(
+      instance.model, resource->GetGraph(), materials,
+      deformed && *deformed ? &(*deformed)->meshes : nullptr);
 }
 
 std::shared_ptr<const ProcModelResource> Subsystem::Archetype(
@@ -374,8 +515,14 @@ std::optional<ProcModel::InstanceData> Subsystem::Generate(
 ModelInstantiator::InstantiateResult Subsystem::Instantiate(
     const ProcModel::InstanceData& instance, const ProcModelResource& archetype,
     Entity parent, const std::vector<MaterialHandle>* materials) {
-  return ProcModel::ModelInstantiator::Instantiate(
-      instance.model, archetype.GetGraph(), parent, materials);
+  const auto deformed = Deformed(archetype, instance);
+  const auto result = ProcModel::ModelInstantiator::Instantiate(
+      instance.model, archetype.GetGraph(), parent, materials,
+      deformed ? &deformed->meshes : nullptr);
+  if (deformed && result.root != entt::null)
+    ECS::Main().Add<MeshOwnerComponent>(result.root).meshes_.push_back(
+        deformed);
+  return result;
 }
 
 static uint64_t _Hash(uint64_t hash, const void* data, size_t size) {
@@ -466,9 +613,12 @@ const Subsystem::ModelImposter* Subsystem::Imposter(
   std::vector<::Imposter::Variant> variants;
   for (int seed = 1; seed <= std::max(settings.imposter.variants, 1); ++seed) {
     const auto instance = Generate(*archetype, static_cast<uint64_t>(seed));
+    std::shared_ptr<const DeformedMeshes> deformed;
     const auto parts =
-        instance ? InstanceParts(descriptor_path, *instance, planet)
+        instance ? InstanceParts(descriptor_path, *instance, planet, &deformed)
                  : std::nullopt;
+    if (deformed)
+      made.deformed.push_back(deformed);
     if (!parts || parts->empty())
       continue;
     ::Imposter::Variant& variant = variants.emplace_back();

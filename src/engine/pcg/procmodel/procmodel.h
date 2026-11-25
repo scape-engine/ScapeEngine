@@ -2,8 +2,10 @@
 #define PROCMODEL_H
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <tuple>
 #include <unordered_set>
 
 #include "engine/memory/resource.h"
@@ -17,6 +19,7 @@
 #include "engine/pcg/procmodel/procmodel_resource.h"
 #include "engine/pcg/procmodel/validation/validation_logger.h"
 #include "engine/renderer/imposter/imposter.h"
+#include "engine/renderer/model/draw_settings.h"
 
 #include "api/procedural_texture.h"
 
@@ -37,7 +40,6 @@ public:
   // `planet`: the seed and palettes of the planet the model grows on; the
   // descriptor's procedural textures take its colours. Without it (or its
   // palettes) the model keeps its authored materials
-  // TODO: Add logic to instantiate deformation (missing)
   ModelInstantiator::InstantiateResult SpawnInstance(
       const std::string& descriptor_path, uint64_t seed,
       Entity parent = entt::null,
@@ -49,11 +51,32 @@ public:
       const ProcModel::InstanceData& instance, Entity parent = entt::null,
       const Worldgen::TextureInput* planet = nullptr);
 
-  // Its parts instead of entities (ModelInstantiator::Parts), for instancing
+  // An instance's deformed geometry (InstanceData::instance_geometry)
+  // uploaded, standing in for the graph's meshes; each has LODs made from it
+  // as ApplyDraw makes the graph's (LOD models stay as authored)
+  struct DeformedMeshes {
+    std::vector<std::unique_ptr<Mesh>> owned;  // and their LODs
+    ModelInstantiator::MeshOverrides meshes;
+    // Merged instead: all the instance's parts in its space (before
+    // model_scale), one mesh per material, so it draws in a call per material
+    std::vector<const Mesh*> merged;
+  };
+  // The instance's deformed meshes, made once per archetype, seed and
+  // `merge` while anything holds them (main thread); null when it deforms
+  // nothing. A merge falls back to `meshes` when a mesh is skinned or a LOD
+  // is an authored model
+  std::shared_ptr<const DeformedMeshes> Deformed(
+      const ProcModelResource& archetype,
+      const ProcModel::InstanceData& instance, bool merge = false);
+
+  // Its parts instead of entities (ModelInstantiator::Parts), for instancing.
+  // With `deformed` they draw the instance's deformed meshes, merged by
+  // material where they can be, which it keeps alive; without, the graph's
   std::optional<std::vector<ModelInstantiator::Part>> InstanceParts(
       const std::string& descriptor_path,
       const ProcModel::InstanceData& instance,
-      const Worldgen::TextureInput* planet = nullptr);
+      const Worldgen::TextureInput* planet = nullptr,
+      std::shared_ptr<const DeformedMeshes>* deformed = nullptr);
 
   // A spawn in two steps, so the picking can leave the main thread. Archetype
   // loads the descriptor's model on first use (main thread; null if it
@@ -75,7 +98,8 @@ public:
       const std::string& descriptor_path) const;
   std::optional<ProcModel::InstanceData> Generate(
       const ProcModelResource& archetype, uint64_t seed) const;
-  // `materials`: the graph's materials to use instead (ApplyTextures')
+  // `materials`: the graph's materials to use instead (ApplyTextures'). The
+  // root keeps the instance's deformed meshes (MeshOwnerComponent)
   ModelInstantiator::InstantiateResult Instantiate(
       const ProcModel::InstanceData& instance, const ProcModelResource& archetype,
       Entity parent = entt::null,
@@ -134,6 +158,8 @@ public:
     std::unique_ptr<::Imposter> imposter;
     float distance = 0.0f;
     float blend = 0.0f;  // the fraction of distance they cross-fade over
+    // The variants' deformed meshes, which the variants' parts draw
+    std::vector<std::shared_ptr<const DeformedMeshes>> deformed;
   };
   // The model's imposter for the planet, made on first ask (main thread) from
   // the first draw-settings variants seeds; null when its draw settings have
@@ -172,6 +198,14 @@ private:
   // Generated LOD meshes, by source model and detail (ApplyDraw)
   std::unordered_map<std::string, std::vector<std::unique_ptr<Mesh>>>
       generated_lods_;
+  // The draw settings ApplyDraw gave each source model, for Deformed
+  std::unordered_map<std::string, DrawSettings> draw_settings_;
+  // Deformed's, by archetype, seed and merge; swept of expired ones as it
+  // grows
+  std::map<std::tuple<const ProcModelResource*, uint64_t, bool>,
+           std::weak_ptr<const DeformedMeshes>>
+      deformed_;
+  size_t deformed_sweep_ = 64;
 
   // By path; unset if it failed to load. Guarded by texture_mutex_ (the
   // values stay put: readers keep pointers to them)

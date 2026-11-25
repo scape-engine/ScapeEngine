@@ -30,6 +30,10 @@ public:
       int max_retries = 10,
       std::vector<ProcModelSample>* out_samples = nullptr);
 
+  // The part's transform in model space, with its sampled rotation and scale,
+  // composed as ModelInstantiator composes it
+  static glm::mat4 PartWorld(const ResolvedDescriptor& d);
+
 private:
   static void ApplyParameterBindings(
       std::vector<ResolvedDescriptor>& descriptors,

@@ -22,6 +22,12 @@ struct PartDeformData : public PCG::OperationData {
   bool apply_twist = false;
   bool apply_bend = false;
   bool apply_noise = false;
+  // Lobes around the part's y axis (bark ridges), which a twist winds into
+  // spirals; they run first
+  bool apply_ridges = false;
+  // The part's centre line drifting sideways along its y in smooth random
+  // directions (several bends, not one arc); it runs before the bend
+  bool apply_wander = false;
 
   DeformAxis taper_axis = DeformAxis::Y;
   DeformAxis twist_axis = DeformAxis::Y;
@@ -29,6 +35,10 @@ struct PartDeformData : public PCG::OperationData {
 
   // Noise spatial frequency (cycles per source-mesh unit)
   float noise_frequency = 1.0f;
+  // Ridges around the axis
+  int ridge_count = 3;
+  // Wander's waves over the part's length
+  float wander_waves = 1.5f;
 };
 
 // INSTANCE-WIDE OPERATION

@@ -66,7 +66,6 @@ static nlohmann::json SerializePartSample(
   j["group_id"] = e.group_id;
 
   const glm::vec3 applied_rotation =
-      SumByOpKind(e.parameter_samples, "rotation_jitter_legacy") +
       SumByOpKind(e.parameter_samples, "transform_rotation");
   const glm::vec3 applied_scale =
       ProductByOpKind(e.parameter_samples, "transform_scale");

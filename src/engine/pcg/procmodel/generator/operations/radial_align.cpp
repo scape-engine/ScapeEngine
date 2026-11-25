@@ -40,10 +40,12 @@ static void ApplyRadialAlign(const PCG::OperationData& /*data*/,
   const glm::vec3 right = glm::normalize(glm::cross(up, outward));
 
   // Rebuild the rotation: +X = right (tangent), +Y = up (vertical),
-  // +Z = outward. Position (column 3) is preserved.
-  ctx.locator_world[0] = glm::vec4(right, 0.0f);
-  ctx.locator_world[1] = glm::vec4(up, 0.0f);
-  ctx.locator_world[2] = glm::vec4(outward, 0.0f);
+  // +Z = outward. Position (column 3) and scale (the columns' lengths, which
+  // the parts placed on it take) are preserved.
+  const glm::vec3 axes[3] = {right, up, outward};
+  for (int c = 0; c < 3; ++c)
+    ctx.locator_world[c] =
+        glm::vec4(axes[c] * glm::length(glm::vec3(ctx.locator_world[c])), 0.0f);
 }
 
 void RegisterRadialAlignOperation(PCG::OperationRegistry& registry) {

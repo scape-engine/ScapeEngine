@@ -49,14 +49,6 @@ struct SelectionGroup {
   // duplicated to every attachment (uniform assembly — columns, pillars).
   bool unique_per_locator = false;
 
-  // Per-attachment rotation jitter. When non-zero, each attached instance
-  // receives an independent random rotation perturbation drawn uniformly
-  // from [-jitter, +jitter] on each axis (radians at runtime, degrees in
-  // JSON). Default zero: no jitter, attachments inherit the activator's
-  // base rotation unchanged.
-  glm::vec3 rotation_jitter =
-      glm::vec3(0.0f);  // ! SHOULD BE REMOVED (rotation per locator does this)
-
   // Scale inherited multiplicatively from this group's activator. A value of
   // 0.6 means: parts in this group are 60% the size of their parent's scale.
   // Combined with parent's already-scaled value: part attached to parent
@@ -96,6 +88,14 @@ struct DeformationRange {
 
   std::optional<float> noise_amplitude_min;
   std::optional<float> noise_amplitude_max;
+
+  // Ridges' depth, a fraction of the radius
+  std::optional<float> ridge_amplitude_min;
+  std::optional<float> ridge_amplitude_max;
+
+  // How far the centre line wanders sideways, in mesh units
+  std::optional<float> wander_amplitude_min;
+  std::optional<float> wander_amplitude_max;
 };
 
 struct ConstraintRule {

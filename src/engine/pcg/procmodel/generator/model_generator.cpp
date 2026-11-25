@@ -139,9 +139,9 @@ std::unordered_set<std::string> PickKeys(const ModelDescriptor& descriptor,
   return {picks.begin(), picks.end()};
 }
 
-// The part's transform in model space, with its sampled rotation and scale,
-// composed as ModelInstantiator composes it
-glm::mat4 PartWorld(const ResolvedDescriptor& d) {
+}  // namespace
+
+glm::mat4 ModelGenerator::PartWorld(const ResolvedDescriptor& d) {
   glm::vec3 scale, position, skew;
   glm::quat rotation;
   glm::vec4 perspective;
@@ -151,8 +151,6 @@ glm::mat4 PartWorld(const ResolvedDescriptor& d) {
          glm::mat4_cast(rotation * glm::quat(d.applied_rotation)) *
          glm::scale(glm::mat4(1.0f), scale * d.applied_scale);
 }
-
-}  // namespace
 
 // Final matrix is composed in ModelInstantiator
 static void ApplyParameterRanges(ResolvedDescriptor& resolved,
@@ -340,18 +338,6 @@ std::optional<InstanceData> ModelGenerator::Generate(
         // rotation/scale jitter
         sampler.Set(resolved.descriptor_id);
         ApplyParameterRanges(resolved, *node, rng, sampler);
-
-        // Per-attachment rotation jitter
-        const glm::vec3& j = group->rotation_jitter;
-        if (!locator_id.empty() && (j.x > 0.0f || j.y > 0.0f || j.z > 0.0f)) {
-          float rx =
-              sampler.Uniform("rotation_jitter_legacy", "x", -j.x, j.x, rng);
-          float ry =
-              sampler.Uniform("rotation_jitter_legacy", "y", -j.y, j.y, rng);
-          float rz =
-              sampler.Uniform("rotation_jitter_legacy", "z", -j.z, j.z, rng);
-          resolved.applied_rotation += glm::vec3(rx, ry, rz);
-        }
 
         newly_added.push_back(
             {std::move(resolved), chosen->id,

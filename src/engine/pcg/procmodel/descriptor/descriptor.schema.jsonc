@@ -82,7 +82,7 @@
 
   "locator_operations": [
     { "kind": "radial_align", "params": {} },
-    { "kind": "new_rotation_jitter",
+    { "kind": "rotation_jitter",
       "target_group_id": "_GROUP_ID_",
     // Optional. Restrict this operation to locators of one group
     // Empty/omitted = applies to all groups
@@ -124,7 +124,11 @@
       "taper_factor_min": 0.5, "taper_factor_max": 0.7,
       "twist_angle_min": 5,    "twist_angle_max": 25,
       "bend_angle_min": 20,    "bend_angle_max": 45,
-      "noise_amplitude_min": 0.02, "noise_amplitude_max": 0.08
+      "noise_amplitude_min": 0.02, "noise_amplitude_max": 0.08,
+      "ridge_amplitude_min": 0.1, "ridge_amplitude_max": 0.25,
+      // ridges' depth, a fraction of the radius
+      "wander_amplitude_min": 0.1, "wander_amplitude_max": 0.3
+      // how far the centre line wanders sideways, mesh units
       // All fields optional. Missing fields fall through to nothing
       // (operation has no effect for that part).
     }
@@ -155,7 +159,8 @@
 
   // pipeline configuration lives at the root JSON level alongside
   // model_id and configures runtime operations. Registered kinds:
-  // per_part_deform, instance_deform, duplicate_instances.
+  // per_part_deform, instance_deform, duplicate_instances. They run in
+  // order; deformations build on the geometry earlier entries made.
   "pipeline": [
     {
       "kind": "per_part_deform",
@@ -164,10 +169,17 @@
         "apply_twist": true,
         "apply_bend":  true,
         "apply_noise": true,
+        "apply_ridges": true,
+        // lobes around the part's y axis (bark ridges); a twist winds them
+        "apply_wander": true,
+        // the centre line drifting sideways in several directions
         "taper_axis": "y",
         "twist_axis": "y",
         "bend_axis":  "y",
-        "noise_frequency": 3.0
+        "noise_frequency": 3.0,
+        "ridge_count": 3,
+        "wander_waves": 1.5
+        // ridges around the axis; wander's waves over the part's length
       }
     },
     {
@@ -188,10 +200,14 @@
         "target_group_id": "",
         // group whose descriptors should be duplicated. Empty = all.
         "min_count": 1,
-        "max_count": 3
-        // Total count including original. Duplicates share the
-        // original's local_transform — without subsequent jitter
-        // (e.g. rotation_jitter sampled per-instance) they will overlap.
+        "max_count": 3,
+        // Total count including original.
+        "offset": [0.2, 0.0, 0.2],
+        "rotation": [0, 180, 0]
+        // Each copy moves by up to ±offset and turns by up to ±rotation
+        // (pitch, yaw, roll in degrees) in the part's own frame. Without
+        // them copies sit on the original. Copies are leaves: groups the
+        // original activates are not copied.
       }
     }
   ]

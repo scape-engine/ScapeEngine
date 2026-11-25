@@ -20,18 +20,20 @@ def outward(yaw, tilt):
     # local +Y leaning `tilt` degrees from up, towards `yaw` around the y axis
     return quat_mul(axis_quat((0, 1, 0), yaw), axis_quat((0, 0, 1), -tilt))
 
-def cylinder(sides, h, r0, r1):
-    # u once around, v at the same scale up the side
+def cylinder(sides, h, r0, r1, segments=1):
+    # u once around, v at the same scale up the side; `segments` rings up it so it can bend
     pos, nrm, uv, idx = [], [], [], []
-    for ring, (y, r) in enumerate(((0, r0), (h, r1))):
+    for ring in range(segments + 1):
+        y, r = (h * ring / segments, r0 + (r1 - r0) * ring / segments) if ring else (0, r0)
         for i in range(sides + 1):
             a = 2 * math.pi * i / sides
             pos.append((r * math.cos(a), y, r * math.sin(a)))
             nrm.append((math.cos(a), (r0 - r1) / h, math.sin(a)))
             uv.append((i / sides, y / (2 * math.pi * r0)))
     n = sides + 1
-    for i in range(sides):
-        idx += [i, n + i, i + 1, i + 1, n + i, n + i + 1]
+    for ring in range(segments):
+        for i in range(ring * n, ring * n + sides):
+            idx += [i, n + i, i + 1, i + 1, n + i, n + i + 1]
     return pos, nrm, uv, idx
 
 def blob(radius, centre, squash, jitter, rng, subdiv=2):
@@ -165,13 +167,13 @@ def tree(path):
     leaves = [g.material("leaves_green", (0.18, 0.45, 0.16)), g.material("leaves_yellow", (0.55, 0.6, 0.18))]
     # trunks: locators up the trunk, leaning out
     for name, x, h, r0, count in (("TRUNK_A", 0, 4.0, 0.25, 5), ("TRUNK_B", 3, 5.5, 0.3, 5)):
-        t = g.node(name, g.mesh(name, [(cylinder(8, h, r0, 0.1), bark)]), (x, 0, 0))
+        t = g.node(name, g.mesh(name, [(cylinder(12, h, r0, 0.1, 12), bark)]), (x, 0, 0))
         for i in range(count):
             g.node("T%s_L%d" % (name[-1], i + 1), None,
                    (0, h * (0.45 + 0.5 * i / (count - 1)), 0), outward(i * 137.5, 55 - 5 * i), t)
     # branches: a stem with a leaf clump at its tip, and locators for the next branches
     for name, x, length, leaf in (("BRANCH_A", 6, 2.0, 0), ("BRANCH_B", 8, 2.6, 1)):
-        stem = cylinder(6, length, 0.09, 0.03)
+        stem = cylinder(8, length, 0.09, 0.03, 8)
         clump = blob(0.75, (0, length, 0), 0.7, 0.18, rng)
         b = g.node(name, g.mesh(name, [(stem, bark), (clump, leaves[leaf])]), (x, 0, 0))
         for i in range(3):

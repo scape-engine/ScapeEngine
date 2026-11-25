@@ -40,10 +40,11 @@ bool ModelDescriptorParser::ParseSelectionGroup(const nlohmann::json& j,
     out.scale_jitter = j["scale_jitter"].get<float>();
   }
 
-  if (j.contains("rotation_jitter")) {
-    const auto& r = j["rotation_jitter"];
-    out.rotation_jitter = glm::radians(glm::vec3(r[0], r[1], r[2]));
-  }
+  if (j.contains("rotation_jitter"))
+    Logger::getInstance().Log(
+        LogLevel::Warning,
+        "[ModelDescriptorParser] a group's rotation_jitter is no more: use a "
+        "rotation_jitter locator operation targeting the group");
 
   if (j.contains("locators")) {
     std::vector<std::string> locators;
@@ -141,6 +142,10 @@ bool ModelDescriptorParser::ParseDeformationRange(const nlohmann::json& j,
                     out.bend_angle_max);
   parse_float_range("noise_amplitude_min", "noise_amplitude_max",
                     out.noise_amplitude_min, out.noise_amplitude_max);
+  parse_float_range("ridge_amplitude_min", "ridge_amplitude_max",
+                    out.ridge_amplitude_min, out.ridge_amplitude_max);
+  parse_float_range("wander_amplitude_min", "wander_amplitude_max",
+                    out.wander_amplitude_min, out.wander_amplitude_max);
 
   // Convert angle ranges from degrees to radians
   if (out.twist_angle_min)

@@ -12,9 +12,9 @@
 
 namespace ProcModel {
 
-static std::shared_ptr<PCG::OperationData> ParseLocatorRotationJitter(
+static std::shared_ptr<PCG::OperationData> ParseRotationJitter(
     const nlohmann::json& params) {
-  auto data = std::make_shared<LocatorRotationJitterData>();
+  auto data = std::make_shared<RotationJitterData>();
 
   // Per-axis range. Explicit "<axis>_min"/"<axis>_max" take precedence;
   // shorthand "<axis>: N" expands to [-N, +N]. Missing axis = no jitter.
@@ -45,9 +45,9 @@ static std::shared_ptr<PCG::OperationData> ParseLocatorRotationJitter(
   return data;
 }
 
-static void ApplyLocatorRotationJitter(const PCG::OperationData& base_data,
-                                       PCG::OperationContext& base_ctx) {
-  const auto& data = PCG::OperationCast<LocatorRotationJitterData>(base_data);
+static void ApplyRotationJitter(const PCG::OperationData& base_data,
+                                PCG::OperationContext& base_ctx) {
+  const auto& data = PCG::OperationCast<RotationJitterData>(base_data);
   auto& ctx = PCG::OperationCast<LocatorContext>(base_ctx);
 
   const float pitch = ctx.sampler.Uniform("rotation_jitter", "x", data.min.x,
@@ -69,9 +69,9 @@ static void ApplyLocatorRotationJitter(const PCG::OperationData& base_data,
   ctx.locator_world = ctx.locator_world * jitter;
 }
 
-void RegisterLocatorRotationJitterOperation(PCG::OperationRegistry& registry) {
-  registry.Register("new_rotation_jitter", &ParseLocatorRotationJitter,
-                    &ApplyLocatorRotationJitter);
+void RegisterRotationJitterOperation(PCG::OperationRegistry& registry) {
+  registry.Register("rotation_jitter", &ParseRotationJitter,
+                    &ApplyRotationJitter);
 }
 
 }  // namespace ProcModel

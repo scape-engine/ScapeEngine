@@ -8,7 +8,6 @@
 
 namespace ProcModel {
 
-// TODO: rename to RotationJitterData and RotationJitter
 // TODO: use Transform operations and Transformation system instead of glm
 // TODO: move parsing logic out of operation code?
 
@@ -18,14 +17,14 @@ namespace ProcModel {
 // Authoring shorthand: a single "pitch": N value expands to
 // [-N, +N]. Same authored range produces different perturbations
 // per locator via independent RNG draws.
-struct LocatorRotationJitterData : public PCG::OperationData {
+struct RotationJitterData : public PCG::OperationData {
   // Stored in radians; parser converts from degrees.
   // x = pitch, y = yaw, z = roll
   glm::vec3 min = glm::vec3(0.0f);
   glm::vec3 max = glm::vec3(0.0f);
 };
 
-void RegisterLocatorRotationJitterOperation(PCG::OperationRegistry& registry);
+void RegisterRotationJitterOperation(PCG::OperationRegistry& registry);
 
 }  // namespace ProcModel
 

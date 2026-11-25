@@ -12,13 +12,14 @@
 #include "engine/math/transformation.h"
 #include "engine/animation/animation.h"
 #include "engine/ecs/components/animator_component.h"
+#include "engine/pcg/procmodel/generator/model_generator.h"
 #include "engine/renderer/model/mesh.h"
 
 namespace ProcModel {
 
 ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
     const InstanceModel& resolved, const ModelGraph& graph, Entity parent,
-    const std::vector<MaterialHandle>* materials) {
+    const std::vector<MaterialHandle>* materials, const MeshOverrides* meshes) {
   InstantiateResult result;
   auto& ecs = ECS::Main();
 
@@ -72,38 +73,33 @@ ModelInstantiator::InstantiateResult ModelInstantiator::Instantiate(
     result.part_entities.push_back(
         CreatePartEntity(descriptor, graph, result.root,
                          materials ? *materials : graph.material_handles,
-                         animator));
+                         animator, meshes));
   }
 
   return result;
 }
 
-// A part's matrix as CreatePartEntity sets its transform
-static glm::mat4 _PartMatrix(const ResolvedDescriptor& descriptor) {
-  glm::vec3 position;
-  glm::quat rotation;
-  glm::vec3 scale;
-  glm::vec3 skew;
-  glm::vec4 perspective;
-  glm::decompose(descriptor.local_transform, scale, rotation, position, skew,
-                 perspective);
-  rotation =
-      glm::normalize(rotation * glm::quat(descriptor.applied_rotation));
-  return glm::translate(glm::mat4(1.0f), position) * glm::mat4_cast(rotation) *
-         glm::scale(glm::mat4(1.0f), scale * descriptor.applied_scale);
+const Mesh* ModelInstantiator::PartMesh(const ResolvedDescriptor& descriptor,
+                                        size_t slot, const ModelGraph& graph,
+                                        const MeshOverrides* meshes) {
+  if (meshes)
+    if (const auto it = meshes->find(descriptor.descriptor_id);
+        it != meshes->end() && slot < it->second.size() && it->second[slot])
+      return it->second[slot];
+  return graph.GetMesh(descriptor.mesh_indices[slot]);
 }
 
 std::optional<std::vector<ModelInstantiator::Part>> ModelInstantiator::Parts(
     const InstanceModel& resolved, const ModelGraph& graph,
-    const std::vector<MaterialHandle>* materials) {
+    const std::vector<MaterialHandle>* materials, const MeshOverrides* meshes) {
   const std::vector<MaterialHandle>& handles =
       materials ? *materials : graph.material_handles;
   const glm::mat4 model = glm::scale(glm::mat4(1.0f), resolved.model_scale);
   std::vector<Part> parts;
   for (const auto& descriptor : resolved.descriptors) {
-    const glm::mat4 matrix = model * _PartMatrix(descriptor);
-    for (const int index : descriptor.mesh_indices) {
-      const Mesh* mesh = graph.GetMesh(index);
+    const glm::mat4 matrix = model * ModelGenerator::PartWorld(descriptor);
+    for (size_t slot = 0; slot < descriptor.mesh_indices.size(); ++slot) {
+      const Mesh* mesh = PartMesh(descriptor, slot, graph, meshes);
       if (!mesh)
         continue;
       if (mesh->Skinned())
@@ -122,7 +118,8 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
                                            const ModelGraph& graph,
                                            Entity parent,
                                            const std::vector<MaterialHandle>& materials,
-                                           Entity animator) {
+                                           Entity animator,
+                                           const MeshOverrides* meshes) {
   auto& ecs = ECS::Main();
   const auto material = [&](const Mesh& mesh) {
     const uint32_t index = mesh.MaterialIndex();
@@ -157,7 +154,7 @@ Entity ModelInstantiator::CreatePartEntity(const ResolvedDescriptor& descriptor,
   // bones place it, so it hangs from the model's root
   const bool single = descriptor.mesh_indices.size() == 1;
   for (size_t i = 0; i < descriptor.mesh_indices.size(); ++i) {
-    const Mesh* mesh = graph.GetMesh(descriptor.mesh_indices[i]);
+    const Mesh* mesh = PartMesh(descriptor, i, graph, meshes);
     if (!mesh)
       continue;
 

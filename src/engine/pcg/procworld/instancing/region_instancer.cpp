@@ -10,6 +10,7 @@
 #include "engine/ecs/components/animator_component.h"
 #include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
+#include "engine/ecs/components/mesh_owner_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/herd_movement.h"
@@ -112,12 +113,15 @@ Entity RegionInstancer::CreateObject(ECS& ecs, const std::string& id,
 }
 
 // A static procmodel object's parts, in its space, for instancing; nullopt
-// for other objects and animated models, which CreateObject makes
+// for other objects and animated models, which CreateObject makes.
+// `deformed` takes what keeps their deformed meshes alive
 static std::optional<std::vector<ProcModel::ModelInstantiator::Part>>
 _ObjectParts(const std::string& id, uint64_t seed,
              const std::filesystem::path& root,
              const Worldgen::TextureInput* planet,
-             const RegionInstancer::ObjectModels* models) {
+             const RegionInstancer::ObjectModels* models,
+             std::shared_ptr<const ProcModel::Subsystem::DeformedMeshes>&
+                 deformed) {
   if (!_StartsWith(id, procmodel_prefix) || !models)
     return std::nullopt;
   const auto it = models->find({id, seed});
@@ -127,7 +131,7 @@ _ObjectParts(const std::string& id, uint64_t seed,
     return std::nullopt;  // failed: CreateObject skips the kind
   const auto path = root / id.substr(std::strlen(procmodel_prefix));
   return EngineContext::PCG().GetProcModel().InstanceParts(
-      path.string(), *it->second, planet);
+      path.string(), *it->second, planet, &deformed);
 }
 
 // Rows of x, y, z axes and the translation (worldgen's layout) as local TRS
@@ -246,9 +250,13 @@ bool RegionInstancer::InstanceObjects(
       progress.made++;
       continue;
     }
-    if (const auto parts = _ObjectParts(id, seed, root, planet, models)) {
+    std::shared_ptr<const ProcModel::Subsystem::DeformedMeshes> deformed;
+    if (const auto parts =
+            _ObjectParts(id, seed, root, planet, models, deformed)) {
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
         place(part.mesh, part.material, matrix * part.matrix, 0.0f, 0.0f);
+      if (deformed)
+        progress.deformed.push_back(std::move(deformed));
       progress.at++;
       progress.made++;
       continue;
@@ -283,8 +291,12 @@ bool RegionInstancer::InstanceObjects(
       set.anchors_.insert(set.anchors_.end(), placed.anchors.begin(),
                           placed.anchors.end());
     }
+    if (!progress.deformed.empty())
+      ecs.Add<MeshOwnerComponent>(entity).meshes_ =
+          std::move(progress.deformed);
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();
+    progress.deformed.clear();
     if (made)
       made->push_back(entity);
   }
