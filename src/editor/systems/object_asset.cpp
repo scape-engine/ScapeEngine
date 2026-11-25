@@ -74,8 +74,9 @@ void ObjectAsset::DrawInspectorUI() {
   const std::string before = Worldgen::Json::SaveRegionObject(object_);
 
   if (BeginSection("Object")) {
-    IMComponents::InputText("Model", object_.id, "procmodel:models/rock.json");
-    ImGui::TextDisabled("A model file, or procmodel: and a procedural model");
+    IMComponents::InputText(
+        "Model", object_.id, "procmodel:models/rock.json",
+        "A model file, or procmodel: and a procedural model");
     // Region sizes are 32 m doubled per level
     std::array<std::string, 9> labels;
     std::array<const char*, 9> names;
@@ -86,16 +87,17 @@ void ObjectAsset::DrawInspectorUI() {
       if (object_.placement_size == 32 << i)
         level = i;
     }
-    if (IMComponents::Choice("Placement Size", level, names.data(), 9))
+    if (IMComponents::Choice("Placement Size", level, names.data(), 9,
+                             "Regions this wide place it: small sizes for "
+                             "small objects seen close, large ones for "
+                             "objects seen far"))
       object_.placement_size = 32 << level;
-    ImGui::TextDisabled("Regions this wide place it: small sizes for small");
-    ImGui::TextDisabled("objects seen close, large ones for objects seen far");
     _Choice("Ground Tile", object_.tile_type,
             std::array<const char*, 9>{"Air", "Base", "Rock", "Mountain",
                                        "Underwater", "Cave", "Dirt", "Liquid",
                                        "Substance"});
-    IMComponents::Input("Allow Limiting", object_.allow_limiting);
-    ImGui::TextDisabled("Quality caps may trim it in crowded regions");
+    IMComponents::Input("Allow Limiting", object_.allow_limiting,
+                        "Quality caps may trim it in crowded regions");
     EndSection();
   }
 
@@ -157,22 +159,23 @@ void ObjectAsset::DrawInspectorUI() {
   }
 
   if (BeginSection("Seed")) {
-    IMComponents::Input("Own Seed", spawn.seed_valid);
+    IMComponents::Input("Own Seed", spawn.seed_valid,
+                        "Off: the seed comes from its place among the "
+                        "planet's objects of its size");
     if (spawn.seed_valid) {
       std::string seed = std::to_string(spawn.seed);
       if (IMComponents::InputText("Seed", seed))
         spawn.seed = std::strtoull(seed.c_str(), nullptr, 10);
     }
-    ImGui::TextDisabled("Off: the seed comes from its place among the");
-    ImGui::TextDisabled("planet's objects of its size");
     EndSection();
   }
 
   if (BeginSection("Draw Distance")) {
-    IMComponents::Input("Fade Start", spawn.fade_start, 1.0f);
-    IMComponents::Input("Fade End", spawn.fade_end, 1.0f);
-    ImGui::TextDisabled("Overrides the model's draw distance; End at or");
-    ImGui::TextDisabled("below Start: the model's own");
+    static constexpr const char* fade =
+        "Overrides the model's draw distance; End at or below Start: the "
+        "model's own";
+    IMComponents::Input("Fade Start", spawn.fade_start, 1.0f, fade);
+    IMComponents::Input("Fade End", spawn.fade_end, 1.0f, fade);
     // TODO: fade_offset and lod_distances (the content's own LOD distances)
     EndSection();
   }
@@ -187,21 +190,19 @@ void ObjectAsset::DrawInspectorUI() {
           Runtime::Project().AbsolutePath(descriptor_));
     }
     const ImposterSettings was = imposter_;
-    IMComponents::Input("Distance", imposter_.distance, 1.0f);
-    IMComponents::Input("Resolution", imposter_.resolution, 16.0f);
-    IMComponents::Input("Views", imposter_.views, 0.1f);
-    IMComponents::Input("Variants", imposter_.variants, 0.1f);
-    ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextDisabled(
-        "From the distance on, instances draw as a card turned to the "
-        "viewer, baked from Views x Views directions above it (0: never). "
-        "Variants: seeds baked side by side, Resolution pixels each; they "
-        "blend in over the model's LOD Blend share");
-    ImGui::TextDisabled("%s",
-                        ("The model's own (" + descriptor_ +
-                         "): every object placing it shares them")
-                            .c_str());
-    ImGui::PopTextWrapPos();
+    // The model's own: every object placing it shares them
+    const std::string shared = "Saved with " + descriptor_ + ", shared";
+    IMComponents::Input("Distance", imposter_.distance, 1.0f,
+                        ("From here on, instances draw as a card turned to "
+                         "the viewer (0: never). " + shared).c_str());
+    IMComponents::Input("Resolution", imposter_.resolution, 16.0f,
+                        ("Pixels per baked view. " + shared).c_str());
+    IMComponents::Input("Views", imposter_.views, 0.1f,
+                        ("Baked from Views x Views directions above it. " +
+                         shared).c_str());
+    IMComponents::Input("Variants", imposter_.variants, 0.1f,
+                        ("Seeds baked side by side; they blend in over the "
+                         "model's LOD Blend share. " + shared).c_str());
     imposter_pending_ |= imposter_.distance != was.distance ||
                          imposter_.resolution != was.resolution ||
                          imposter_.views != was.views ||

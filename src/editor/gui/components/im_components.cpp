@@ -1,5 +1,7 @@
 #include "im_components.h"
 
+#include <functional>
+
 #include <imgui_internal.h>
 #include <implot.h>
 #include <algorithm>
@@ -316,84 +318,42 @@ void Icon(ImDrawList& draw_list, const char* icon_id, const char* glyph,
 //=============================================================================
 // INPUT WIDGETS
 //=============================================================================
-void Input(std::string label, bool& value) {
-  label += ":";
-  ImGui::PushID(EditorUI::Get()->GenerateId());
-  if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_SizingStretchProp |
-                            ImGuiTableFlags_NoBordersInBody |
-                            ImGuiTableFlags_NoSavedSettings)) {
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-    ImGui::TableNextRow();
+template <class Field>
+static bool _Row(std::string label, Field field, const char* tooltip = "");
 
-    ImGui::TableSetColumnIndex(0);
-    ImGui::Text("%s", label.c_str());
-
-    ImGui::TableSetColumnIndex(1);
-    ImGui::PushItemWidth(-1);
-    std::string id = EditorUI::Get()->GenerateIdString();
-    IMComponents::Checkbox(id.c_str(), &value);
-    ImGui::PopItemWidth();
-
-    ImGui::EndTable();
-  }
-  ImGui::PopID();
+bool Input(std::string label, bool& value, const char* tooltip) {
+  return _Row(
+      std::move(label),
+      [&] { return IMComponents::Checkbox("##value", &value); }, tooltip);
 }
 
-void Input(std::string label, int32_t& value, float speed) {
-  label += ":";
-  ImGui::PushID(EditorUI::Get()->GenerateId());
-  if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_SizingStretchProp |
-                            ImGuiTableFlags_NoBordersInBody |
-                            ImGuiTableFlags_NoSavedSettings)) {
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-    ImGui::TableNextRow();
-
-    ImGui::TableSetColumnIndex(0);
-    ImGui::Text("%s", label.c_str());
-
-    ImGui::TableSetColumnIndex(1);
-    ImGui::PushItemWidth(-1);
-    std::string id = EditorUI::Get()->GenerateIdString();
-    ImGui::DragInt(id.c_str(), &value, speed, 0, 0, "%d");
-    ImGui::PopItemWidth();
-
-    ImGui::EndTable();
-  }
-  ImGui::PopID();
+void Input(std::string label, int32_t& value, float speed,
+           const char* tooltip) {
+  _Row(
+      std::move(label),
+      [&] { return ImGui::DragInt("##value", &value, speed, 0, 0, "%d"); },
+      tooltip);
 }
 
-void Input(std::string label, float& value, float speed) {
-  label += ":";
-  ImGui::PushID(EditorUI::Get()->GenerateId());
-  if (ImGui::BeginTable("##table", 2,
-                        ImGuiTableFlags_SizingStretchProp |
-                            ImGuiTableFlags_NoBordersInBody |
-                            ImGuiTableFlags_NoSavedSettings)) {
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.7f);
-    ImGui::TableNextRow();
+void Input(std::string label, float& value, float speed, const char* tooltip) {
+  _Row(
+      std::move(label),
+      [&] {
+        return ImGui::DragFloat("##value", &value, speed, 0.0f, 0.0f, "%.2f");
+      },
+      tooltip);
+}
 
-    ImGui::TableSetColumnIndex(0);
-    ImGui::Text("%s", label.c_str());
-
-    ImGui::TableSetColumnIndex(1);
-    ImGui::PushItemWidth(-1);
-    std::string id = EditorUI::Get()->GenerateIdString();
-    ImGui::DragFloat(id.c_str(), &value, speed, 0.0f, 0.0f, "%.2f");
-    ImGui::PopItemWidth();
-
-    ImGui::EndTable();
-  }
-  ImGui::PopID();
+// A row's label column: a third of the row, but wide enough that a label's
+// words don't break as it wraps
+static float _LabelWidth() {
+  return std::max(0.3f * ImGui::GetContentRegionAvail().x,
+                  6.5f * ImGui::GetFontSize());
 }
 
 // A label and its field in two columns, as Input lays them out
 template <class Field>
-static bool _Row(std::string label, Field field) {
+static bool _Row(std::string label, Field field, const char* tooltip) {
   label += ":";
   bool changed = false;
   ImGui::PushID(EditorUI::Get()->GenerateId());
@@ -401,16 +361,19 @@ static bool _Row(std::string label, Field field) {
                         ImGuiTableFlags_SizingStretchProp |
                             ImGuiTableFlags_NoBordersInBody |
                             ImGuiTableFlags_NoSavedSettings)) {
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed,
+                            _LabelWidth());
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableNextRow();
 
     ImGui::TableSetColumnIndex(0);
-    ImGui::Text("%s", label.c_str());
+    ImGui::TextWrapped("%s", label.c_str());
+    Tooltip(tooltip);
 
     ImGui::TableSetColumnIndex(1);
     ImGui::PushItemWidth(-1);
     changed = field();
+    Tooltip(tooltip);
     ImGui::PopItemWidth();
 
     ImGui::EndTable();
@@ -420,20 +383,60 @@ static bool _Row(std::string label, Field field) {
 }
 
 bool Slider(std::string label, float& value, float min, float max,
-            const char* format) {
-  return _Row(std::move(label), [&] {
-    return ImGui::SliderFloat("##slider", &value, min, max, format);
-  });
+            const char* format, const char* tooltip) {
+  return _Row(
+      std::move(label),
+      [&] { return ImGui::SliderFloat("##slider", &value, min, max, format); },
+      tooltip);
 }
 
 bool Choice(std::string label, int& index, const char* const* names,
-            int count) {
-  return _Row(std::move(label), [&] {
-    return ImGui::Combo("##choice", &index, names, count);
-  });
+            int count, const char* tooltip) {
+  return _Row(
+      std::move(label),
+      [&] { return ImGui::Combo("##choice", &index, names, count); }, tooltip);
 }
 
-bool InputText(std::string label, std::string& value, const char* hint) {
+bool Slider(std::string label, int& value, int min, int max,
+            const char* tooltip) {
+  return _Row(
+      std::move(label),
+      [&] {
+        ImGui::SliderInt("##slider", &value, min, max);
+        return ImGui::IsItemDeactivatedAfterEdit();
+      },
+      tooltip);
+}
+
+bool Drag(std::string label, float& value, float speed, float min, float max,
+          const char* format, const char* tooltip) {
+  return _Row(
+      std::move(label),
+      [&] {
+        ImGui::DragFloat("##drag", &value, speed, min, max, format);
+        return ImGui::IsItemDeactivatedAfterEdit();
+      },
+      tooltip);
+}
+
+bool DragRange(std::string label, float& low, float& high, float speed,
+               float min, float max, const char* format, const char* tooltip) {
+  return _Row(
+      std::move(label),
+      [&] {
+        ImGui::DragFloatRange2("##range", &low, &high, speed, min, max, format);
+        return ImGui::IsItemDeactivatedAfterEdit();
+      },
+      tooltip);
+}
+
+bool Row(std::string label, const std::function<bool()>& field,
+         const char* tooltip) {
+  return _Row(std::move(label), field, tooltip);
+}
+
+bool InputText(std::string label, std::string& value, const char* hint,
+               const char* tooltip) {
   return _Row(std::move(label), [&] {
     // One buffer per field, holding what is typed until it is left
     static std::unordered_map<ImGuiID, std::array<char, 260>> buffers;
@@ -446,10 +449,11 @@ bool InputText(std::string label, std::string& value, const char* hint) {
       return false;
     value = buffer.data();
     return true;
-  });
+  }, tooltip);
 }
 
-void Input(std::string label, glm::vec3& value, float speed) {
+void Input(std::string label, glm::vec3& value, float speed,
+           const char* tooltip) {
   // EVALUATE
   const ImGuiStyle& style = ImGui::GetStyle();
   const float row_height = ImGui::GetFrameHeight();
@@ -475,6 +479,7 @@ void Input(std::string label, glm::vec3& value, float speed) {
   // LABEL
   ImGui::AlignTextToFramePadding();
   ImGui::TextUnformatted(label.c_str());
+  Tooltip(tooltip);
 
   for (int i = 0; i < 3; ++i) {
     const float y = origin.y + i * (row_height + row_gap);
@@ -588,7 +593,8 @@ bool Header(std::string label) {
 //=============================================================================
 // COLOR PICKER
 //=============================================================================
-void ColorPicker(std::string label, glm::vec3& value) {
+bool ColorPicker(std::string label, glm::vec3& value, const char* tooltip) {
+  bool applied = false;
   static glm::vec3* opened_for = nullptr;
   static glm::vec3 initial_color;
 
@@ -602,12 +608,14 @@ void ColorPicker(std::string label, glm::vec3& value) {
                         ImGuiTableFlags_SizingStretchProp |
                             ImGuiTableFlags_NoBordersInBody |
                             ImGuiTableFlags_NoSavedSettings)) {
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.3f);
-    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch, 0.7f);
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed,
+                            _LabelWidth());
+    ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableNextRow();
 
     ImGui::TableSetColumnIndex(0);
-    ImGui::Text("%s", label.c_str());
+    ImGui::TextWrapped("%s", label.c_str());
+    Tooltip(tooltip);
 
     ImGui::TableSetColumnIndex(1);
     if (ImGui::Button("Pick Color")) {
@@ -659,10 +667,12 @@ void ColorPicker(std::string label, glm::vec3& value) {
     if (ButtonBig(ICON_FA_CHECK " Apply")) {
       ImGui::CloseCurrentPopup();
       opened_for = nullptr;
+      applied = true;
     }
 
     ImGui::EndPopup();
   }
+  return applied;
 }
 
 //=============================================================================
@@ -985,6 +995,52 @@ bool Foldout(const char* label, bool default_open) {
                            pos.y + (height - font->FontSize) * 0.5f),
                     EditorColor::text, label,
                     ImGui::FindRenderedTextEnd(label));
+  return open;
+}
+
+bool Foldout(const char* label, bool* enabled, bool default_open) {
+  ImGuiStorage* storage = ImGui::GetStateStorage();
+  const ImGuiID id = ImGui::GetID(label);
+  bool open = storage->GetBool(id, default_open);
+
+  ImFont* font = EditorStyles::GetFonts().h4_bold;
+  const float chevron = 12.0f;
+  const float height = font->FontSize + 8.0f;
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  const ImVec2 size(std::max(ImGui::GetContentRegionAvail().x, 1.0f), height);
+  const bool row_hovered =
+      ImGui::IsMouseHoveringRect(pos, pos + size) && ImGui::IsWindowHovered();
+  ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+  if (row_hovered)
+    draw_list.AddRectFilled(pos, pos + size, EditorColor::hover_overlay,
+                            EditorSizes::control_radius);
+
+  // The chevron and the label toggle it; the checkbox between them doesn't
+  ImGui::PushID(label);
+  bool toggled = ImGui::InvisibleButton("##chevron", ImVec2(chevron + 6.0f, height));
+  ImGui::SameLine(0.0f, 0.0f);
+  const float frame = ImGui::GetFrameHeight();
+  ImGui::SetCursorScreenPos(
+      ImVec2(ImGui::GetCursorScreenPos().x, pos.y + (height - frame) * 0.5f));
+  Checkbox("##enabled", enabled);
+  ImGui::SameLine(0.0f, 6.0f);
+  const float text_x = ImGui::GetCursorScreenPos().x;
+  ImGui::SetCursorScreenPos(ImVec2(text_x, pos.y));
+  toggled |= ImGui::InvisibleButton(
+      "##label", ImVec2(std::max(pos.x + size.x - text_x, 1.0f), height));
+  ImGui::PopID();
+  if (toggled) {
+    open = !open;
+    storage->SetBool(id, open);
+  }
+
+  Glyph(draw_list, pos, ImVec2(chevron, height),
+        open ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
+        EditorColor::chevron, EditorStyles::GetFonts().s);
+  draw_list.AddText(font, font->FontSize,
+                    ImVec2(text_x, pos.y + (height - font->FontSize) * 0.5f),
+                    *enabled ? EditorColor::text : EditorColor::text_disabled,
+                    label, ImGui::FindRenderedTextEnd(label));
   return open;
 }
 

@@ -10,6 +10,7 @@
 namespace PCG {
 
 class ProgramGraph;
+struct Stage;
 
 enum class GeneratorType {
   Preset,  // PCG::Generator with Config
@@ -52,6 +53,9 @@ public:
 
   // Clone for copy operations
   virtual std::unique_ptr<Generator> Clone() const;
+
+  // The stage by its name in the settings; null: none of that name
+  virtual Stage* GetStage(const std::string& name) { return nullptr; }
 };
 
 class FieldGenerator : public Generator {

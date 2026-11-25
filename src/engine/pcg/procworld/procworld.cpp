@@ -582,6 +582,21 @@ static void _FadeOut(ECS& ecs, Entity entity, float seconds) {
       entity, fade ? fade->visibility_ : 1.0f, 0.0f, seconds, true);
 }
 
+// Fades a stage's entity in or out as its stage is on or off; one already
+// fading out to go is left to it
+static void _ShowStage(ECS& ecs, Entity entity, bool shown, float seconds) {
+  if (!ecs.Reg().valid(entity))
+    return;
+  const auto* fade = ecs.Reg().try_get<FadeComponent>(entity);
+  if (fade && fade->destroy_when_hidden_)
+    return;
+  const float target = shown ? 1.0f : 0.0f;
+  if (fade ? fade->target_ == target : shown)
+    return;
+  ecs.Reg().emplace_or_replace<FadeComponent>(
+      entity, fade ? fade->visibility_ : 1.0f, target, seconds, false);
+}
+
 // Whether the entity has finished fading in
 static bool _Shown(ECS& ecs, Entity entity) {
   const auto* fade = ecs.Reg().try_get<FadeComponent>(entity);
@@ -656,12 +671,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->terrain = built.terrain;
       if (generator.planet_radius > 0.0f)
         content->radius = generator.planet_radius;
-      if (generator.sea.enabled && content->terrain.sea_level > 0.0f &&
+      if (content->terrain.sea_level > 0.0f &&
           !planet.water_waves.states.empty()) {
         state.water_waves =
             std::make_shared<Worldgen::WaterWaveSettings>(planet.water_waves);
         auto [sea, transform] = ecs.CreateEntity("Sea", volume);
-        ecs.Add<ProceduralInstanceComponent>(sea, volume);
+        ecs.Add<ProceduralInstanceComponent>(sea, volume, "sea");
         EngineContext::PCG().GetWater().Make(
             ecs, sea, state.water_waves,
             content->radius + content->terrain.sea_level,
@@ -863,6 +878,10 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                         w.cell.j >> shift, herd_level};
         herd_cells.emplace(_CellKey(cell), cell);
       }
+  // Off, it keeps (hidden) those it has
+  if (!herds.enabled)
+    for (const auto& entry : state.herds)
+      herd_cells.emplace(entry.first, _CellOf(entry.first));
   state.herd_building.Finish([&](uint64_t key, RegionBuild build) {
     const Worldgen::Region& region = build.region;
     if (herd_cells.count(key)) {
@@ -874,7 +893,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           volume);
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
-      ecs.Add<ProceduralInstanceComponent>(entity, volume);
+      ecs.Add<ProceduralInstanceComponent>(entity, volume, "herds");
       ecs.Add<HerdComponent>(entity).settings_ = herds.creatures;
       RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
                                      root_, &state.textures, &build.objects);
@@ -921,7 +940,13 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   // Cells load this many of their widths before their objects' reach, so
   // they're made before the objects can show
   constexpr float lead = 1.0f;
-  if (state.object_content && generator.objects.enabled)
+  // Off, it keeps (hidden) those it has
+  if (!generator.objects.enabled)
+    for (const auto& entry : state.placements) {
+      const Worldgen::PlanetCell cell = _CellOf(entry.first);
+      place(cell, distance_to(cell));
+    }
+  else if (state.object_content)
     for (const auto& objects : state.object_levels) {
       const int level = objects.level;
       const bool limited = std::isfinite(reach_of(level));
@@ -953,10 +978,16 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           }
       }
     }
-  // The terrain's own regions, while its stage is on: off, they all go
+  // The terrain's own regions, while its stage is on: off, it keeps (hidden)
+  // those it has
   if (!terrain.enabled) {
     wanted.clear();
     is_wanted.clear();
+    for (const auto& entry : state.regions) {
+      const Worldgen::PlanetCell cell = _CellOf(entry.first);
+      wanted.push_back({cell, distance_to(cell)});
+      is_wanted[entry.first] = true;
+    }
   }
   state.placing.Finish([&](uint64_t key, RegionBuild build) {
     const Worldgen::Region& region = build.region;
@@ -969,7 +1000,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           volume);
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
-      ecs.Add<ProceduralInstanceComponent>(entity, volume);
+      ecs.Add<ProceduralInstanceComponent>(entity, volume, "objects");
       PlanetState::ObjectCell& placed = state.placements[key];
       placed.entity = entity;
       glm::vec3 low(std::numeric_limits<float>::max());
@@ -1059,7 +1090,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       auto [entity, transform] = ecs.CreateEntity(name, volume);
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
-      ecs.Add<ProceduralInstanceComponent>(entity, volume);
+      ecs.Add<ProceduralInstanceComponent>(entity, volume, "terrain");
       // Deep enough to cover the height differences between levels
       const float skirt_depth = static_cast<float>(32 << cell.level) * 0.25f;
       auto result =
@@ -1068,8 +1099,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                     skirt_depth, &state.textures,
                                     &build.objects, false);
       // Its buildings fade in and out with it
-      RegionInstancer::InstanceBuildings(ecs, build.pieces, entity, root_,
-                                         &state.textures);
+      for (const Entity building : RegionInstancer::InstanceBuildings(
+               ecs, build.pieces, entity, root_, &state.textures))
+        ecs.Get<ProceduralInstanceComponent>(building).stage_ = "buildings";
       _FadeIn(ecs, {entity}, generator.fade_time);
       state.regions[key] = {entity, std::move(result.terrain_mesh)};
       if (!build.region.objects.empty())
@@ -1205,6 +1237,27 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   }
   starts.Run(busy);
   // TODO: a herd cell that is also a wanted region is built twice
+
+  // A stage that is off shows nothing of what it keeps
+  const float fade = generator.fade_time;
+  _ShowStage(ecs, state.sea, generator.sea.enabled, fade);
+  for (const auto& entry : state.herds)
+    _ShowStage(ecs, entry.second, herds.enabled, fade);
+  for (const auto& entry : state.placements)
+    _ShowStage(ecs, entry.second.entity, generator.objects.enabled, fade);
+  // A region holds the terrain and its buildings
+  for (const auto& entry : state.regions)
+    if (const auto* transform =
+            ecs.Reg().try_get<TransformComponent>(entry.second.entity))
+      for (const Entity child : transform->children_) {
+        const auto* instance =
+            ecs.Reg().try_get<ProceduralInstanceComponent>(child);
+        _ShowStage(ecs, child,
+                   instance && instance->stage_ == "buildings"
+                       ? generator.buildings.enabled
+                       : terrain.enabled,
+                   fade);
+      }
 
   const bool was_loading =
       generator.queued_regions + generator.building_regions > 0;

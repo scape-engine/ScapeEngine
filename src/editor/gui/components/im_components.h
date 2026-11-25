@@ -39,18 +39,38 @@ void VectorLabel(std::string text, const glm::vec3& vector, bool bold = false);
 void TryIcon(const char* icon, float y_padding = 2.5f);
 void TryIcon(const char* icon, ImU32 color, float y_padding = 2.5f);
 
-void Input(std::string label, bool& value);
-void Input(std::string label, int32_t& value, float speed = 0.1f);
-void Input(std::string label, float& value, float speed = 0.1f);
-void Input(std::string label, glm::vec3& value, float speed = 0.1f);
-// Laid out like Input: true when the value changed
+// A property row: its label on the left, its field on the right. A
+// `tooltip` shows on hovering either: say there what the field means rather
+// than in text under it
+// True when it changes
+bool Input(std::string label, bool& value, const char* tooltip = "");
+void Input(std::string label, int32_t& value, float speed = 0.1f,
+           const char* tooltip = "");
+void Input(std::string label, float& value, float speed = 0.1f,
+           const char* tooltip = "");
+void Input(std::string label, glm::vec3& value, float speed = 0.1f,
+           const char* tooltip = "");
+// True when the value changed
 bool Slider(std::string label, float& value, float min, float max,
-            const char* format = "%.2f");
+            const char* format = "%.2f", const char* tooltip = "");
 bool Choice(std::string label, int& index, const char* const* names,
-            int count);
+            int count, const char* tooltip = "");
+// True once an edit is finished (released or typed in), so callers rebuild
+// once per edit
+bool Slider(std::string label, int& value, int min, int max,
+            const char* tooltip = "");
+bool Drag(std::string label, float& value, float speed, float min, float max,
+          const char* format = "%.2f", const char* tooltip = "");
+bool DragRange(std::string label, float& low, float& high, float speed,
+               float min, float max, const char* format = "%.2f",
+               const char* tooltip = "");
 // Applied when the field is left, so half-typed text (e.g. a path) is never
 // used; true then
-bool InputText(std::string label, std::string& value, const char* hint = "");
+bool InputText(std::string label, std::string& value, const char* hint = "",
+               const char* tooltip = "");
+// Any other field (`field` draws it, full width, and says whether to act)
+bool Row(std::string label, const std::function<bool()>& field,
+         const char* tooltip = "");
 
 void IndicatorLabel(std::string label, std::string value,
                     std::string additional = "");
@@ -67,7 +87,8 @@ bool ExtendableSettings(std::string label, bool& value, const char* icon = "");
 
 bool Header(std::string label);
 
-void ColorPicker(std::string label, glm::vec3& value);
+// True when a colour is applied
+bool ColorPicker(std::string label, glm::vec3& value, const char* tooltip = "");
 void SparklineGraph(const char* id, const float* values, int32_t count,
                     float min_v, float max_v, int32_t offset,
                     const ImVec4& color, const ImVec2& size);
@@ -134,6 +155,8 @@ void SectionTitle(const char* title, float gap_before = 14.0f);
 // on a full-width row, no frame of its own. Returns true while open; the
 // label's ID ("##"/"###" as in ImGui) keeps the state
 bool Foldout(const char* label, bool default_open = false);
+// With a checkbox for `enabled` before its label, dim while off
+bool Foldout(const char* label, bool* enabled, bool default_open = false);
 
 void KeyValue(const char* key, const std::string& value,
               ImU32 value_color = EditorColor::text);

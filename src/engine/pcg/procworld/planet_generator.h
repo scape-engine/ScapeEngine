@@ -57,9 +57,22 @@ public:
   std::unique_ptr<PCG::Generator> Clone() const override {
     return std::make_unique<PlanetGenerator>(*this);
   }
+  PCG::Stage* GetStage(const std::string& name) override {
+    if (name == "terrain")
+      return &terrain;
+    if (name == "buildings")
+      return &buildings;
+    if (name == "objects")
+      return &objects;
+    if (name == "herds")
+      return &herds;
+    if (name == "sea")
+      return &sea;
+    return nullptr;
+  }
 
   std::string content_path;
-  // Its stages. The labels are the user's; grids and radii as each says
+  // Its stages. The names are the user's; grids and radii as each says
   TerrainStage terrain{{PCG::StageType::Surface, "Terrain", true, 0, 8192.0f}};
   // Buildings, on the terrain's regions of `grid` or finer
   PCG::Stage buildings{PCG::StageType::InstanceSpawner, "Buildings", true, 9,

@@ -129,8 +129,9 @@ void Render() {
                                     ImGui::GetContentRegionAvail());
     {
       for (const auto& [name, component] : ComponentRegistry::Get()) {
-        // Skip if entity already has this component
-        if (component.has && component.has(g_search_entity))
+        // Skip if entity already has this component, or it can't be added
+        if (!component.add ||
+            (component.has && component.has(g_search_entity)))
           continue;
 
         // Filter by search text

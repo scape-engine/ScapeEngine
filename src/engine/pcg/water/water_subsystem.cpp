@@ -12,6 +12,7 @@
 #include "engine/ecs/components/shader_params_component.h"
 #include "engine/ecs/components/water_surface_tag.h"
 #include "engine/ecs/components/wave_field_component.h"
+#include "engine/fade/fade_system.h"
 #include "engine/paging/viewers.h"
 #include "engine/time/time.h"
 
@@ -113,7 +114,12 @@ void Subsystem::Update(ECS& ecs) {
        ecs.View<TransformComponent, WaveFieldComponent, ComputeBufferComponent,
                 ShaderParamsComponent>()
            .each()) {
-    if (!wave.waves || buffers.buffers_.size() < 2 || params.uniforms_.empty())
+    // Hidden: nothing to move, on the CPU or the GPU
+    const bool shown = FadeSystem::Visibility(ecs, entity) > 0.0f;
+    if (auto* job = ecs.Reg().try_get<ComputeJobComponent>(entity))
+      job->enabled_ = shown;
+    if (!wave.waves || buffers.buffers_.size() < 2 ||
+        params.uniforms_.empty() || !shown)
       continue;
     Worldgen::UpdateWaves(*wave.waves, dt, wave.field);
     std::vector<Worldgen::Wave> sorted = wave.field.waves;

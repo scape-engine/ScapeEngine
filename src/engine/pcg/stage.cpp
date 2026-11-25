@@ -15,14 +15,14 @@ const char* StageTypeName(StageType type) {
 }
 
 nlohmann::json WriteStage(const Stage& stage) {
-  return {{"label", stage.label},
+  return {{"name", stage.name},
           {"enabled", stage.enabled},
           {"grid", stage.grid},
           {"generation_radius", stage.generation_radius}};
 }
 
 void ReadStage(const nlohmann::json& in, Stage& stage) {
-  stage.label = in.value("label", stage.label);
+  stage.name = in.value("name", stage.name);
   stage.enabled = in.value("enabled", stage.enabled);
   stage.grid = in.value("grid", stage.grid);
   stage.generation_radius =

@@ -22,6 +22,7 @@
 #include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"  // ! should be removed?
 #include "engine/pcg/generator_resource.h"  // ! should be removed?
+#include "engine/pcg/stage.h"
 #include "engine/transform/transform.h"
 // TODO: #include "rendering/icons/icon_pool.h"
 
@@ -64,10 +65,17 @@ void _EcsRemove(Entity entity) {
  * - Set alwaysOpened to true for components that can't be collapsed
  *
  */
+// Whether the entity drawn may lose components (AllowRemoving)
+static bool g_allow_removing = true;
+
+void AllowRemoving(bool allow) { g_allow_removing = allow; }
+
 bool _BeginComponent(const std::string& identifier,
                      uint32_t icon,  // TODO: Use IconPool texture ID
                      bool* enabled_ptr = nullptr, bool* removed_ptr = nullptr,
                      bool always_opened = false) {
+  if (!g_allow_removing)
+    removed_ptr = nullptr;
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
 
   const float header_height = EditorSizes::header_bar_height;
@@ -595,6 +603,55 @@ void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight) {
     _EcsRemove<SpotlightComponent>(entity);
 }
 
+GeneratedOrigin FindOrigin(Entity entity) {
+  // Up its sources to the volume, the first stage named on the way
+  auto& ecs = ECS::Main();
+  GeneratedOrigin origin;
+  for (const auto* instance =
+           ecs.Reg().try_get<ProceduralInstanceComponent>(entity);
+       instance;) {
+    if (origin.stage.empty())
+      origin.stage = instance->stage_;
+    const Entity source = instance->source_;
+    if (!ecs.Reg().valid(source))
+      break;
+    if (ecs.Has<VolumeComponent>(source)) {
+      origin.volume = source;
+      break;
+    }
+    instance = ecs.Reg().try_get<ProceduralInstanceComponent>(source);
+  }
+  return origin;
+}
+
+PCG::Stage* FindStage(const GeneratedOrigin& origin) {
+  if (origin.volume == entt::null || origin.stage.empty())
+    return nullptr;
+  const ResourceID id =
+      ECS::Main().Get<VolumeComponent>(origin.volume).generator_id;
+  auto resource =
+      EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+          id);
+  return resource && resource->Get() ? resource->Get()->GetStage(origin.stage)
+                                    : nullptr;
+}
+
+// The settings of the stage that made it, titled by its type; edits apply
+// to its generator (the path under the entity's name leads there)
+void DrawProceduralInstanceComponent(Entity entity,
+                                     ProceduralInstanceComponent&) {
+  const GeneratedOrigin origin = FindOrigin(entity);
+  PCG::Stage* stage = FindStage(origin);
+  if (!stage)
+    return;
+  if (_BeginComponent(PCG::StageTypeName(stage->type), 0, &stage->enabled)) {
+    GeneratorProperties::DrawStage(
+        ECS::Main().Get<VolumeComponent>(origin.volume).generator_id,
+        origin.stage);
+    _EndComponent();
+  }
+}
+
 void DrawViewerComponent(Entity entity, ViewerComponent&) {
   bool removed = false;
 
@@ -612,17 +669,20 @@ void DrawViewerComponent(Entity entity, ViewerComponent&) {
 }
 
 void DrawFadeComponent(Entity entity, FadeComponent& fade) {
+  // A generated entity's fades are its generator's paging and its stage's
+  // on/off
+  if (FindOrigin(entity).volume != entt::null)
+    return;
   bool removed = false;
 
   if (_BeginComponent("Fade", 0, nullptr, &removed)) {
-    _Headline("Visibility");
-    ImGui::SliderFloat("Visibility", &fade.visibility_, 0.0f, 1.0f);
-    ImGui::SliderFloat("Target", &fade.target_, 0.0f, 1.0f);
-    ImGui::DragFloat("Duration", &fade.duration_, 0.01f, 0.0f, 60.0f,
-                     "%.2f s");
-    ImGui::TextDisabled("Visibility moves to the target over this long");
+    IMComponents::Slider("Visibility", fade.visibility_, 0.0f, 1.0f, "%.2f",
+                         "Children fade with the entity");
+    IMComponents::Slider("Target", fade.target_, 0.0f, 1.0f);
+    IMComponents::Drag("Duration", fade.duration_, 0.01f, 0.0f, 60.0f,
+                       "%.2f s",
+                       "Visibility moves to the target over this long");
     IMComponents::Input("Destroy When Hidden", fade.destroy_when_hidden_);
-    ImGui::TextDisabled("Children fade with the entity");
     _EndComponent();
   }
 

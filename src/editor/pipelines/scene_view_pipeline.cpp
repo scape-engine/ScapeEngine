@@ -15,6 +15,7 @@
 #include "engine/core/view_ids.h"
 #include "engine/ecs/components/water_surface_tag.h"
 #include "engine/ecs/world.h"
+#include "engine/fade/fade_system.h"
 #include "engine/math/transformation.h"
 #include "engine/renderer/compute/compute_system.h"
 #include "engine/renderer/lighting/light.h"
@@ -514,7 +515,9 @@ void SceneViewPipeline::RenderWaterNode(const Node::Context& context) {
   for (auto [entity, transform, renderer] :
        world.View<TransformComponent, MeshRendererComponent, WaterSurfaceTag>()
            .each()) {
-    if (!renderer.enabled_ || !renderer.mesh_)
+    // Faded out: hidden (it draws opaque, so no partial fade)
+    if (!renderer.enabled_ || !renderer.mesh_ ||
+        FadeSystem::Visibility(world, entity) <= 0.0f)
       continue;
     ComputeSystem::BindForDraw(world, entity);
     RenderMesh(transform, renderer, ViewID::WATER_PASS);

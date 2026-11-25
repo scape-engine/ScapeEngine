@@ -1,6 +1,8 @@
 #ifndef GENERATOR_PROPERTIES_H
 #define GENERATOR_PROPERTIES_H
 
+#include <string>
+
 #include "engine/ecs/components/transform_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/pcg/generator_base.h"
@@ -10,6 +12,9 @@ namespace GeneratorProperties {
 
 // A planet, craft or region generator's settings; graphs edit in the PCG tab
 void Draw(ResourceID id);
+
+// One stage of the generator (its name in the settings), open, as in Draw
+void DrawStage(ResourceID id, const std::string& stage);
 
 // Gives the volume a new generator of the type, named after it
 void Create(VolumeComponent& volume, PCG::GeneratorType type);

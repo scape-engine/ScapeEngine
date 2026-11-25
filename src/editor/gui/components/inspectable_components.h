@@ -4,6 +4,10 @@
 #include "editor/registry/component_registry.h"
 #include "engine/ecs/ecs_collection.h"
 
+namespace PCG {
+struct Stage;
+}
+
 namespace InspectableComponents {
 
 // Inspectable ECS components
@@ -20,6 +24,23 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
 void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator);
 void DrawFadeComponent(Entity entity, FadeComponent& fade);
 void DrawViewerComponent(Entity entity, ViewerComponent& viewer);
+void DrawProceduralInstanceComponent(Entity entity,
+                                     ProceduralInstanceComponent& instance);
+
+// Where a generated entity comes from: the volume whose generator made it
+// and the stage (its name in the generator's settings; empty: none named).
+// A null volume: not generated, or its generator is gone
+struct GeneratedOrigin {
+  Entity volume = entt::null;
+  std::string stage;
+};
+GeneratedOrigin FindOrigin(Entity entity);
+
+// Off: the components drawn next have no remove button (a generated
+// entity's belong to its generator)
+void AllowRemoving(bool allow);
+// The stage that made it; null: none found
+PCG::Stage* FindStage(const GeneratedOrigin& origin);
 
 // The inspector's section look (a component's header bar and body), for
 // asset inspectors too: draw the body and call EndSection when it returns true

@@ -20,8 +20,8 @@ const char* StageTypeName(StageType type);
 // the viewers. A generator's stages add their own settings to these
 struct Stage {
   StageType type = StageType::Surface;
-  // The user's name for it; nothing reads it
-  std::string label;
+  // Its display name, in the generator's stage list and its entities' path
+  std::string name;
   bool enabled = true;
   // The level of the generator's grid it generates on; -1: none of its own
   int grid = -1;

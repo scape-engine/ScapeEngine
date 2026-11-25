@@ -160,6 +160,12 @@ void Create() {
       "Viewer", InspectableComponents::DrawViewerComponent, std::nullopt,
       false);
 
+  RegisterComponent<ProceduralInstanceComponent>(
+      "Generated", InspectableComponents::DrawProceduralInstanceComponent,
+      std::nullopt, false);
+  // Only PCG systems make them
+  g_component_registry["Generated"].add = nullptr;
+
   // TODO: velocity blur component, box collider, sphere collider, rigidbody,
   // audio listener, audio source
 }
