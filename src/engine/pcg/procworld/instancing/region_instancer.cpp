@@ -384,7 +384,8 @@ RegionInstancer::BuildingPieces RegionInstancer::GatherBuildings(
         continue;
       }
       auto [it, added] = pieces.models.try_emplace(piece.model);
-      it->second.push_back(matrix);
+      it->second.matrices.push_back(matrix);
+      it->second.anchors.push_back(glm::vec3(place[3]));
       if (added && !_StartsWith(piece.model, primitive_prefix)) {
         const std::string key = ModelEntityFactory::ModelKey(piece.model, root);
         Content::MeshCache::Instance().Get(key);
@@ -403,16 +404,19 @@ std::vector<Entity> RegionInstancer::InstanceBuildings(
   if (!pieces.models.empty()) {
     auto [entity, transform] = ecs.CreateEntity("Building pieces", source);
     auto& set = ecs.Add<InstancedMeshComponent>(entity);
-    for (const auto& [model, matrices] : pieces.models) {
+    for (const auto& [model, placed] : pieces.models) {
       const uint32_t first = static_cast<uint32_t>(set.locals_.size());
-      set.locals_.insert(set.locals_.end(), matrices.begin(), matrices.end());
+      set.locals_.insert(set.locals_.end(), placed.matrices.begin(),
+                         placed.matrices.end());
+      set.anchors_.insert(set.anchors_.end(), placed.anchors.begin(),
+                          placed.anchors.end());
       for (const auto& [mesh, material] :
            ModelEntityFactory::Meshes(model, root)) {
         InstancedMeshComponent::Part part;
         part.mesh = mesh;
         part.material = material;
         part.first = first;
-        part.count = static_cast<uint32_t>(matrices.size());
+        part.count = static_cast<uint32_t>(placed.matrices.size());
         set.parts_.push_back(part);
       }
     }

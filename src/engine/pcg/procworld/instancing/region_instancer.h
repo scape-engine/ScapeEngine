@@ -121,9 +121,12 @@ public:
       const Worldgen::TextureInput* planet = nullptr,
       const ObjectModels* models = nullptr);
 
-  // A region's building pieces by source, as matrices in the region
+  // A region's building pieces by source, as matrices in the region with
+  // their buildings' origins as anchors, so a building fades and switches LOD
+  // as a whole
   struct BuildingPieces {
-    std::map<std::string, std::vector<glm::mat4>> models;  // and primitives
+    // By model, primitives too
+    std::map<std::string, ObjectProgress::PartInstances> models;
     struct Object {
       std::string id;
       uint64_t seed;
