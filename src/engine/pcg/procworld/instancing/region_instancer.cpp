@@ -11,11 +11,14 @@
 #include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/ecs/components/mesh_owner_component.h"
+#include "engine/ecs/components/mesh_renderer_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/herd_movement.h"
 #include "engine/pcg/procworld/region_mesher.h"
 #include "engine/scene/model_entity_factory.h"
+
+#include "placement/nav_query.h"
 
 namespace ProcWorld {
 
@@ -222,8 +225,11 @@ bool RegionInstancer::InstanceObjects(
                     (root / id.substr(std::strlen(procmodel_prefix))).string(),
                     planet)
               : nullptr;
+      if (progress.imposter)
+        progress.owned.push_back(progress.imposter);
     }
-    const ProcModel::Subsystem::ModelImposter* imposter = progress.imposter;
+    const ProcModel::Subsystem::ModelImposter* imposter =
+        progress.imposter.get();
     // Its meshes, up to the imposter's distance once its card is baked
     const bool card = imposter && imposter->imposter->Baked();
     const float distance = card ? imposter->distance : 0.0f;
@@ -256,7 +262,7 @@ bool RegionInstancer::InstanceObjects(
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
         place(part.mesh, part.material, matrix * part.matrix, 0.0f, 0.0f);
       if (deformed)
-        progress.deformed.push_back(std::move(deformed));
+        progress.owned.push_back(std::move(deformed));
       progress.at++;
       progress.made++;
       continue;
@@ -291,16 +297,28 @@ bool RegionInstancer::InstanceObjects(
       set.anchors_.insert(set.anchors_.end(), placed.anchors.begin(),
                           placed.anchors.end());
     }
-    if (!progress.deformed.empty())
+    if (!progress.owned.empty())
       ecs.Add<MeshOwnerComponent>(entity).meshes_ =
-          std::move(progress.deformed);
+          std::move(progress.owned);
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();
-    progress.deformed.clear();
+    progress.owned.clear();
     if (made)
       made->push_back(entity);
   }
   return true;
+}
+
+// The largest bounding radius of the meshes the entity and its children draw,
+// in its space
+static float _BodyRadius(ECS& ecs, Entity entity) {
+  float radius = 0.0f;
+  if (const auto* renderer = ecs.Reg().try_get<MeshRendererComponent>(entity);
+      renderer && renderer->mesh_)
+    radius = renderer->mesh_->BoundsRadius();
+  for (const Entity child : ecs.Get<TransformComponent>(entity).children_)
+    radius = std::max(radius, _BodyRadius(ecs, child));
+  return radius;
 }
 
 std::vector<Entity> RegionInstancer::InstanceHerds(
@@ -342,6 +360,11 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     const std::string& id = content.herd_ids[spawn];
     const std::vector<float>& matrices = region.herds[spawn].matrices;
     const uint64_t kind_seed = _KindSeed(content, spawn, planet);
+    // The placement stands every creature of the spawn on one spot (the
+    // game's runtime spreads them out): they go round it on a sunflower
+    // spiral a body apart, on spots the navmesh reaches
+    float spacing = 0.0f;
+    int slot = 0;
     for (size_t at = 0; !id.empty() && at + 12 <= matrices.size(); at += 12) {
       std::array<float, 16> rows{};  // 12 floats: rows without w
       for (int row = 0; row < 4; ++row)
@@ -352,6 +375,42 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
           CreateObject(ecs, id, source, kind_seed, root, planet, models);
       if (entity == entt::null)
         break;  // the source is missing: skip the rest of this kind
+      const glm::vec3 anchor(rows[12], rows[13], rows[14]);
+      if (at == 0)
+        spacing = 2.2f * _BodyRadius(ecs, entity) *
+                  glm::length(glm::vec3(rows[0], rows[1], rows[2]));
+      else if (spacing > 0.0f && ground) {
+        const glm::vec3 up = ground->Up();
+        const glm::vec3 side = glm::normalize(glm::cross(
+            up,
+            std::abs(up.x) < 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0)));
+        const glm::vec3 ahead = glm::cross(up, side);
+        glm::vec3 hit;
+        const float height =
+            ground->Under(anchor, hit) ? glm::dot(anchor - hit, up) : 0.0f;
+        const auto* herd = ecs.Reg().try_get<HerdComponent>(source);
+        for (int tries = 0; tries < 8; ++tries) {
+          ++slot;
+          const float angle = 2.39996323f * static_cast<float>(slot);
+          const glm::vec3 spot =
+              anchor + (side * std::cos(angle) + ahead * std::sin(angle)) *
+                           (spacing * std::sqrt(static_cast<float>(slot)));
+          if (!ground->Under(spot, hit))
+            continue;
+          const glm::vec3 placed = hit + up * height;
+          if (herd && herd->path_) {
+            const glm::vec3 world = placed + herd->origin_;
+            if (Worldgen::NavMesh::FindPolygon(*herd->path_,
+                                               {world.x, world.y, world.z},
+                                               herd->settings_.nav_reach) < 0)
+              continue;
+          }
+          rows[12] = placed.x;
+          rows[13] = placed.y;
+          rows[14] = placed.z;
+          break;
+        }
+      }
       _SetTransform(ecs.Get<TransformComponent>(entity), rows);
       ecs.Add<ProceduralInstanceComponent>(entity, source);
       if (auto* animator = ecs.Reg().try_get<AnimatorComponent>(entity);

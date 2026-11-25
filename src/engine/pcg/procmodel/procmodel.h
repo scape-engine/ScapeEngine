@@ -163,9 +163,14 @@ public:
   };
   // The model's imposter for the planet, made on first ask (main thread) from
   // the first draw-settings variants seeds; null when its draw settings have
-  // none (distance 0) or it can't load. It draws once baked
-  const ModelImposter* Imposter(const std::string& descriptor_path,
-                                const Worldgen::TextureInput* planet);
+  // none (distance 0) or it can't load. It draws once baked. Whatever draws
+  // its cards or variants holds it: a draw-settings edit makes a new one
+  std::shared_ptr<const ModelImposter> Imposter(
+      const std::string& descriptor_path, const Worldgen::TextureInput* planet);
+
+  // Counts the draw-settings edits that remade imposters and deformed meshes
+  // (ReloadDrawSettings), so what was made from them can be made again
+  uint64_t DrawVersion() const { return draw_version_; }
 
   // The project root, which the models' LOD sources are relative to
   void SetRoot(const std::filesystem::path& root) { root_ = root; }
@@ -220,7 +225,8 @@ private:
       model_materials_;
 
   // By descriptor and planet (Imposter); kept while anything may draw them
-  std::unordered_map<std::string, ModelImposter> imposters_;
+  std::unordered_map<std::string, std::shared_ptr<ModelImposter>> imposters_;
+  uint64_t draw_version_ = 0;
 
   std::vector<ProcModelSample> samples_;
 };

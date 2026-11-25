@@ -97,9 +97,16 @@ private:
       float radius = -1.0f;
     };
     std::unordered_map<uint64_t, ObjectCell> placements;  // by cell key
+    // Cells made from older draw settings (ProcModel's DrawVersion), each
+    // kept until its cell is made again
+    std::unordered_map<uint64_t, ObjectCell> old_placements;
+    uint64_t draw_version = 0;
     std::unordered_map<uint64_t, std::future<RegionBuild>> placing;
     // The procmodels of its objects and creatures, loaded with the content
     RegionInstancer::Archetypes archetypes;
+    // Those the object cells generate instances of: a kind with an imposter
+    // places only its variants
+    RegionInstancer::Archetypes object_archetypes;
     // Loaded regions whose objects are still being made, a few per frame
     struct ObjectWork {
       Entity region = entt::null;

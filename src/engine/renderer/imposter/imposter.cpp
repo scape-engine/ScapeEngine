@@ -157,8 +157,9 @@ void Imposter::BakeNext() {
   if (g_queue.empty() || g_queue.front().frame == frame)
     return;
   Imposter* imposter = g_queue.front().imposter;
-  g_queue.pop_front();
   imposter->Bake();
+  if (imposter->baked_ || !bgfx::isValid(imposter->target_))
+    g_queue.pop_front();
 }
 
 void Imposter::Bake() {
@@ -179,8 +180,12 @@ void Imposter::Bake() {
   const uint8_t view = ViewID::IMPOSTER_BAKE;
   bgfx::setViewFrameBuffer(view, target_);
   bgfx::setViewRect(view, 0, 0, width, height);
-  bgfx::setViewClear(view, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x00000000,
-                     1.0f, 0);
+  // Cleared before the first variant; the others draw over their own tiles
+  bgfx::setViewClear(view,
+                     next_variant_ == 0
+                         ? BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH
+                         : BGFX_CLEAR_NONE,
+                     0x00000000, 1.0f, 0);
   bgfx::touch(view);
 
   // An orthographic camera on the sphere, squeezed into each view's tile
@@ -195,7 +200,8 @@ void Imposter::Bake() {
   // doesn't, so its triangles wind the other way there
   const bool mirrored = !caps->originBottomLeft;
   const uint16_t tile = static_cast<uint16_t>(resolution_ / views_);
-  for (size_t v = 0; v < variants_.size(); ++v)
+  const size_t v = next_variant_;
+  if (v < variants_.size())
     for (int i = 0; i < views_; ++i)
       for (int j = 0; j < views_; ++j) {
         const glm::vec3 d = ViewDirection(i, j, views_);
@@ -244,5 +250,5 @@ void Imposter::Bake() {
           bgfx::submit(view, program);
         }
       }
-  baked_ = true;
+  baked_ = ++next_variant_ >= variants_.size();
 }

@@ -85,10 +85,11 @@ public:
                         float, float>,
              PartInstances>
         instances;
-    // What keeps the instanced ones' deformed meshes alive, for the set
-    std::vector<std::shared_ptr<const void>> deformed;
+    // What keeps the instanced ones' meshes alive (deformed ones,
+    // imposters), for the set
+    std::vector<std::shared_ptr<const void>> owned;
     // The current kind's imposter, once looked up (null: none)
-    const ProcModel::Subsystem::ModelImposter* imposter = nullptr;
+    std::shared_ptr<const ProcModel::Subsystem::ModelImposter> imposter;
     size_t imposter_kind = SIZE_MAX;
   };
   // The region's objects (as Instance makes them) from where `progress`

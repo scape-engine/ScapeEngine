@@ -223,11 +223,19 @@ void Subsystem::ReloadDrawSettings(const std::filesystem::path& model) {
     const auto archetype = LoadedArchetype(descriptor_path);
     std::error_code error;
     if (archetype && std::filesystem::equivalent(
-                         archetype->GetGraph().source_path, model, error))
+                         archetype->GetGraph().source_path, model, error)) {
       ApplyDraw(archetype->GetGraph());
-    // TODO: rebake its imposters and remake its deformed meshes; regions
-    // still draw the old cards and LODs, so they stay until the planet
-    // reloads
+      // Remade from the new settings when next asked for; what holds the old
+      // ones keeps them until it's made again (DrawVersion)
+      std::erase_if(deformed_, [&](const auto& entry) {
+        return std::get<0>(entry.first) == archetype.get();
+      });
+      std::erase_if(imposters_, [&](const auto& entry) {
+        return entry.first == descriptor_path ||
+               entry.first.rfind(descriptor_path + "|", 0) == 0;
+      });
+      ++draw_version_;
+    }
   }
 }
 
@@ -596,13 +604,14 @@ const std::vector<MaterialHandle>* Subsystem::TexturedMaterials(
                        PrepareTextures(descriptor_path, descriptor, input));
 }
 
-const Subsystem::ModelImposter* Subsystem::Imposter(
+std::shared_ptr<const Subsystem::ModelImposter> Subsystem::Imposter(
     const std::string& descriptor_path, const Worldgen::TextureInput* planet) {
   const std::string key =
       planet ? _TextureKey(descriptor_path, *planet) : descriptor_path;
   if (const auto it = imposters_.find(key); it != imposters_.end())
-    return it->second.imposter ? &it->second : nullptr;
-  ModelImposter& made = imposters_[key];
+    return it->second;
+  std::shared_ptr<ModelImposter>& entry = imposters_[key];  // null: none
+  auto made = std::make_shared<ModelImposter>();
   const auto archetype = Archetype(descriptor_path);
   if (!archetype)
     return nullptr;
@@ -618,7 +627,7 @@ const Subsystem::ModelImposter* Subsystem::Imposter(
         instance ? InstanceParts(descriptor_path, *instance, planet, &deformed)
                  : std::nullopt;
     if (deformed)
-      made.deformed.push_back(deformed);
+      made->deformed.push_back(deformed);
     if (!parts || parts->empty())
       continue;
     ::Imposter::Variant& variant = variants.emplace_back();
@@ -627,12 +636,13 @@ const Subsystem::ModelImposter* Subsystem::Imposter(
   }
   if (variants.empty())
     return nullptr;
-  made.imposter = std::make_unique<::Imposter>(std::move(variants),
-                                               settings.imposter.resolution,
-                                               settings.imposter.views);
-  made.distance = settings.imposter.distance;
-  made.blend = settings.lod_fade;
-  return &made;
+  made->imposter = std::make_unique<::Imposter>(std::move(variants),
+                                                settings.imposter.resolution,
+                                                settings.imposter.views);
+  made->distance = settings.imposter.distance;
+  made->blend = settings.lod_fade;
+  entry = made;
+  return made;
 }
 
 Subsystem::TextureSet Subsystem::PrepareTextures(

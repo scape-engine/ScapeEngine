@@ -132,10 +132,6 @@ int PartLods(const InstancedMeshComponent::Part& part, float distance,
 
 // An instanced mesh's world matrices, its parts' bounds and its buffer from
 // the entity's model matrix
-// TODO: Spread new buffers over frames (a per-frame upload budget). While
-// streaming, frames miss vsync inside bgfx::frame now and then (main thread
-// and workers ruled out): every set new this frame uploads here at once, as
-// do new terrain meshes. Measure the bytes per frame first
 void Upload(InstancedMeshComponent& set, const glm::mat4& model) {
   static bgfx::VertexLayout layout;
   if (layout.getStride() == 0)

@@ -368,6 +368,7 @@ void Subsystem::Clear(Entity volume) {
       discarded_.push_back(std::move(build));
     it->second.herd_building.clear();
     it->second.placements.clear();  // destroyed above
+    it->second.old_placements.clear();
     for (auto& [key, build] : it->second.placing)
       discarded_.push_back(std::move(build));
     it->second.placing.clear();
@@ -755,18 +756,13 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
             EngineContext::PCG().GetProcModel().Archetype(
                 (root_ / id.substr(prefix.size())).string());
       };
-      for (const auto& object : objects->objects) {
+      for (const auto& object : objects->objects)
         load(object.id);
-        // Their imposters bake over the frames before the regions need them
-        if (object.id.rfind(prefix, 0) == 0)
-          EngineContext::PCG().GetProcModel().Imposter(
-              (root_ / object.id.substr(prefix.size())).string(),
-              &state.textures);
-      }
       for (const std::string& id : state.herd_content->herd_ids)
         load(id);
       state.content = std::move(content);
       state.object_content = std::move(objects);
+      state.draw_version = UINT64_MAX;  // imposters looked up below
     } else {
       state.content = state.herd_content = state.object_content = nullptr;
     }
@@ -776,6 +772,42 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         generator.building_regions = 0;
     return;
   }
+
+  // The object kinds' imposters bake over the frames before the cells need
+  // them. Draw-settings edits remake them: the cells are made again, each old
+  // one going as its new one is made
+  auto& procmodels = EngineContext::PCG().GetProcModel();
+  if (state.draw_version != procmodels.DrawVersion()) {
+    if (state.draw_version != UINT64_MAX)
+      for (auto& [key, cell] : state.placements) {
+        if (auto old = state.old_placements.find(key);
+            old != state.old_placements.end())
+          _FadeOut(ecs, old->second.entity, generator.fade_time);
+        state.old_placements[key] = cell;
+      }
+    state.placements.clear();
+    state.draw_version = procmodels.DrawVersion();
+    state.object_archetypes.clear();
+    static constexpr std::string_view prefix = "procmodel:";
+    if (state.object_content)
+      for (const auto& object : state.object_content->objects) {
+        const auto archetype = state.archetypes.find(object.id);
+        if (archetype == state.archetypes.end() ||
+            procmodels.Imposter(
+                (root_ / object.id.substr(prefix.size())).string(),
+                &state.textures))
+          continue;
+        state.object_archetypes.insert(*archetype);
+      }
+  }
+  // Fades out the cell's old one, if any
+  const auto retire = [&](uint64_t key) {
+    if (const auto old = state.old_placements.find(key);
+        old != state.old_placements.end()) {
+      _FadeOut(ecs, old->second.entity, generator.fade_time);
+      state.old_placements.erase(old);
+    }
+  };
 
   const float radius = state.content->radius;
   const int finest = std::max(generator.finest_level, 0);
@@ -964,6 +996,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       // Made a few per frame, with the other regions' objects
       if (!build.region.objects.empty())
         state.making.push_back({entity, state.object_content, std::move(build)});
+      else
+        retire(it->first);
     }
     it = state.placing.erase(it);
   }
@@ -987,6 +1021,15 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     _FadeOut(ecs, placed.entity, generator.fade_time);
     return true;
   });
+  for (auto it = state.old_placements.begin();
+       it != state.old_placements.end();) {
+    if (placement_cells.count(it->first) || state.placements.count(it->first)) {
+      ++it;
+      continue;
+    }
+    _FadeOut(ecs, it->second.entity, generator.fade_time);
+    it = state.old_placements.erase(it);
+  }
 
   // Within the frame budget: the objects of regions loaded before, then
   // finished builds still wanted (their terrain and buildings; their objects
@@ -1005,8 +1048,16 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
             &state.textures, &work.build.objects, work.progress, more, &made);
     _FadeIn(ecs, made, generator.fade_time);
     objects_made += work.progress.made - before;
-    if (done)
+    if (done) {
+      // A cell made again replaces its old one now its objects show
+      for (const auto& [key, old] : state.old_placements)
+        if (const auto now = state.placements.find(key);
+            now != state.placements.end() && now->second.entity == work.region) {
+          retire(key);
+          break;
+        }
       state.making.pop_front();
+    }
   }
   for (auto it = state.building.begin(); it != state.building.end();) {
     if (!more())
@@ -1152,7 +1203,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           std::launch::async,
           [content = state.object_content, x = centre[0], y = centre[1],
            z = centre[2], level = placement.cell.level,
-           archetypes = state.archetypes,
+           archetypes = state.object_archetypes,
            &procmodel = EngineContext::PCG().GetProcModel()] {
             RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
             build.objects = RegionInstancer::GenerateObjects(
