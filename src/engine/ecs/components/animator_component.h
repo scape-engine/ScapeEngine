@@ -23,6 +23,9 @@ struct AnimatorSettings {
   // distance), up to every `max_step`th
   float full_rate_distance{20.0f};
   int max_step{8};
+  // Farther than this, poses aren't sampled at all (the clips still run, so
+  // they pick up where they'd be); 0: no limit
+  float sample_distance{0.0f};
 };
 
 // Plays an animated model's clips: Animation::Update advances `time` and

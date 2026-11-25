@@ -153,9 +153,13 @@ void Update(ECS& ecs, float dt) {
     // Far ones sample every few frames, each animator on frames of its own
     if (const auto* transform = ecs.Reg().try_get<TransformComponent>(entity)) {
       const AnimatorSettings& settings = animator.settings_;
+      const float distance =
+          glm::distance(glm::vec3(transform->model_[3]), _viewer);
+      if (settings.sample_distance > 0.0f &&
+          distance > settings.sample_distance)
+        return;
       const int step = std::clamp(
-          static_cast<int>(glm::distance(glm::vec3(transform->model_[3]),
-                                         _viewer) /
+          static_cast<int>(distance /
                            std::max(settings.full_rate_distance, 1e-3f)),
           1, std::max(settings.max_step, 1));
       if ((_frame + static_cast<uint32_t>(entity)) % step != 0)

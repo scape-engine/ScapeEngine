@@ -421,6 +421,9 @@ void DrawAnimatorSettings(AnimatorSettings& settings) {
                    1.0f, 1.0e4f, "%.0f m");
   ImGui::SliderInt("Max Step", &settings.max_step, 1, 32);
   ImGui::TextDisabled("Farther ones sample every few frames, up to this");
+  ImGui::DragFloat("Sample Distance", &settings.sample_distance, 1.0f, 0.0f,
+                   1.0e5f, "%.0f m");
+  ImGui::TextDisabled("Farther ones don't sample; 0: no limit");
 }
 
 void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator) {

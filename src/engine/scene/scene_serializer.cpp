@@ -171,7 +171,8 @@ static nlohmann::json _WriteCreatures(const ProcWorld::HerdSettings& herd) {
             {"plant_distance", a.plant_distance},
             {"plant_reach", a.plant_reach},
             {"full_rate_distance", a.full_rate_distance},
-            {"max_step", a.max_step}}}};
+            {"max_step", a.max_step},
+            {"sample_distance", a.sample_distance}}}};
 }
 
 // Missing values keep the defaults
@@ -235,6 +236,7 @@ static void _ReadCreatures(const nlohmann::json& in,
   a.full_rate_distance =
       animation->value("full_rate_distance", a.full_rate_distance);
   a.max_step = animation->value("max_step", a.max_step);
+  a.sample_distance = animation->value("sample_distance", a.sample_distance);
 }
 
 // A volume and its generator settings (resources are runtime only)
