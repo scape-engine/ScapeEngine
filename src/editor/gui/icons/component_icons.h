@@ -7,6 +7,7 @@
 #include "engine/ecs/components/camera_component.h"
 #include "engine/ecs/components/light_component.h"
 #include "engine/ecs/components/mesh_renderer_component.h"
+#include "engine/ecs/components/pcg_world_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
 
@@ -23,6 +24,8 @@ const char* GetComponentIcon() {
     return ICON_FA_LIGHTBULB;
   else if constexpr (std::is_same_v<T, MeshRendererComponent>)
     return ICON_FA_CUBE;
+  else if constexpr (std::is_same_v<T, PCGWorldComponent>)
+    return ICON_FA_GLOBE;
   else if constexpr (std::is_same_v<T, VolumeComponent>)
     return ICON_FA_DIAGRAM_PROJECT;
   else
@@ -44,7 +47,8 @@ const char* GetFirstComponentIcon(Entity entity) {
 inline const char* GetEntityIcon(Entity entity) {
   return GetFirstComponentIcon<CameraComponent, PointLightComponent,
                                DirectionalLightComponent, SkyLightComponent,
-                               MeshRendererComponent, VolumeComponent>(entity);
+                               MeshRendererComponent, PCGWorldComponent,
+                               VolumeComponent>(entity);
 }
 
 }  // namespace EditorIcons

@@ -174,14 +174,21 @@ void EditorUI::Initialize() {
                          std::make_unique<AssetBrowserWindow>(), 0});
   bottom_tabs.push_back({ICON_FA_CHART_LINE, "Profiler", "Profiler",
                          std::make_unique<ProfilerWindow>(), 0});
+  // Only while a generator is open (Inspector), so a project without PCG
+  // never sees it
+  auto pcg = std::make_unique<PCGGraphEditorPanel>();
+  PCGGraphEditorPanel* pcg_ptr = pcg.get();
+  bottom_tabs.push_back({ICON_FA_DIAGRAM_PROJECT, "PCG Graph", "PCG Graph",
+                         std::move(pcg), 0, nullptr, nullptr,
+                         [pcg_ptr] { return pcg_ptr->IsOpen(); },
+                         [pcg_ptr] { pcg_ptr->CloseGraph(); }});
 
-  _AddWindow<TabContainer>("Bottom Panels", std::move(bottom_tabs),
-                           ImGuiDir_Down, false);
+  TabContainer* bottom = _AddWindow<TabContainer>(
+      "Bottom Panels", std::move(bottom_tabs), ImGuiDir_Down, false);
 
   _AddWindow<HierarchyPanel>();
   // _AddWindow<InfoPanel>();
   // _AddWindow<ScenePanel>();
-  _AddWindow<PCGGraphEditorPanel>();
   // _AddWindow<InspectorPanel>();
   // _AddWindow<ModelPreview>(&procmodel_data_);
   // _AddWindow<ModelViewer>(&procmodel_data_);
@@ -192,6 +199,8 @@ void EditorUI::Initialize() {
       [properties](Entity) { properties->Select("Inspector"); });
   EditorEvents::asset_selected.connect(
       [properties](AssetSID) { properties->Select("Inspector"); });
+  EditorEvents::open_graph_editor.connect(
+      [bottom](ResourceID) { bottom->Select("PCG Graph"); });
 
   EditorEvents::focus_entity.connect([this](Entity entity) {
     auto& world = ECS::Main();

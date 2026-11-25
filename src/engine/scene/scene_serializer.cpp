@@ -17,38 +17,17 @@
 #include "engine/core/logger.h"
 #include "engine/ecs/components/fade_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
+#include "engine/ecs/components/pcg_world_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
+#include "engine/pcg/generator_profile.h"
 #include "engine/pcg/generator_resource.h"
-#include "engine/pcg/procworld/craft_generator.h"
-#include "engine/pcg/procworld/planet_generator.h"
-#include "engine/pcg/procworld/region_generator.h"
+#include "engine/pcg/procworld/generator_settings.h"
+#include "engine/scene/glm_json.h"
 
 namespace fs = std::filesystem;
 
 constexpr int scene_version = 1;
-
-/* ---------- glm ---------- */
-namespace nlohmann {
-template <>
-struct adl_serializer<glm::vec3> {
-  static void to_json(json& j, const glm::vec3& v) { j = {v.x, v.y, v.z}; }
-  static void from_json(const json& j, glm::vec3& v) {
-    v = glm::vec3(j.at(0).get<float>(), j.at(1).get<float>(),
-                  j.at(2).get<float>());
-  }
-};
-
-// Stored as w, x, y, z
-template <>
-struct adl_serializer<glm::quat> {
-  static void to_json(json& j, const glm::quat& q) { j = {q.w, q.x, q.y, q.z}; }
-  static void from_json(const json& j, glm::quat& q) {
-    q = glm::quat(j.at(0).get<float>(), j.at(1).get<float>(),
-                  j.at(2).get<float>(), j.at(3).get<float>());
-  }
-};
-}  // namespace nlohmann
 
 /* ---------- components (persisted fields only) ---------- */
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(CameraComponent, enabled_, fov_,
@@ -110,137 +89,10 @@ static std::string _Absolute(const std::string& path, const fs::path& root) {
   return (root / path).string();
 }
 
-static nlohmann::json _WriteLook(const TerrainMaterialData& look) {
-  nlohmann::json colours = nlohmann::json::array();
-  for (const glm::vec3& colour : look.tile_colours)
-    colours.push_back(colour);
-  return {{"tile_colours", colours},
-          {"tile_images", look.tile_images},
-          {"height_offset", look.height_offset},
-          {"height_scale", look.height_scale},
-          {"roughness", look.roughness},
-          {"tile_noise",
-           {look.tile_noise.x, look.tile_noise.y, look.tile_noise.z,
-            look.tile_noise.w}}};
-}
-
-// Missing values keep the defaults
-static void _ReadLook(const nlohmann::json& in, TerrainMaterialData& look) {
-  auto it = in.find("look");
-  if (it == in.end())
-    return;
-  if (auto colours = it->find("tile_colours"); colours != it->end()) {
-    for (size_t i = 0;
-         i < colours->size() && i < look.tile_colours.size(); ++i)
-      look.tile_colours[i] = colours->at(i).get<glm::vec3>();
-  }
-  auto read_tiles = [&](const char* key, auto& values) {
-    if (auto list = it->find(key); list != it->end())
-      for (size_t i = 0; i < list->size() && i < values.size(); ++i)
-        list->at(i).get_to(values[i]);
-  };
-  read_tiles("tile_images", look.tile_images);
-  read_tiles("height_offset", look.height_offset);
-  read_tiles("height_scale", look.height_scale);
-  look.roughness = it->value("roughness", look.roughness);
-  if (auto noise = it->find("tile_noise"); noise != it->end())
-    look.tile_noise = {noise->at(0).get<float>(), noise->at(1).get<float>(),
-                       noise->at(2).get<float>(), noise->at(3).get<float>()};
-}
-
-static nlohmann::json _WriteCreatures(const ProcWorld::HerdSettings& herd) {
-  const AnimatorSettings& a = herd.animation;
-  return {{"roam", herd.roam},
-          {"walk_speed", herd.walk_speed},
-          {"turn_rate", herd.turn_rate},
-          {"roam_radius", herd.roam_radius},
-          {"rest_min", herd.rest_min},
-          {"rest_max", herd.rest_max},
-          {"nav_reach", herd.nav_reach},
-          {"roam_distance", herd.roam_distance},
-          {"walk_clip", herd.walk_clip},
-          {"rest_clip", herd.rest_clip},
-          {"fade", herd.fade},
-          {"forward", herd.forward},
-          {"match_stride", herd.match_stride},
-          {"walk_min_rate", herd.walk_min_rate},
-          {"walk_max_rate", herd.walk_max_rate},
-          {"keep_pace", herd.keep_pace},
-          {"animation",
-           {{"plant_feet", a.plant_feet},
-            {"plant_distance", a.plant_distance},
-            {"plant_reach", a.plant_reach},
-            {"full_rate_distance", a.full_rate_distance},
-            {"max_step", a.max_step},
-            {"sample_distance", a.sample_distance}}}};
-}
-
-// Missing values keep the defaults
-static nlohmann::json _WriteWater(const Water::SurfaceSettings& water) {
-  const Worldgen::WaveCascadeSettings& c = water.cascades;
-  return {{"base_scale", c.base_scale},
-          {"cascades", c.count},
-          {"resolution", c.resolution},
-          {"min_texels", c.min_texels},
-          {"gravity", c.gravity},
-          {"patch_size", water.patch_size},
-          {"grid_resolution", water.grid_resolution},
-          {"colour", water.look.colour},
-          {"roughness", water.look.roughness}};
-}
-
-static void _ReadWater(const nlohmann::json& in, Water::SurfaceSettings& water) {
-  auto it = in.find("water");
-  if (it == in.end())
-    return;
-  Worldgen::WaveCascadeSettings& c = water.cascades;
-  c.base_scale = it->value("base_scale", c.base_scale);
-  c.count = it->value("cascades", c.count);
-  c.resolution = it->value("resolution", c.resolution);
-  c.min_texels = it->value("min_texels", c.min_texels);
-  c.gravity = it->value("gravity", c.gravity);
-  water.patch_size = it->value("patch_size", water.patch_size);
-  water.grid_resolution = it->value("grid_resolution", water.grid_resolution);
-  water.look.colour = it->value("colour", water.look.colour);
-  water.look.roughness = it->value("roughness", water.look.roughness);
-}
-
-static void _ReadCreatures(const nlohmann::json& in,
-                           ProcWorld::HerdSettings& herd) {
-  auto it = in.find("creatures");
-  if (it == in.end())
-    return;
-  herd.roam = it->value("roam", herd.roam);
-  herd.walk_speed = it->value("walk_speed", herd.walk_speed);
-  herd.turn_rate = it->value("turn_rate", herd.turn_rate);
-  herd.roam_radius = it->value("roam_radius", herd.roam_radius);
-  herd.rest_min = it->value("rest_min", herd.rest_min);
-  herd.rest_max = it->value("rest_max", herd.rest_max);
-  herd.nav_reach = it->value("nav_reach", herd.nav_reach);
-  herd.roam_distance = it->value("roam_distance", herd.roam_distance);
-  herd.walk_clip = it->value("walk_clip", herd.walk_clip);
-  herd.rest_clip = it->value("rest_clip", herd.rest_clip);
-  herd.fade = it->value("fade", herd.fade);
-  herd.forward = it->value("forward", herd.forward);
-  herd.match_stride = it->value("match_stride", herd.match_stride);
-  herd.walk_min_rate = it->value("walk_min_rate", herd.walk_min_rate);
-  herd.walk_max_rate = it->value("walk_max_rate", herd.walk_max_rate);
-  herd.keep_pace = it->value("keep_pace", herd.keep_pace);
-  auto animation = it->find("animation");
-  if (animation == it->end())
-    return;
-  AnimatorSettings& a = herd.animation;
-  a.plant_feet = animation->value("plant_feet", a.plant_feet);
-  a.plant_distance = animation->value("plant_distance", a.plant_distance);
-  a.plant_reach = animation->value("plant_reach", a.plant_reach);
-  a.full_rate_distance =
-      animation->value("full_rate_distance", a.full_rate_distance);
-  a.max_step = animation->value("max_step", a.max_step);
-  a.sample_distance = animation->value("sample_distance", a.sample_distance);
-}
-
-// A volume and its generator settings (resources are runtime only)
-static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
+// A volume and its generator settings (resources are runtime only); a
+// generator with a profile keeps only its overrides
+static nlohmann::json _WriteVolume(const VolumeComponent& volume,
+                                   const fs::path& root) {
   nlohmann::json out = {{"bounds_min", volume.bounds_min},
                         {"bounds_max", volume.bounds_max},
                         {"resolution", volume.resolution},
@@ -248,56 +100,27 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume) {
   auto generator =
       EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
           volume.generator_id);
-  if (generator &&
-      generator->GetGeneratorType() == PCG::GeneratorType::Region) {
-    const auto& region =
-        static_cast<const ProcWorld::RegionGenerator&>(*generator->Get());
+  if (!generator || !generator->Get())
+    return out;
+  nlohmann::json settings = ProcWorld::WriteSettings(*generator->Get());
+  if (settings.is_null())
+    return out;
+  if (generator->profile_.empty()) {
+    out["generator"] = std::move(settings);
+  } else {
+    // Only what differs from the profile; all of it when the profile is gone
     out["generator"] = {
-        {"type", "Region"},
-        {"content", region.content_path},
-        {"cell", {region.cell.x, region.cell.y, region.cell.z}},
-        {"planet", region.planet_path},
-        {"seed", region.seed},
-        {"look", _WriteLook(region.look)}};
-  }
-  if (generator &&
-      generator->GetGeneratorType() == PCG::GeneratorType::Planet) {
-    const auto& planet =
-        static_cast<const ProcWorld::PlanetGenerator&>(*generator->Get());
-    out["generator"] = {{"type", "Planet"},
-                        {"content", planet.content_path},
-                        {"finest_level", planet.finest_level},
-                        {"coarsest_level", planet.coarsest_level},
-                        {"split_distance", planet.split_distance},
-                        {"view_distance", planet.view_distance},
-                        {"objects", planet.objects},
-                        {"building_level", planet.building_level},
-                        {"herd_level", planet.herd_level},
-                        {"worker_jobs", planet.worker_jobs},
-                        {"fade_time", planet.fade_time},
-                        {"planet", planet.planet_path},
-                        {"seed", planet.seed},
-                        {"biome", planet.biome},
-                        {"subtype", planet.subtype},
-                        {"size", planet.size},
-                        {"look", _WriteLook(planet.look)},
-                        {"creatures", _WriteCreatures(planet.creatures)},
-                        {"water", _WriteWater(planet.water)}};
-  }
-  if (generator &&
-      generator->GetGeneratorType() == PCG::GeneratorType::Craft) {
-    const auto& craft =
-        static_cast<const ProcWorld::CraftGenerator&>(*generator->Get());
-    out["generator"] = {{"type", "Craft"},
-                        {"content", craft.content_path},
-                        {"seed", craft.seed},
-                        {"lawless", craft.lawless},
-                        {"legacy_colours", craft.legacy_colours}};
+        {"profile", generator->profile_},
+        {"overrides",
+         PCG::ProfileOverrides(
+             PCG::LoadProfile(_Absolute(generator->profile_, root)),
+             settings)}};
   }
   return out;
 }
 
-static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
+static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in,
+                        const fs::path& root) {
   volume.bounds_min = in.value("bounds_min", volume.bounds_min);
   volume.bounds_max = in.value("bounds_max", volume.bounds_max);
   volume.resolution = in.value("resolution", volume.resolution);
@@ -305,70 +128,24 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in) {
   auto it = in.find("generator");
   if (it == in.end())
     return;
-  const std::string type = it->value("type", std::string());
-
-  if (type == "Planet") {
-    auto planet = std::make_unique<ProcWorld::PlanetGenerator>();
-    planet->content_path = it->value("content", std::string());
-    planet->finest_level = it->value("finest_level", planet->finest_level);
-    planet->coarsest_level =
-        it->value("coarsest_level", planet->coarsest_level);
-    planet->split_distance =
-        it->value("split_distance", planet->split_distance);
-    planet->view_distance =
-        it->value("view_distance", planet->view_distance);
-    planet->objects = it->value("objects", planet->objects);
-    planet->building_level =
-        it->value("building_level", planet->building_level);
-    planet->herd_level = it->value("herd_level", planet->herd_level);
-    planet->fade_time = it->value("fade_time", planet->fade_time);
-    planet->worker_jobs = it->value("worker_jobs", planet->worker_jobs);
-    planet->planet_path = it->value("planet", planet->planet_path);
-    planet->seed = it->value("seed", planet->seed);
-    planet->biome = it->value("biome", planet->biome);
-    planet->subtype = it->value("subtype", planet->subtype);
-    planet->size = it->value("size", planet->size);
-    _ReadLook(*it, planet->look);
-    _ReadCreatures(*it, planet->creatures);
-    _ReadWater(*it, planet->water);
-    auto [id, resource] =
-        EngineContext::resourceManager().Create<PCG::GeneratorResource>(
-            "Planet");
-    resource->SetGenerator(std::move(planet));
-    volume.generator_id = id;
-    volume.dirty = true;
-    return;
+  nlohmann::json settings = *it;
+  std::string profile;
+  if (auto path = it->find("profile"); path != it->end()) {
+    profile = path->get<std::string>();
+    settings = PCG::LoadProfile(_Absolute(profile, root));
+    if (settings.is_null())
+      Logger::getInstance().Log(LogLevel::Warning,
+                                "SceneSerializer: missing profile " + profile);
+    settings.merge_patch(it->value("overrides", nlohmann::json::object()));
   }
-  if (type == "Craft") {
-    auto craft = std::make_unique<ProcWorld::CraftGenerator>();
-    craft->content_path = it->value("content", std::string());
-    craft->seed = it->value("seed", craft->seed);
-    craft->lawless = it->value("lawless", craft->lawless);
-    craft->legacy_colours =
-        it->value("legacy_colours", craft->legacy_colours);
-    auto [id, resource] =
-        EngineContext::resourceManager().Create<PCG::GeneratorResource>(
-            "Craft");
-    resource->SetGenerator(std::move(craft));
-    volume.generator_id = id;
-    volume.dirty = true;
+  auto generator = ProcWorld::CreateGenerator(settings);
+  if (!generator)
     return;
-  }
-  if (type != "Region")
-    return;
-
-  auto region = std::make_unique<ProcWorld::RegionGenerator>();
-  region->content_path = it->value("content", std::string());
-  region->planet_path = it->value("planet", region->planet_path);
-  region->seed = it->value("seed", region->seed);
-  _ReadLook(*it, region->look);
-  if (auto cell = it->find("cell"); cell != it->end())
-    region->cell = {cell->at(0).get<int>(), cell->at(1).get<int>(),
-                    cell->at(2).get<int>()};
   auto [id, resource] =
       EngineContext::resourceManager().Create<PCG::GeneratorResource>(
-          "Region");
-  resource->SetGenerator(std::move(region));
+          PCG::GetGeneratorTypeName(generator->GetType()));
+  resource->SetGenerator(std::move(generator));
+  resource->profile_ = profile;
   volume.generator_id = id;
   volume.dirty = true;
 }
@@ -403,8 +180,11 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
       out["sky_light"] = sky;
     }
 
+    if (world.Has<PCGWorldComponent>(entity))
+      out["pcg_world"] = nlohmann::json::object();
+
     if (world.Has<VolumeComponent>(entity))
-      out["volume"] = _WriteVolume(world.Get<VolumeComponent>(entity));
+      out["volume"] = _WriteVolume(world.Get<VolumeComponent>(entity), root);
 
     if (world.Has<MeshRendererComponent>(entity)) {
       const auto& renderer = world.Get<MeshRendererComponent>(entity);
@@ -471,8 +251,11 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
         sky.cubemap_path_ = _Absolute(sky.cubemap_path_, root);
       }
 
+      if (in.contains("pcg_world"))
+        world.Add<PCGWorldComponent>(entity);
+
       if (auto it = in.find("volume"); it != in.end())
-        _ReadVolume(world.Add<VolumeComponent>(entity), *it);
+        _ReadVolume(world.Add<VolumeComponent>(entity), *it, root);
 
       if (auto it = in.find("mesh_renderer"); it != in.end()) {
         auto& renderer = world.Add<MeshRendererComponent>(entity);

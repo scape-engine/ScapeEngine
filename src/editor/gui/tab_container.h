@@ -27,6 +27,10 @@ struct TabEntry {
   int group = 0;
   const char* icon_id = nullptr;    // IconLoader id;
   std::function<uint32_t()> badge;  // optional: count shown on the tab
+  // Optional, for panels opened on demand: the tab shows only while `shown`
+  // holds, and a cross on it calls `close`
+  std::function<bool()> shown;
+  std::function<void()> close;
 };
 
 class TabContainer : public WindowBase {
@@ -45,6 +49,7 @@ private:
   void RenderActivePanel(ImVec2 position, ImVec2 size);
   void RenderStrip(ImDrawList& draw_list, ImVec2 strip_min, float width);
   void ActivateTab(size_t index);
+  bool Shown(size_t index) const;
   float CollapsedSize() const;
   bool Horizontal() const { return side_ == ImGuiDir_Down; }
   const char* CollapseGlyph() const;

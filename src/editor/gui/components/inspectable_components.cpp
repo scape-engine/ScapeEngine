@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "editor/editor_ui.h"
 #include "editor/events.h"
@@ -15,14 +16,12 @@
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 
+#include "generator_properties.h"
 #include "im_components.h"
 
 #include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"  // ! should be removed?
 #include "engine/pcg/generator_resource.h"  // ! should be removed?
-#include "engine/pcg/procworld/craft_generator.h"
-#include "engine/pcg/procworld/planet_generator.h"
-#include "engine/pcg/procworld/region_generator.h"
 #include "engine/transform/transform.h"
 // TODO: #include "rendering/icons/icon_pool.h"
 
@@ -37,6 +36,10 @@ std::unordered_map<uint32_t, bool> g_opened;
 
 // Top-left of the component currently being drawn
 ImVec2 g_component_top;
+// Components open at once: a section inside one is a foldout, not a box
+int g_component_depth = 0;
+// Whether each open section is a foldout, innermost last
+std::vector<bool> g_section_foldouts;
 
 // Return pointer to opened state
 bool* _IsOpened(uint32_t component_id) {
@@ -156,6 +159,7 @@ bool _BeginComponent(const std::string& identifier,
 
   // BODY: auto-height child gives padding on both sides
   g_component_top = p0;
+  ++g_component_depth;
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(pad_x, 8.0f));
   ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(0, 0, 0, 0));
   ImGui::BeginChild(
@@ -169,6 +173,7 @@ bool _BeginComponent(const std::string& identifier,
 
 void _EndComponent() {
   ImGui::EndChild();
+  --g_component_depth;
 
   // Drawn on the parent list, which renders before the child: ends up behind
   ImDrawList& draw_list = *ImGui::GetWindowDrawList();
@@ -193,14 +198,6 @@ void _Headline(const std::string& label) {
   ImGui::Dummy(ImVec2(0.0f, 1.0f));
 }
 
-bool BeginSection(const std::string& title, bool always_opened) {
-  return _BeginComponent(title, 0, nullptr, nullptr, always_opened);
-}
-
-void EndSection() {
-  _EndComponent();
-}
-
 void Headline(const std::string& label) {
   _Headline(label);
 }
@@ -211,6 +208,25 @@ void _SpacingS() {
 
 void _SpacingM() {
   ImGui::Dummy(ImVec2(0.0f, 10.0f));
+}
+
+bool BeginSection(const std::string& title, bool always_opened) {
+  const bool foldout = g_component_depth > 0;
+  const bool opened =
+      foldout ? always_opened || IMComponents::Foldout(title.c_str())
+              : _BeginComponent(title, 0, nullptr, nullptr, always_opened);
+  if (opened)
+    g_section_foldouts.push_back(foldout);
+  return opened;
+}
+
+void EndSection() {
+  const bool foldout = g_section_foldouts.back();
+  g_section_foldouts.pop_back();
+  if (foldout)
+    _SpacingS();
+  else
+    _EndComponent();
 }
 
 //=============================================================================
@@ -598,6 +614,51 @@ void DrawFadeComponent(Entity entity, FadeComponent& fade) {
     _EcsRemove<FadeComponent>(entity);
 }
 
+void DrawPCGWorldComponent(Entity entity, PCGWorldComponent&) {
+  bool removed = false;
+
+  if (_BeginComponent("PCG World", 0, nullptr, &removed)) {
+    auto& ecs = ECS::Main();
+    _Headline("Generators");
+    bool any = false;
+    for (const Entity child : ecs.Get<TransformComponent>(entity).children_) {
+      if (!ecs.Has<VolumeComponent>(child))
+        continue;
+      any = true;
+      auto generator =
+          EngineContext::resourceManager()
+              .GetResourceAs<PCG::GeneratorResource>(
+                  ecs.Get<VolumeComponent>(child).generator_id);
+      const std::string label =
+          ecs.Get<TransformComponent>(child).name_ + "  (" +
+          (generator ? PCG::GetGeneratorTypeName(generator->GetGeneratorType())
+                     : "no generator") +
+          ")##" + std::to_string(static_cast<uint32_t>(child));
+      if (ImGui::Selectable(label.c_str()))
+        Runtime::State().SelectEntity(child);
+    }
+    if (!any)
+      ImGui::TextDisabled("No generators yet");
+
+    _SpacingS();
+    _Headline("Add Generator");
+    for (const auto type :
+         {PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
+            PCG::GeneratorType::Region, PCG::GeneratorType::Graph}) {
+      if (ImGui::Button(PCG::GetGeneratorTypeName(type))) {
+        GeneratorProperties::AddGenerator(entity, type);
+        Runtime::Project().MarkSceneDirty();
+      }
+      ImGui::SameLine();
+    }
+    ImGui::NewLine();
+    _EndComponent();
+  }
+
+  if (removed)
+    _EcsRemove<PCGWorldComponent>(entity);
+}
+
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
   bool removed = false;
 
@@ -629,58 +690,22 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
           std::string(PCG::GetGeneratorTypeName(generator->GetGeneratorType())) +
           " (ID " + std::to_string(volume.generator_id) + ")");
 
-      if (ImGui::Button("Open in PCG Editor")) {
-        EditorEvents::open_graph_editor(volume.generator_id);
+      if (generator->GetGeneratorType() == PCG::GeneratorType::Graph) {
+        if (ImGui::Button("Open in PCG Editor"))
+          EditorEvents::open_graph_editor(volume.generator_id);
+      } else {
+        GeneratorProperties::Draw(volume.generator_id);
       }
     } else {
       ImGui::TextDisabled("No generator selected");
-
-      if (ImGui::Button("Create PCG Graph")) {
-        auto& res_mgr = EngineContext::resourceManager();
-        auto [id, resource] =
-            res_mgr.Create<PCG::GeneratorResource>("PCG Graph");
-        resource->SetGenerator(PCG::CreateGenerator(PCG::GeneratorType::Graph));
-
-        volume.generator_id = id;
-        volume.dirty = true;
-
-        EditorEvents::open_graph_editor(id);
+      for (const auto type :
+           {PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
+            PCG::GeneratorType::Region, PCG::GeneratorType::Graph}) {
+        if (ImGui::Button(PCG::GetGeneratorTypeName(type)))
+          GeneratorProperties::Create(volume, type);
+        ImGui::SameLine();
       }
-      ImGui::SameLine();
-      if (ImGui::Button("Create Region Generator")) {
-        auto [id, resource] =
-            EngineContext::resourceManager().Create<PCG::GeneratorResource>(
-                "Region");
-        resource->SetGenerator(std::make_unique<ProcWorld::RegionGenerator>());
-
-        volume.generator_id = id;
-        volume.dirty = true;
-
-        EditorEvents::open_graph_editor(id);
-      }
-      if (ImGui::Button("Create Planet Generator")) {
-        auto [id, resource] =
-            EngineContext::resourceManager().Create<PCG::GeneratorResource>(
-                "Planet");
-        resource->SetGenerator(std::make_unique<ProcWorld::PlanetGenerator>());
-
-        volume.generator_id = id;
-        volume.dirty = true;
-
-        EditorEvents::open_graph_editor(id);
-      }
-      ImGui::SameLine();
-      if (ImGui::Button("Create Craft Generator")) {
-        auto [id, resource] =
-            EngineContext::resourceManager().Create<PCG::GeneratorResource>(
-                "Craft");
-        resource->SetGenerator(std::make_unique<ProcWorld::CraftGenerator>());
-
-        volume.generator_id = id;
-        volume.dirty = true;
-
-        EditorEvents::open_graph_editor(id);
-      }
+      ImGui::NewLine();
     }
 
     _EndComponent();

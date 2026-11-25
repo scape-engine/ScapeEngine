@@ -222,8 +222,11 @@ void Subsystem::ReloadDrawSettings(const std::filesystem::path& model) {
   for (const auto& [descriptor_path, id] : procmodel_cache_) {
     const auto archetype = LoadedArchetype(descriptor_path);
     std::error_code error;
-    if (archetype && std::filesystem::equivalent(
-                         archetype->GetGraph().source_path, model, error)) {
+    // Its model's draw settings, or its own imposter settings
+    if (archetype &&
+        (std::filesystem::equivalent(archetype->GetGraph().source_path, model,
+                                     error) ||
+         std::filesystem::equivalent(descriptor_path, model, error))) {
       ApplyDraw(archetype->GetGraph());
       // Remade from the new settings when next asked for; what holds the old
       // ones keeps them until it's made again (DrawVersion)
@@ -615,12 +618,11 @@ std::shared_ptr<const Subsystem::ModelImposter> Subsystem::Imposter(
   const auto archetype = Archetype(descriptor_path);
   if (!archetype)
     return nullptr;
-  const DrawSettings settings =
-      DrawSettings::Read(archetype->GetGraph().source_path);
-  if (settings.imposter.distance <= 0.0f)
+  const ImposterSettings settings = ImposterSettings::Read(descriptor_path);
+  if (settings.distance <= 0.0f)
     return nullptr;
   std::vector<::Imposter::Variant> variants;
-  for (int seed = 1; seed <= std::max(settings.imposter.variants, 1); ++seed) {
+  for (int seed = 1; seed <= std::max(settings.variants, 1); ++seed) {
     const auto instance = Generate(*archetype, static_cast<uint64_t>(seed));
     std::shared_ptr<const DeformedMeshes> deformed;
     const auto parts =
@@ -636,11 +638,10 @@ std::shared_ptr<const Subsystem::ModelImposter> Subsystem::Imposter(
   }
   if (variants.empty())
     return nullptr;
-  made->imposter = std::make_unique<::Imposter>(std::move(variants),
-                                                settings.imposter.resolution,
-                                                settings.imposter.views);
-  made->distance = settings.imposter.distance;
-  made->blend = settings.lod_fade;
+  made->imposter = std::make_unique<::Imposter>(
+      std::move(variants), settings.resolution, settings.views);
+  made->distance = settings.distance;
+  made->blend = DrawSettings::Read(archetype->GetGraph().source_path).lod_fade;
   entry = made;
   return made;
 }

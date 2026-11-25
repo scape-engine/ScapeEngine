@@ -56,6 +56,14 @@ AssetSID ProjectAssets::Load(const FileSystem::Path& path) {
   return asset->asset_key_.sid_;
 }
 
+AssetRef ProjectAssets::Find(const FileSystem::Path& path) const {
+  const FileSystem::Path relative = Runtime::Project().RelativePath(path);
+  for (const auto& [id, asset] : assets_)
+    if (asset->asset_path_ == relative)
+      return asset;
+  return nullptr;
+}
+
 void ProjectAssets::Remove(AssetSID id) {
   // Try to find asset
   auto it = assets_.find(id);

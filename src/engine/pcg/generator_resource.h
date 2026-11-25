@@ -41,6 +41,10 @@ public:
     return generator_ ? generator_->GetDisplayName() : "Empty Generator";
   }
 
+  // The profile asset its settings start from, project-relative; empty: none
+  // (see generator_profile.h)
+  std::string profile_;
+
 private:
   std::unique_ptr<Generator> generator_;
 };

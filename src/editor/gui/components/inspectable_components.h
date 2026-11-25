@@ -15,6 +15,7 @@ void DrawDirectionalLightComponent(
 void DrawPointLightComponent(Entity entity, PointLightComponent& point_light);
 void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight);
 void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight);
+void DrawPCGWorldComponent(Entity entity, PCGWorldComponent& world);
 void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
 void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator);
 void DrawFadeComponent(Entity entity, FadeComponent& fade);

@@ -14,7 +14,6 @@
 #include <vector>
 
 // ! should not include PCG directly
-#include "engine/renderer/material/terrain_material.h"
 #include "engine/pcg/graph/node_types.h"
 #include "engine/pcg/graph/program_graph.h"
 
@@ -88,8 +87,6 @@ private:
 
   // Opens generators from EditorEvents::open_graph_editor
   boost::signals2::scoped_connection open_connection_;
-  // Set when the open generator has properties but no graph (Region)
-  bool show_properties_ = false;
 
   // Reference to graph being edited
   PCG::ProgramGraph* graph_;
@@ -128,13 +125,6 @@ private:
   // DRAW FUNCTIONS
   //
   void DrawToolbar();
-  void DrawRegionProperties();
-  void DrawPlanetProperties();
-  void DrawCraftProperties();
-  // Tile colours and material settings; they apply without a rebuild
-  void DrawTerrainLook(TerrainMaterialData& look);
-  // Marks the volumes using the open generator for a rebuild
-  void RequestRebuild();
   void DrawNodes();
   void DrawInlineParams(PCG::ProgramGraph::Node& node,
                         const PCG::NodeType& type);

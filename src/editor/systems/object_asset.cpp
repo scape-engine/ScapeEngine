@@ -16,6 +16,7 @@
 #include "engine/context/engine_context.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/renderer/icons/icon_loader.h"
 
@@ -35,7 +36,10 @@ void ObjectAsset::OnReload() {
 void ObjectAsset::Save() {
   std::ofstream(Runtime::Project().AbsolutePath(GetPath()), std::ios::binary)
       << Worldgen::Json::SaveRegionObject(object_);
-  // The planets placing it build again
+  RebuildPlanets();
+}
+
+void ObjectAsset::RebuildPlanets() const {
   const std::string path = GetPath().generic_string();
   auto& resources = EngineContext::resourceManager();
   for (auto [entity, volume] : ECS::Main().View<VolumeComponent>().each()) {
@@ -173,11 +177,51 @@ void ObjectAsset::DrawInspectorUI() {
     EndSection();
   }
 
+  static constexpr std::string_view prefix = "procmodel:";
+  if (object_.id.rfind(prefix, 0) == 0 && BeginSection("Imposter")) {
+    if (const std::string descriptor = object_.id.substr(prefix.size());
+        descriptor != descriptor_) {
+      descriptor_ = descriptor;
+      imposter_pending_ = false;
+      imposter_ = ImposterSettings::Read(
+          Runtime::Project().AbsolutePath(descriptor_));
+    }
+    const ImposterSettings was = imposter_;
+    IMComponents::Input("Distance", imposter_.distance, 1.0f);
+    IMComponents::Input("Resolution", imposter_.resolution, 16.0f);
+    IMComponents::Input("Views", imposter_.views, 0.1f);
+    IMComponents::Input("Variants", imposter_.variants, 0.1f);
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled(
+        "From the distance on, instances draw as a card turned to the "
+        "viewer, baked from Views x Views directions above it (0: never). "
+        "Variants: seeds baked side by side, Resolution pixels each; they "
+        "blend in over the model's LOD Blend share");
+    ImGui::TextDisabled("%s",
+                        ("The model's own (" + descriptor_ +
+                         "): every object placing it shares them")
+                            .c_str());
+    ImGui::PopTextWrapPos();
+    imposter_pending_ |= imposter_.distance != was.distance ||
+                         imposter_.resolution != was.resolution ||
+                         imposter_.views != was.views ||
+                         imposter_.variants != was.variants;
+    EndSection();
+  }
+
   // Saved once an edit ends, so a drag doesn't rebuild planets every frame
   pending_ |= Worldgen::Json::SaveRegionObject(object_) != before;
   if (pending_ && !ImGui::IsAnyItemActive()) {
     pending_ = false;
     Save();
+  }
+  if (imposter_pending_ && !ImGui::IsAnyItemActive()) {
+    imposter_pending_ = false;
+    const auto descriptor = Runtime::Project().AbsolutePath(descriptor_);
+    ImposterSettings::Write(descriptor, imposter_);
+    EngineContext::PCG().GetProcModel().ReloadDrawSettings(descriptor);
+    // Planets leave out the instances of models drawn as imposters
+    RebuildPlanets();
   }
 }
 

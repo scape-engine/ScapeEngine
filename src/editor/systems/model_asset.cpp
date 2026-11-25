@@ -81,28 +81,10 @@ void ModelAsset::DrawInspectorUI() {
     EndSection();
   }
 
-  if (BeginSection("Imposter")) {
-    IMComponents::Input("Distance", draw_.imposter.distance, 1.0f);
-    IMComponents::Input("Resolution", draw_.imposter.resolution, 16.0f);
-    IMComponents::Input("Views", draw_.imposter.views, 0.1f);
-    IMComponents::Input("Variants", draw_.imposter.variants, 0.1f);
-    ImGui::TextDisabled("From the distance on, the model draws as a card");
-    ImGui::TextDisabled("turned to the viewer, baked from Views x Views");
-    ImGui::TextDisabled("directions above it (0: never). Variants: seeds");
-    ImGui::TextDisabled("baked side by side, Resolution pixels each; they");
-    ImGui::TextDisabled("blend in over the LODs' Blend share. Takes effect");
-    ImGui::TextDisabled("when the planet loads");
-    EndSection();
-  }
-
   changed = draw_.fade_start != before.fade_start ||
             draw_.fade_end != before.fade_end ||
             draw_.lod_fade != before.lod_fade ||
-            draw_.lods.size() != before.lods.size() ||
-            draw_.imposter.distance != before.imposter.distance ||
-            draw_.imposter.resolution != before.imposter.resolution ||
-            draw_.imposter.views != before.imposter.views ||
-            draw_.imposter.variants != before.imposter.variants;
+            draw_.lods.size() != before.lods.size();
   for (size_t i = 0; !changed && i < draw_.lods.size(); ++i)
     changed = draw_.lods[i].distance != before.lods[i].distance ||
               draw_.lods[i].source != before.lods[i].source ||

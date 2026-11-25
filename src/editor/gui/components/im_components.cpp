@@ -958,6 +958,36 @@ void SectionTitle(const char* title, float gap_before) {
   ImGui::PopFont();
 }
 
+bool Foldout(const char* label, bool default_open) {
+  ImGuiStorage* storage = ImGui::GetStateStorage();
+  const ImGuiID id = ImGui::GetID(label);
+  bool open = storage->GetBool(id, default_open);
+
+  ImFont* font = EditorStyles::GetFonts().h4_bold;
+  const float chevron = 12.0f;
+  const float height = font->FontSize + 8.0f;
+  const ImVec2 pos = ImGui::GetCursorScreenPos();
+  const ImVec2 size(std::max(ImGui::GetContentRegionAvail().x, 1.0f), height);
+  if (ImGui::InvisibleButton(label, size)) {
+    open = !open;
+    storage->SetBool(id, open);
+  }
+
+  ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+  if (ImGui::IsItemHovered())
+    draw_list.AddRectFilled(pos, pos + size, EditorColor::hover_overlay,
+                            EditorSizes::control_radius);
+  Glyph(draw_list, pos, ImVec2(chevron, height),
+        open ? ICON_FA_CHEVRON_DOWN : ICON_FA_CHEVRON_RIGHT,
+        EditorColor::chevron, EditorStyles::GetFonts().s);
+  draw_list.AddText(font, font->FontSize,
+                    ImVec2(pos.x + chevron + 6.0f,
+                           pos.y + (height - font->FontSize) * 0.5f),
+                    EditorColor::text, label,
+                    ImGui::FindRenderedTextEnd(label));
+  return open;
+}
+
 void KeyValue(const char* key, const std::string& value, ImU32 value_color) {
   ImGui::TextUnformatted(key);
   ImGui::SameLine(0.0f, 0.0f);

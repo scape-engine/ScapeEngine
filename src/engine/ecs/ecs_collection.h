@@ -10,6 +10,7 @@
 #include <engine/ecs/components/fade_component.h>
 #include <engine/ecs/components/light_component.h>
 #include <engine/ecs/components/mesh_renderer_component.h>
+#include <engine/ecs/components/pcg_world_component.h>
 #include <engine/ecs/components/procedural_instance_component.h>
 #include <engine/ecs/components/animator_component.h>
 #include <engine/ecs/components/transform_component.h>

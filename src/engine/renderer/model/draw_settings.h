@@ -26,18 +26,6 @@ struct DrawSettings {
   // Each LOD blends in (dithered) over this share of its distance before it,
   // as the one before blends out (0: they switch at once)
   float lod_fade = 0.1f;
-  // From `distance` metres from the viewer on (0: never), instanced copies
-  // draw as an imposter: cards baked from `views` x `views` directions over
-  // the upper hemisphere, `resolution` pixels a side for each variant (a
-  // procedural model bakes `variants` of its instances). It blends in over
-  // lod_fade of the distance as the meshes blend out
-  struct Imposter {
-    float distance = 0.0f;
-    int resolution = 1024;
-    int views = 8;
-    int variants = 4;
-  };
-  Imposter imposter;
 
   // The model's settings; defaults when its metadata has none
   static DrawSettings Read(const std::filesystem::path& model);
@@ -45,6 +33,24 @@ struct DrawSettings {
   // fields
   static bool Write(const std::filesystem::path& model,
                     const DrawSettings& settings);
+};
+
+// How a procedural model's instances draw far away. From `distance` metres
+// from the viewer on (0: never) they draw as an imposter: cards baked from
+// `views` x `views` directions over the upper hemisphere, `resolution` pixels
+// a side for each of `variants` instances. It blends in over the model's
+// lod_fade of the distance as the meshes blend out. Kept in the descriptor's
+// metadata (<descriptor>.meta, under "imposter"): a plain model has no
+// instances to stand in for
+struct ImposterSettings {
+  float distance = 0.0f;
+  int resolution = 1024;
+  int views = 8;
+  int variants = 4;
+
+  static ImposterSettings Read(const std::filesystem::path& descriptor);
+  static bool Write(const std::filesystem::path& descriptor,
+                    const ImposterSettings& settings);
 };
 
 #endif  // DRAW_SETTINGS_H

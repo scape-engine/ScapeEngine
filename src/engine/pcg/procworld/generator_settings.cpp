@@ -1,0 +1,250 @@
+#include "generator_settings.h"
+
+#include "engine/pcg/procworld/craft_generator.h"
+#include "engine/pcg/procworld/planet_generator.h"
+#include "engine/pcg/procworld/region_generator.h"
+#include "engine/scene/glm_json.h"
+
+namespace ProcWorld {
+
+static nlohmann::json _WriteLook(const TerrainMaterialData& look) {
+  nlohmann::json colours = nlohmann::json::array();
+  for (const glm::vec3& colour : look.tile_colours)
+    colours.push_back(colour);
+  return {{"tile_colours", colours},
+          {"tile_images", look.tile_images},
+          {"height_offset", look.height_offset},
+          {"height_scale", look.height_scale},
+          {"roughness", look.roughness},
+          {"tile_noise",
+           {look.tile_noise.x, look.tile_noise.y, look.tile_noise.z,
+            look.tile_noise.w}}};
+}
+
+// Missing values keep the defaults
+static void _ReadLook(const nlohmann::json& in, TerrainMaterialData& look) {
+  auto it = in.find("look");
+  if (it == in.end())
+    return;
+  if (auto colours = it->find("tile_colours"); colours != it->end()) {
+    for (size_t i = 0; i < colours->size() && i < look.tile_colours.size(); ++i)
+      look.tile_colours[i] = colours->at(i).get<glm::vec3>();
+  }
+  auto read_tiles = [&](const char* key, auto& values) {
+    if (auto list = it->find(key); list != it->end())
+      for (size_t i = 0; i < list->size() && i < values.size(); ++i)
+        list->at(i).get_to(values[i]);
+  };
+  read_tiles("tile_images", look.tile_images);
+  read_tiles("height_offset", look.height_offset);
+  read_tiles("height_scale", look.height_scale);
+  look.roughness = it->value("roughness", look.roughness);
+  if (auto noise = it->find("tile_noise"); noise != it->end())
+    look.tile_noise = {noise->at(0).get<float>(), noise->at(1).get<float>(),
+                       noise->at(2).get<float>(), noise->at(3).get<float>()};
+}
+
+static nlohmann::json _WriteCreatures(const HerdSettings& herd) {
+  const AnimatorSettings& a = herd.animation;
+  return {{"roam", herd.roam},
+          {"walk_speed", herd.walk_speed},
+          {"turn_rate", herd.turn_rate},
+          {"roam_radius", herd.roam_radius},
+          {"rest_min", herd.rest_min},
+          {"rest_max", herd.rest_max},
+          {"nav_reach", herd.nav_reach},
+          {"roam_distance", herd.roam_distance},
+          {"walk_clip", herd.walk_clip},
+          {"rest_clip", herd.rest_clip},
+          {"fade", herd.fade},
+          {"forward", herd.forward},
+          {"match_stride", herd.match_stride},
+          {"walk_min_rate", herd.walk_min_rate},
+          {"walk_max_rate", herd.walk_max_rate},
+          {"keep_pace", herd.keep_pace},
+          {"animation",
+           {{"plant_feet", a.plant_feet},
+            {"plant_distance", a.plant_distance},
+            {"plant_reach", a.plant_reach},
+            {"full_rate_distance", a.full_rate_distance},
+            {"max_step", a.max_step},
+            {"sample_distance", a.sample_distance}}}};
+}
+
+// Missing values keep the defaults
+static nlohmann::json _WriteWater(const Water::SurfaceSettings& water) {
+  const Worldgen::WaveCascadeSettings& c = water.cascades;
+  return {{"base_scale", c.base_scale},
+          {"cascades", c.count},
+          {"resolution", c.resolution},
+          {"min_texels", c.min_texels},
+          {"gravity", c.gravity},
+          {"patch_size", water.patch_size},
+          {"grid_resolution", water.grid_resolution},
+          {"colour", water.look.colour},
+          {"roughness", water.look.roughness}};
+}
+
+static void _ReadWater(const nlohmann::json& in,
+                       Water::SurfaceSettings& water) {
+  auto it = in.find("water");
+  if (it == in.end())
+    return;
+  Worldgen::WaveCascadeSettings& c = water.cascades;
+  c.base_scale = it->value("base_scale", c.base_scale);
+  c.count = it->value("cascades", c.count);
+  c.resolution = it->value("resolution", c.resolution);
+  c.min_texels = it->value("min_texels", c.min_texels);
+  c.gravity = it->value("gravity", c.gravity);
+  water.patch_size = it->value("patch_size", water.patch_size);
+  water.grid_resolution = it->value("grid_resolution", water.grid_resolution);
+  water.look.colour = it->value("colour", water.look.colour);
+  water.look.roughness = it->value("roughness", water.look.roughness);
+}
+
+static void _ReadCreatures(const nlohmann::json& in, HerdSettings& herd) {
+  auto it = in.find("creatures");
+  if (it == in.end())
+    return;
+  herd.roam = it->value("roam", herd.roam);
+  herd.walk_speed = it->value("walk_speed", herd.walk_speed);
+  herd.turn_rate = it->value("turn_rate", herd.turn_rate);
+  herd.roam_radius = it->value("roam_radius", herd.roam_radius);
+  herd.rest_min = it->value("rest_min", herd.rest_min);
+  herd.rest_max = it->value("rest_max", herd.rest_max);
+  herd.nav_reach = it->value("nav_reach", herd.nav_reach);
+  herd.roam_distance = it->value("roam_distance", herd.roam_distance);
+  herd.walk_clip = it->value("walk_clip", herd.walk_clip);
+  herd.rest_clip = it->value("rest_clip", herd.rest_clip);
+  herd.fade = it->value("fade", herd.fade);
+  herd.forward = it->value("forward", herd.forward);
+  herd.match_stride = it->value("match_stride", herd.match_stride);
+  herd.walk_min_rate = it->value("walk_min_rate", herd.walk_min_rate);
+  herd.walk_max_rate = it->value("walk_max_rate", herd.walk_max_rate);
+  herd.keep_pace = it->value("keep_pace", herd.keep_pace);
+  auto animation = it->find("animation");
+  if (animation == it->end())
+    return;
+  AnimatorSettings& a = herd.animation;
+  a.plant_feet = animation->value("plant_feet", a.plant_feet);
+  a.plant_distance = animation->value("plant_distance", a.plant_distance);
+  a.plant_reach = animation->value("plant_reach", a.plant_reach);
+  a.full_rate_distance =
+      animation->value("full_rate_distance", a.full_rate_distance);
+  a.max_step = animation->value("max_step", a.max_step);
+  a.sample_distance = animation->value("sample_distance", a.sample_distance);
+}
+
+nlohmann::json WriteSettings(const PCG::Generator& generator) {
+  switch (generator.GetType()) {
+    case PCG::GeneratorType::Region: {
+      const auto& region = static_cast<const RegionGenerator&>(generator);
+      return {{"type", "Region"},
+              {"content", region.content_path},
+              {"cell", {region.cell.x, region.cell.y, region.cell.z}},
+              {"planet", region.planet_path},
+              {"seed", region.seed},
+              {"look", _WriteLook(region.look)}};
+    }
+    case PCG::GeneratorType::Planet: {
+      const auto& planet = static_cast<const PlanetGenerator&>(generator);
+      return {{"type", "Planet"},
+              {"content", planet.content_path},
+              {"finest_level", planet.finest_level},
+              {"coarsest_level", planet.coarsest_level},
+              {"split_distance", planet.split_distance},
+              {"view_distance", planet.view_distance},
+              {"objects", planet.objects},
+              {"building_level", planet.building_level},
+              {"herd_level", planet.herd_level},
+              {"worker_jobs", planet.worker_jobs},
+              {"fade_time", planet.fade_time},
+              {"planet", planet.planet_path},
+              {"seed", planet.seed},
+              {"biome", planet.biome},
+              {"subtype", planet.subtype},
+              {"size", planet.size},
+              {"look", _WriteLook(planet.look)},
+              {"creatures", _WriteCreatures(planet.creatures)},
+              {"water", _WriteWater(planet.water)}};
+    }
+    case PCG::GeneratorType::Craft: {
+      const auto& craft = static_cast<const CraftGenerator&>(generator);
+      return {{"type", "Craft"},
+              {"content", craft.content_path},
+              {"seed", craft.seed},
+              {"lawless", craft.lawless},
+              {"legacy_colours", craft.legacy_colours}};
+    }
+    default:
+      return nullptr;
+  }
+}
+
+void ReadSettings(PCG::Generator& generator, const nlohmann::json& in) {
+  switch (generator.GetType()) {
+    case PCG::GeneratorType::Region: {
+      auto* region = static_cast<RegionGenerator*>(&generator);
+      region->content_path = in.value("content", region->content_path);
+      region->planet_path = in.value("planet", region->planet_path);
+      region->seed = in.value("seed", region->seed);
+      _ReadLook(in, region->look);
+      if (auto cell = in.find("cell"); cell != in.end())
+        region->cell = {cell->at(0).get<int>(), cell->at(1).get<int>(),
+                        cell->at(2).get<int>()};
+      break;
+    }
+    case PCG::GeneratorType::Planet: {
+      auto* planet = static_cast<PlanetGenerator*>(&generator);
+      planet->content_path = in.value("content", planet->content_path);
+      planet->finest_level = in.value("finest_level", planet->finest_level);
+      planet->coarsest_level =
+          in.value("coarsest_level", planet->coarsest_level);
+      planet->split_distance =
+          in.value("split_distance", planet->split_distance);
+      planet->view_distance = in.value("view_distance", planet->view_distance);
+      planet->objects = in.value("objects", planet->objects);
+      planet->building_level =
+          in.value("building_level", planet->building_level);
+      planet->herd_level = in.value("herd_level", planet->herd_level);
+      planet->fade_time = in.value("fade_time", planet->fade_time);
+      planet->worker_jobs = in.value("worker_jobs", planet->worker_jobs);
+      planet->planet_path = in.value("planet", planet->planet_path);
+      planet->seed = in.value("seed", planet->seed);
+      planet->biome = in.value("biome", planet->biome);
+      planet->subtype = in.value("subtype", planet->subtype);
+      planet->size = in.value("size", planet->size);
+      _ReadLook(in, planet->look);
+      _ReadCreatures(in, planet->creatures);
+      _ReadWater(in, planet->water);
+      break;
+    }
+    case PCG::GeneratorType::Craft: {
+      auto* craft = static_cast<CraftGenerator*>(&generator);
+      craft->content_path = in.value("content", craft->content_path);
+      craft->seed = in.value("seed", craft->seed);
+      craft->lawless = in.value("lawless", craft->lawless);
+      craft->legacy_colours = in.value("legacy_colours", craft->legacy_colours);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+std::unique_ptr<PCG::Generator> CreateGenerator(const nlohmann::json& in) {
+  const std::string type = in.value("type", std::string());
+  std::unique_ptr<PCG::Generator> generator;
+  if (type == "Planet")
+    generator = std::make_unique<PlanetGenerator>();
+  else if (type == "Craft")
+    generator = std::make_unique<CraftGenerator>();
+  else if (type == "Region")
+    generator = std::make_unique<RegionGenerator>();
+  else
+    return nullptr;
+  ReadSettings(*generator, in);
+  return generator;
+}
+
+}  // namespace ProcWorld

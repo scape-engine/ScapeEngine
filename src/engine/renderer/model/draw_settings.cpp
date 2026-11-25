@@ -6,12 +6,10 @@
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings::Lod, distance,
                                                 source, detail)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings::Imposter,
-                                                distance, resolution, views,
-                                                variants)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(DrawSettings, fade_start,
-                                                fade_end, lods, lod_fade,
-                                                imposter)
+                                                fade_end, lods, lod_fade)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ImposterSettings, distance,
+                                                resolution, views, variants)
 
 // A metadata file is a header ("guid: ...", then "---") and a JSON body
 static void _Split(const std::filesystem::path& meta, std::string& header,
@@ -33,26 +31,48 @@ static void _Split(const std::filesystem::path& meta, std::string& header,
     body = nlohmann::json::object();
 }
 
-DrawSettings DrawSettings::Read(const std::filesystem::path& model) {
+// The asset's metadata field; defaults when it has none
+template <class T>
+static T _Read(const std::filesystem::path& asset, const char* key) {
   std::string header;
   nlohmann::json body;
-  _Split(model.string() + ".meta", header, body);
+  _Split(asset.string() + ".meta", header, body);
   try {
-    return body.value("draw", DrawSettings());
+    return body.value(key, T());
   } catch (const nlohmann::json::exception&) {
     return {};
   }
 }
 
-bool DrawSettings::Write(const std::filesystem::path& model,
-                         const DrawSettings& settings) {
-  const std::filesystem::path meta = model.string() + ".meta";
+template <class T>
+static bool _Write(const std::filesystem::path& asset, const char* key,
+                   const T& value) {
+  const std::filesystem::path meta = asset.string() + ".meta";
   std::string header;
   nlohmann::json body;
   _Split(meta, header, body);
-  body["draw"] = settings;
+  body[key] = value;
   // Text mode, like the metadata's other writers (ProjectAssets)
   std::ofstream out(meta);
   out << header << body.dump(4);
   return static_cast<bool>(out);
+}
+
+DrawSettings DrawSettings::Read(const std::filesystem::path& model) {
+  return _Read<DrawSettings>(model, "draw");
+}
+
+bool DrawSettings::Write(const std::filesystem::path& model,
+                         const DrawSettings& settings) {
+  return _Write(model, "draw", settings);
+}
+
+ImposterSettings ImposterSettings::Read(
+    const std::filesystem::path& descriptor) {
+  return _Read<ImposterSettings>(descriptor, "imposter");
+}
+
+bool ImposterSettings::Write(const std::filesystem::path& descriptor,
+                             const ImposterSettings& settings) {
+  return _Write(descriptor, "imposter", settings);
 }

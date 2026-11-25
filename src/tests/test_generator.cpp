@@ -509,6 +509,7 @@ void RunAllGeneratorTests() {
 namespace Tests {
 void TestShapes();
 void TestSceneSerializer();
+void TestGeneratorProfile();
 void TestTerrainTiles();
 void TestModelGenerator();
 void TestModelOperations();
@@ -526,6 +527,7 @@ int main(int argc, char** argv) {
     return Tests::PrintPicks(argc - 2, argv + 2);
   Tests::TestShapes();
   Tests::TestSceneSerializer();
+  Tests::TestGeneratorProfile();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
   Tests::TestModelOperations();

@@ -44,6 +44,10 @@ void TabContainer::ActivateTab(size_t index) {
   active_ = index;
 }
 
+bool TabContainer::Shown(size_t index) const {
+  return !entries_[index].shown || entries_[index].shown();
+}
+
 void TabContainer::Select(const char* window_name) {
   for (size_t i = 0; i < entries_.size(); ++i) {
     if (std::strcmp(entries_[i].window_name, window_name) == 0) {
@@ -151,6 +155,15 @@ void TabContainer::RenderActivePanel(ImVec2 position, ImVec2 size) {
     return;
   if (active_ >= entries_.size())
     active_ = 0;
+  // A closed panel's tab hands over to the first one shown
+  if (!Shown(active_)) {
+    size_t first = 0;
+    while (first < entries_.size() && !Shown(first))
+      ++first;
+    if (first == entries_.size())
+      return;
+    active_ = first;
+  }
 
   // Only the active panel is submitted; ImGui drops the others from the node,
   // so the tab-less node always shows this one.
@@ -217,6 +230,8 @@ void TabContainer::RenderRail(ImDrawList& draw_list, ImVec2 rail_min,
 
   for (size_t i = 0; i < entries_.size(); ++i) {
     const TabEntry& entry = entries_[i];
+    if (!Shown(i))
+      continue;
     if (entry.group != last_group) {
       y += rail_group_gap_ - rail_gap_;
       last_group = entry.group;
@@ -284,6 +299,8 @@ void TabContainer::RenderStrip(ImDrawList& draw_list, ImVec2 strip_min,
   // TABS: icon + label
   for (size_t i = 0; i < entries_.size(); ++i) {
     const TabEntry& entry = entries_[i];
+    if (!Shown(i))
+      continue;
     const uint32_t count = entry.badge ? entry.badge() : 0;
     const ImVec2 badge_size = IMComponents::CountBadgeSize(count);
     const float badge_gap = 6.0f;
@@ -291,13 +308,16 @@ void TabContainer::RenderStrip(ImDrawList& draw_list, ImVec2 strip_min,
 
     const ImVec2 label_size =
         small->CalcTextSizeA(small->FontSize, FLT_MAX, 0.0f, entry.window_name);
+    // The close cross sits after the label, outside the tab's own button
+    const float close_w = entry.close ? icon_size + icon_gap : 0.0f;
     const float tab_w = std::floor(tab_pad * 2.0f + icon_size + icon_gap +
-                                   label_size.x + badge_w);
+                                   label_size.x + badge_w + close_w);
     const ImVec2 p0 = ImVec2(x, y);
     const ImVec2 p1 = p0 + ImVec2(tab_w, rail_button_);
 
     ImGui::SetCursorScreenPos(p0);
-    ImGui::InvisibleButton(entry.window_name, ImVec2(tab_w, rail_button_));
+    ImGui::InvisibleButton(entry.window_name,
+                           ImVec2(tab_w - close_w, rail_button_));
     const bool hovered = ImGui::IsItemHovered();
     if (ImGui::IsItemClicked())
       ActivateTab(i);
@@ -320,6 +340,16 @@ void TabContainer::RenderStrip(ImDrawList& draw_list, ImVec2 strip_min,
     IMComponents::CountBadge(draw_list, count,
                              ImVec2(text_x + label_size.x + badge_gap,
                                     y + (rail_button_ - badge_size.y) * 0.5f));
+
+    if (entry.close) {
+      ImGui::PushID(entry.window_name);
+      if (IMComponents::GlyphButton(
+              draw_list, "##CloseTab", ICON_FA_XMARK,
+              ImVec2(p1.x - tab_pad - icon_size, y),
+              ImVec2(icon_size, rail_button_), EditorColor::chevron, "Close"))
+        entry.close();
+      ImGui::PopID();
+    }
 
     x += tab_w + rail_gap_;
   }

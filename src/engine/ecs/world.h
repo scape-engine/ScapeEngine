@@ -81,12 +81,12 @@ public:
   }
 
   template <typename T, typename... Args>
-  T& Add(Entity entity, Args&&... args) {
+  decltype(auto) Add(Entity entity, Args&&... args) {
     return registry_.emplace<T>(entity, std::forward<Args>(args)...);
   }
 
   template <typename T>
-  T& Get(Entity entity) {
+  decltype(auto) Get(Entity entity) {
     return registry_.get<T>(entity);
   }
 

@@ -130,6 +130,11 @@ bool SearchField(ImDrawList& draw_list, const char* id, char* buffer,
 
 void SectionTitle(const char* title, float gap_before = 14.0f);
 
+// A collapsible group inside a component or section: chevron and bold label
+// on a full-width row, no frame of its own. Returns true while open; the
+// label's ID ("##"/"###" as in ImGui) keeps the state
+bool Foldout(const char* label, bool default_open = false);
+
 void KeyValue(const char* key, const std::string& value,
               ImU32 value_color = EditorColor::text);
 

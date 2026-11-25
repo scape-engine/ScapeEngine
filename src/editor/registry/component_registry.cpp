@@ -3,6 +3,7 @@
 #include <cctype>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
+#include <type_traits>
 
 #include "editor/gizmos/component_gizmos.h"
 #include "editor/gui/components/inspectable_components.h"
@@ -59,7 +60,12 @@ void RegisterComponent(
       [draw_inspectable](Entity entity) {
         if (!ECS::Main().Has<T>(entity))
           return;
-        draw_inspectable(entity, ECS::Main().Get<T>(entity));
+        if constexpr (std::is_empty_v<T>) {  // tags: entt stores no value
+          T tag;
+          draw_inspectable(entity, tag);
+        } else {
+          draw_inspectable(entity, ECS::Main().Get<T>(entity));
+        }
       },
 
       // Try draw gizmo
@@ -68,8 +74,15 @@ void RegisterComponent(
           return;
         if (!ECS::Main().Has<T>(entity))
           return;
-        draw_gizmo.value()(gizmo, ECS::Main().Get<TransformComponent>(entity),
-                           ECS::Main().Get<T>(entity));
+        if constexpr (std::is_empty_v<T>) {
+          T tag;
+          draw_gizmo.value()(
+              gizmo, ECS::Main().Get<TransformComponent>(entity), tag);
+        } else {
+          draw_gizmo.value()(gizmo,
+                             ECS::Main().Get<TransformComponent>(entity),
+                             ECS::Main().Get<T>(entity));
+        }
       },
 
       // Try draw scene icons
@@ -81,11 +94,13 @@ void RegisterComponent(
         // Looked up each frame, scene icons load asynchronously
         uint32_t scene_icon = IconLoader::GetIconHandle(icon + "_gizmo");
 
-        for (auto [entity, transform, component] :
-             ECS::Main().View<TransformComponent, T>().each()) {
-          gizmos.Icon3D(scene_icon,
-                        Transform::GetPosition(transform, Space::WORLD),
-                        camera_transform);
+        auto view = ECS::Main().View<TransformComponent, T>();
+        for (const Entity entity : view) {
+          gizmos.Icon3D(
+              scene_icon,
+              Transform::GetPosition(
+                  view.template get<TransformComponent>(entity), Space::WORLD),
+              camera_transform);
         }
       }};
 
@@ -129,6 +144,10 @@ void Create() {
 
   RegisterComponent<VolumeComponent>(
       "Volume", InspectableComponents::DrawVolumeComponent, std::nullopt, true);
+
+  RegisterComponent<PCGWorldComponent>(
+      "PCG World", InspectableComponents::DrawPCGWorldComponent, std::nullopt,
+      false);
 
   RegisterComponent<AnimatorComponent>(
       "Animator", InspectableComponents::DrawAnimatorComponent, std::nullopt,

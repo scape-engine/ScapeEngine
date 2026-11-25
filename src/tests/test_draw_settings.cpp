@@ -43,8 +43,18 @@ void TestDrawSettings() {
                           0) == 0);
   assert(text.str().find("\"other\": 3") != std::string::npos);
 
+  // A descriptor's imposter settings sit beside them in its metadata
+  ImposterSettings imposter;
+  imposter.distance = 150.0f;
+  imposter.variants = 2;
+  assert(ImposterSettings::Write(model, imposter));
+  assert(ImposterSettings::Read(model).distance == 150.0f &&
+         ImposterSettings::Read(model).variants == 2);
+  assert(DrawSettings::Read(model).fade_end == 80.0f);
+
   std::filesystem::remove(meta);
   assert(DrawSettings::Read(model).fade_end == 0.0f);
+  assert(ImposterSettings::Read(model).distance == 0.0f);
 
   // Generated LODs keep about the asked share of triangles, also for a mesh
   // whose triangles share no vertices (hard edges everywhere)

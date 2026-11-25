@@ -27,6 +27,10 @@ public:
   // Return editor asset reference by its session id, nullptr if none
   AssetRef Get(AssetSID id) const;
 
+  // Return the editor asset at a path (project-relative or absolute), nullptr
+  // if none
+  AssetRef Find(const FileSystem::Path& path) const;
+
   // Return asset session id by its guid
   AssetSID ResolveGuid(AssetGuid& guid);
 

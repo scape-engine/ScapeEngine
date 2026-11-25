@@ -13,6 +13,7 @@
 
 #include "editor/events.h"
 
+#include "editor/gui/components/generator_properties.h"
 #include "editor/gui/icons/component_icons.h"
 #include "editor/gui/inspectables/entity_inspectable.h"
 #include "editor/gui/inspector_panel.h"
@@ -675,11 +676,22 @@ void HierarchyPanel::RenderPopupMenu() {
     }
 
     if (PopupMenu::Menu(ICON_FA_DIAGRAM_PROJECT, "PCG")) {
-      // ? MeshRendererComponent should be added later when generator produces
-      // geometry
-      if (PopupMenu::ItemLight("PCG Graph"))
-        CreateEntity("PCG Graph",
-                     [](Entity e) { ECS::Main().Add<VolumeComponent>(e); });
+      // A PCG world and the generator it starts with
+      if (PopupMenu::Menu(ICON_FA_GLOBE, "PCG World")) {
+        for (const auto type :
+             {PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
+              PCG::GeneratorType::Region, PCG::GeneratorType::Graph}) {
+          if (PopupMenu::ItemLight(PCG::GetGeneratorTypeName(type)))
+            CreateEntity("PCG World", [type](Entity e) {
+              ECS::Main().Add<PCGWorldComponent>(e);
+              GeneratorProperties::AddGenerator(e, type);
+            });
+        }
+        if (PopupMenu::ItemLight("Empty"))
+          CreateEntity("PCG World",
+                       [](Entity e) { ECS::Main().Add<PCGWorldComponent>(e); });
+        PopupMenu::EndMenu();
+      }
 
       PopupMenu::EndMenu();
     }
