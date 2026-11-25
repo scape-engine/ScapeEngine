@@ -62,7 +62,7 @@ def blob(radius, centre, squash, jitter, rng, subdiv=2):
     nrm = list(v)
     # u mirrored around (no seam), v from pole to pole
     uv = [(2 * abs(math.atan2(p[2], p[0])) / math.pi, 2 * math.acos(max(-1, min(1, p[1]))) / math.pi) for p in v]
-    idx = [i for tri in f for i in (tri[0], tri[2], tri[1])]
+    idx = [i for tri in f for i in tri]  # wound counter-clockwise seen from outside (glTF's front)
     return pos, nrm, uv, idx
 
 class Glb:
