@@ -30,8 +30,6 @@ struct SurfaceSettings {
 // Nothing here is tied to planets
 class Subsystem {
 public:
-  void SetViewer(const glm::vec3& position) { viewer_ = position; }
-
   // Makes `entity` a water surface of `waves` (shared, not copied) on its
   // parent's sphere of `radius` (0: the parent's y = 0 plane)
   void Make(ECS& ecs, Entity entity,
@@ -52,7 +50,6 @@ private:
   static void Release(Surface& surface);
 
   std::unordered_map<Entity, Surface> surfaces_;
-  glm::vec3 viewer_{0.0f};
 };
 
 }  // namespace Water

@@ -2,7 +2,6 @@
 #define PROCWORLD_H
 
 #include <deque>
-#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <future>
@@ -11,6 +10,7 @@
 #include <unordered_map>
 
 #include "engine/ecs/world.h"
+#include "engine/paging/cell_jobs.h"
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/material/terrain_material.h"
 #include "engine/renderer/model/mesh.h"
@@ -50,9 +50,6 @@ public:
   void SetRoot(const std::filesystem::path& root) { root_ = root; }
   const std::filesystem::path& Root() const { return root_; }
 
-  // World position planets load their regions around (e.g. the camera)
-  void SetViewer(const glm::vec3& position) { viewer_ = position; }
-
 private:
   struct LoadedRegion {
     Entity entity = entt::null;
@@ -73,14 +70,14 @@ private:
     // Unloaded regions fading out: kept until their entity is gone, as it
     // draws their terrain mesh
     std::vector<LoadedRegion> leaving;
-    std::unordered_map<uint64_t, std::future<RegionBuild>> building;
+    Paging::CellJobs<RegionBuild> building;
     // Herds come from regions of the herd level and objects from regions of
     // their placement sizes, apart from the terrain (whose level changes
     // under them): the herds' content has no objects, the objects' no herds
     // and the terrain's neither
     std::shared_ptr<const Worldgen::RegionContent> herd_content;
     std::unordered_map<uint64_t, Entity> herds;  // by cell key
-    std::unordered_map<uint64_t, std::future<RegionBuild>> herd_building;
+    Paging::CellJobs<RegionBuild> herd_building;
     std::shared_ptr<const Worldgen::RegionContent> object_content;
     // The levels some object kind's size is, and how far from the viewer its
     // kinds draw (their farthest fade end; infinite: one has no limit)
@@ -101,7 +98,7 @@ private:
     // kept until its cell is made again
     std::unordered_map<uint64_t, ObjectCell> old_placements;
     uint64_t draw_version = 0;
-    std::unordered_map<uint64_t, std::future<RegionBuild>> placing;
+    Paging::CellJobs<RegionBuild> placing;
     // The procmodels of its objects and creatures, loaded with the content
     RegionInstancer::Archetypes archetypes;
     // Those the object cells generate instances of: a kind with an imposter
@@ -139,8 +136,8 @@ private:
     float picked_intensity = 0.0f;
   };
 
-  // A craft volume's fleet: picked on a worker thread, then made a few craft
-  // per frame within the frame budget
+  // A craft volume's fleet: picked on a worker, then made a few craft per
+  // frame within the frame budget (FrameBudget)
   // A worker's part of a craft build: the procmodels it read, by descriptor
   // path (null if one can't load), and each plan's parts
   struct CraftWork {
@@ -156,10 +153,6 @@ private:
     CraftWork work;
     size_t made = 0;
   };
-  // Main-thread time a frame spends making a volume's entities (craft, a
-  // planet's finished regions)
-  static constexpr float frame_budget_ms = 2.0f;
-
   void Build(Entity volume, RegionGenerator& generator);
   void Build(Entity volume, CraftGenerator& generator);
   void Make(Entity volume, CraftGenerator& generator, CraftState& state);
@@ -187,15 +180,9 @@ private:
   // The terrain mesh each region volume's terrain renders
   std::unordered_map<Entity, std::unique_ptr<Mesh>> meshes_;
   std::unordered_map<Entity, PlanetState> planets_;
-  // Builds no longer wanted, kept until they finish (a future from
-  // std::async blocks when destroyed)
-  std::vector<std::future<RegionBuild>> discarded_;
   std::unordered_map<Entity, CraftState> crafts_;
-  std::vector<std::future<CraftWork>> discarded_craft_;
-  std::atomic<bool> stopping_{false};
   std::unordered_map<Entity, TerrainLook> looks_;
   std::filesystem::path root_;
-  glm::vec3 viewer_{0.0f};
 };
 
 }  // namespace ProcWorld

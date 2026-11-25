@@ -18,6 +18,7 @@
 #include "engine/ecs/components/fade_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/pcg_world_component.h"
+#include "engine/ecs/components/viewer_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/generator_profile.h"
@@ -183,6 +184,9 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
     if (world.Has<PCGWorldComponent>(entity))
       out["pcg_world"] = nlohmann::json::object();
 
+    if (world.Has<ViewerComponent>(entity))
+      out["viewer"] = nlohmann::json::object();
+
     if (world.Has<VolumeComponent>(entity))
       out["volume"] = _WriteVolume(world.Get<VolumeComponent>(entity), root);
 
@@ -253,6 +257,9 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
 
       if (in.contains("pcg_world"))
         world.Add<PCGWorldComponent>(entity);
+
+      if (in.contains("viewer"))
+        world.Add<ViewerComponent>(entity);
 
       if (auto it = in.find("volume"); it != in.end())
         _ReadVolume(world.Add<VolumeComponent>(entity), *it, root);

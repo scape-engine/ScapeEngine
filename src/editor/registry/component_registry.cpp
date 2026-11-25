@@ -156,6 +156,10 @@ void Create() {
   RegisterComponent<FadeComponent>(
       "Fade", InspectableComponents::DrawFadeComponent, std::nullopt, false);
 
+  RegisterComponent<ViewerComponent>(
+      "Viewer", InspectableComponents::DrawViewerComponent, std::nullopt,
+      false);
+
   // TODO: velocity blur component, box collider, sphere collider, rigidbody,
   // audio listener, audio source
 }

@@ -24,6 +24,7 @@ add_files(
 	"time/*.cpp",
 	"math/*.cpp",
 	"pcg/*.cpp",
+	"paging/*.cpp",
 	"diagnostics/*.cpp",
 
 	-- GEOMETRY FILES -------

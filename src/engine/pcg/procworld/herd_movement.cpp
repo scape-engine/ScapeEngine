@@ -11,6 +11,7 @@
 #include "engine/animation/animation.h"
 #include "engine/ecs/components/ground_component.h"
 #include "engine/ecs/components/transform_component.h"
+#include "engine/paging/viewers.h"
 
 #include "content/creature_gait.h"
 #include "placement/nav_query.h"
@@ -101,7 +102,6 @@ void Update(ECS& ecs, float dt) {
   if (registry.storage<RoamComponent>().empty())
     return;
   Diagnostics::ScopedSection section("Herds");
-  const glm::vec3 viewer = Animation::Viewer();
   registry.view<RoamComponent, TransformComponent>().each(
       [&](Entity entity, RoamComponent& roam, TransformComponent& own) {
         const auto* herd = registry.try_get<HerdComponent>(own.parent_);
@@ -112,7 +112,7 @@ void Update(ECS& ecs, float dt) {
         if (animator)
           animator->settings_ = settings.animation;
         if (!settings.roam || !herd->path_ ||
-            glm::distance(glm::vec3(own.model_[3]), viewer) >
+            Viewers::Distance(glm::vec3(own.model_[3])) >
                 settings.roam_distance)
           return;
 

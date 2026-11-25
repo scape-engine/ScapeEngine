@@ -14,7 +14,7 @@ using Entity = entt::entity;
 /* ──────────────────────────────── ANIMATOR ─────────────────────────────── */
 
 // How an animator samples its pose and plants its feet, by its distance from
-// the viewer (Animation::SetViewer)
+// the nearest viewer (Viewers)
 struct AnimatorSettings {
   bool plant_feet{true};
   float plant_distance{60.0f};  // feet plant within this of the viewer

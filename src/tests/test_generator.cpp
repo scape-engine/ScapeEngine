@@ -517,6 +517,7 @@ void TestAnimation();
 void TestBuildings();
 void TestFade();
 void TestDrawSettings();
+void TestJobs();
 int PrintPicks(int argc, char** argv);
 }
 
@@ -535,6 +536,7 @@ int main(int argc, char** argv) {
   Tests::TestBuildings();
   Tests::TestFade();
   Tests::TestDrawSettings();
+  Tests::TestJobs();
   Tests::RunAllGeneratorTests();
   return 0;
 }

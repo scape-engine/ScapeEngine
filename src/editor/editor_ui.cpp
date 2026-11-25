@@ -38,14 +38,13 @@
 
 #include "resources/decorators/drop_shadows.h"
 
-#include "engine/animation/animation.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
 #include "engine/core/version.h"
 #include "engine/core/view_ids.h"
 #include "engine/ecs/world.h"
-#include "engine/pcg/pcg_engine.h"
+#include "engine/paging/viewers.h"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -720,13 +719,9 @@ void EditorUI::UpdateMovement() {
   // Rebuild model matrix
   Transform::Evaluate(CameraTransform);
 
-  // Planets load their regions around the scene view camera
-  // TODO: the game camera while playing
-  EngineContext::PCG().GetProcWorld().SetViewer(CameraTransform.position_);
-  // water surfaces lie under it
-  EngineContext::PCG().GetWater().SetViewer(CameraTransform.position_);
-  // and creatures near it plant their feet
-  Animation::SetViewer(CameraTransform.position_);
+  // The world loads and simulates around the scene view camera, and around
+  // the scene's own viewers
+  Viewers::SetHost(CameraTransform.position_);
 }
 
 ImGuiID EditorUI::GenerateId() {

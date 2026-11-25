@@ -595,6 +595,22 @@ void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight) {
     _EcsRemove<SpotlightComponent>(entity);
 }
 
+void DrawViewerComponent(Entity entity, ViewerComponent&) {
+  bool removed = false;
+
+  if (_BeginComponent("Viewer", 0, nullptr, &removed)) {
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextDisabled(
+        "The world loads, picks its detail and simulates around this "
+        "entity, as around the editor's camera");
+    ImGui::PopTextWrapPos();
+    _EndComponent();
+  }
+
+  if (removed)
+    _EcsRemove<ViewerComponent>(entity);
+}
+
 void DrawFadeComponent(Entity entity, FadeComponent& fade) {
   bool removed = false;
 

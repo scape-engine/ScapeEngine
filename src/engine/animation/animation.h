@@ -20,12 +20,9 @@ void Play(AnimatorComponent& animator, int clip, float fade = 0.0f);
 // Samples `animator`'s pose now, as after changing its pose layers
 void Resample(AnimatorComponent& animator);
 
-// Where the scene is viewed from: animators plant their feet and sample at
-// full rate by their distance from it (AnimatorSettings)
-void SetViewer(const glm::vec3& position);
-const glm::vec3& Viewer();
-
-// Advances every playing animator by `dt` seconds and samples its pose
+// Advances every playing animator by `dt` seconds and samples its pose; they
+// plant their feet and sample at full rate by their distance from the nearest
+// viewer (AnimatorSettings, Viewers)
 void Update(ECS& ecs, float dt);
 
 // The pose a renderer's skinned mesh follows, and its node count; null when

@@ -39,6 +39,9 @@
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/herd_movement.h"
 #include "engine/renderer/graphics_renderer.h"
+#include "engine/paging/frame_budget.h"
+#include "engine/paging/jobs.h"
+#include "engine/paging/viewers.h"
 #include "engine/renderer/imposter/imposter.h"
 #include "engine/renderer/shaders/shader_manager.h"
 #include "platform/input/input.h"
@@ -112,6 +115,8 @@ void NextFrame() {
 
   Time::Step(delta_time);
 
+  Viewers::Update(ECS::Main());
+  FrameBudget::Begin();
   // Creatures move, then skinned models' poses, before anything draws them
   ProcWorld::HerdMovement::Update(ECS::Main(), Time::Deltaf());
   Animation::Update(ECS::Main(), Time::Deltaf());
@@ -133,6 +138,8 @@ void NextFrame() {
 }
 
 void Destroy() {
+  // No more background work: the systems its jobs use go below
+  Jobs::Shutdown();
   dynamic_registry.ShutdownAll();
 
   pcg_engine_.reset();

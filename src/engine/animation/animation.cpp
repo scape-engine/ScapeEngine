@@ -1,5 +1,7 @@
 #include "animation.h"
 
+#include "engine/paging/viewers.h"
+
 #include <algorithm>
 
 #include "engine/diagnostics/frame_stats.h"
@@ -16,16 +18,7 @@ static const AnimationClip* _Clip(const AnimatorComponent& animator) {
              : nullptr;
 }
 
-static glm::vec3 _viewer{0.0f};
 static uint32_t _frame = 0;
-
-void SetViewer(const glm::vec3& position) {
-  _viewer = position;
-}
-
-const glm::vec3& Viewer() {
-  return _viewer;
-}
 
 static float _Ratio(const AnimatorComponent& animator, int clip, float time) {
   const auto& clips = animator.data_->clips;
@@ -64,8 +57,7 @@ static void _Plant(ECS& ecs, Entity entity, AnimatorComponent& animator) {
   const auto* own = registry.try_get<TransformComponent>(entity);
   const auto* base = registry.try_get<TransformComponent>(animator.ground_);
   if (!ground || !ground->mesh_ || !own || !base ||
-      glm::distance(glm::vec3(own->model_[3]), _viewer) >
-          settings.plant_distance)
+      Viewers::Distance(glm::vec3(own->model_[3])) > settings.plant_distance)
     return;
   // Model space to the ground's, and back
   const glm::mat4 to_ground = glm::inverse(base->model_) * own->model_;
@@ -154,7 +146,7 @@ void Update(ECS& ecs, float dt) {
     if (const auto* transform = ecs.Reg().try_get<TransformComponent>(entity)) {
       const AnimatorSettings& settings = animator.settings_;
       const float distance =
-          glm::distance(glm::vec3(transform->model_[3]), _viewer);
+          Viewers::Distance(glm::vec3(transform->model_[3]));
       if (settings.sample_distance > 0.0f &&
           distance > settings.sample_distance)
         return;

@@ -12,6 +12,7 @@
 #include "engine/ecs/components/shader_params_component.h"
 #include "engine/ecs/components/water_surface_tag.h"
 #include "engine/ecs/components/wave_field_component.h"
+#include "engine/paging/viewers.h"
 #include "engine/time/time.h"
 
 namespace Water {
@@ -125,7 +126,10 @@ void Subsystem::Update(ECS& ecs) {
                 ecs.Has<TransformComponent>(transform.parent_)
             ? ecs.Get<TransformComponent>(transform.parent_).model_
             : glm::mat4(1.0f);
-    const glm::vec3 viewer = glm::inverse(parent) * glm::vec4(viewer_, 1.0f);
+    // TODO: a surface per viewer
+    const glm::vec3 viewer =
+        glm::inverse(parent) *
+        glm::vec4(Viewers::Nearest(glm::vec3(parent[3])), 1.0f);
     glm::vec3 up(0.0f, 1.0f, 0.0f), origin(viewer.x, 0.0f, viewer.z);
     if (wave.radius > 0.0f) {
       const float length = glm::length(viewer);
