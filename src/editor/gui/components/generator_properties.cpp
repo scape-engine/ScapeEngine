@@ -20,6 +20,7 @@
 #include "engine/pcg/procworld/craft_generator.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
+#include "engine/pcg/stage.h"
 
 namespace GeneratorProperties {
 
@@ -163,6 +164,43 @@ static void _DrawCraft(ResourceID id) {
 //
 //  PLANET PROPERTIES
 //
+
+// A stage's foldout, titled by its label and type, with its common settings;
+// true while open. `grid_hint` and `radius_hint` say what the grid and the
+// radius mean for it (null: it has none). With `rebuild`, editing them
+// regenerates the planet
+static bool _BeginStage(PCG::Stage& stage, const char* id,
+                        const char* grid_hint, int grid_min, int grid_max,
+                        const char* radius_hint, bool rebuild, bool& changed) {
+  const std::string title =
+      (stage.label.empty() ? std::string("Unnamed") : stage.label) + "  -  " +
+      PCG::StageTypeName(stage.type) + (stage.enabled ? "" : "  (off)") +
+      "###" + id;
+  if (!IMComponents::Foldout(title.c_str()))
+    return false;
+  ImGui::PushID(id);
+  bool edited = ImGui::Checkbox("Enabled", &stage.enabled);
+  char label[128];
+  std::snprintf(label, sizeof(label), "%s", stage.label.c_str());
+  if (ImGui::InputText("Label", label, sizeof(label)))
+    stage.label = label;
+  ImGui::TextDisabled("Your name for it; nothing reads it");
+  if (grid_hint) {
+    edited |= ImGui::SliderInt("Grid", &stage.grid, grid_min, grid_max);
+    ImGui::TextDisabled("%s", grid_hint);
+  }
+  if (radius_hint) {
+    ImGui::DragFloat("Generation Radius", &stage.generation_radius, 16.0f,
+                     0.0f, 1.0e6f, "%.0f m");
+    edited |= ImGui::IsItemDeactivatedAfterEdit();
+    ImGui::TextDisabled("%s", radius_hint);
+  }
+  ImGui::PopID();
+  if (rebuild)
+    changed |= edited;
+  return true;
+}
+
 static void _DrawPlanet(ResourceID id) {
   auto resource = EngineContext::resourceManager()
                       .GetResourceAs<PCG::GeneratorResource>(
@@ -201,63 +239,10 @@ static void _DrawPlanet(ResourceID id) {
   ImGui::InputInt("Size Class", &planet.size);
   changed |= ImGui::IsItemDeactivatedAfterEdit();
 
-  // Loading settings apply from the next frame, no rebuild needed
-  ImGui::SliderInt("Finest Level", &planet.finest_level, 0, 5);
-  ImGui::SliderInt("Coarsest Level", &planet.coarsest_level,
-                   planet.finest_level, 9);
-  ImGui::SliderFloat("Split Distance", &planet.split_distance, 0.5f, 8.0f);
-  ImGui::TextDisabled("A region splits when nearer than this many widths");
-  ImGui::DragFloat("View Distance", &planet.view_distance, 64.0f, 0.0f,
-                   1.0e6f, "%.0f m");
-  ImGui::TextDisabled("Regions farther are not loaded; 0: no limit");
-  changed |= ImGui::SliderInt("Building Level", &planet.building_level, -1, 9);
-  changed |= ImGui::SliderInt("Herd Level", &planet.herd_level, -1, 5);
-  ImGui::TextDisabled("Creatures come from regions of this level; -1: none");
   ImGui::SliderInt("Worker Jobs", &planet.worker_jobs, 0, 32);
   ImGui::TextDisabled("Regions building at once; 0: one per core but one");
   ImGui::DragFloat("Fade Time", &planet.fade_time, 0.01f, 0.0f, 10.0f, "%.2f s");
   ImGui::TextDisabled("Regions' content fades in and out; 0: at once");
-
-  if (IMComponents::Foldout("Objects", true)) {
-    ImGui::TextDisabled(
-        "Kinds of object it places (.object assets), after the region "
-        "content's own. Each size is placed as far as the terrain is that "
-        "fine or finer (Split Distance). Open one to edit its placement and "
-        "its model");
-    int remove = -1;
-    for (size_t i = 0; i < planet.objects.size(); ++i) {
-      ImGui::PushID(static_cast<int>(i));
-      if (ImGui::SmallButton("Remove"))
-        remove = static_cast<int>(i);
-      ImGui::SameLine();
-      if (IMComponents::Foldout((planet.objects[i] + "###Object").c_str())) {
-        // The asset's own editor: it saves the file and rebuilds the planets
-        if (auto asset = Runtime::Project().Assets().Find(planet.objects[i])) {
-          ImGui::PushTextWrapPos(-1.0f);
-          asset->DrawInspectorUI();
-          ImGui::PopTextWrapPos();
-        } else {
-          ImGui::TextDisabled("Not an asset of the project");
-        }
-      }
-      ImGui::PopID();
-    }
-    if (remove >= 0) {
-      planet.objects.erase(planet.objects.begin() + remove);
-      changed = true;
-    }
-    static char added[260] = "";
-    if (ImGui::InputTextWithHint("##AddObject", "objects/rock.object", added,
-                                 sizeof(added),
-                                 ImGuiInputTextFlags_EnterReturnsTrue) &&
-        added[0] != '\0') {
-      planet.objects.push_back(added);
-      added[0] = '\0';
-      changed = true;
-    }
-    ImGui::TextDisabled("Type a project-relative path and press Enter");
-    // TODO: Drop .object assets from the asset browser here
-  }
 
   changed |= ImGui::Button("Regenerate");
 
@@ -279,88 +264,161 @@ static void _DrawPlanet(ResourceID id) {
     ImGui::TextDisabled("Schedule and kinds come from the planet content");
   }
 
-  if (IMComponents::Foldout("Water")) {
-    // The surface is made again on regenerating
-    Water::SurfaceSettings& water = planet.water;
-    ImGui::DragFloat("Patch Size", &water.patch_size, 16.0f, 16.0f, 1.0e5f,
-                     "%.0f m");
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::TextDisabled("Across the grid drawn under the viewer");
-    ImGui::SliderInt("Grid Resolution", &water.grid_resolution, 2, 1024);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::SliderInt("Cascades", &water.cascades.count, 1, 16);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::SliderInt("Cascade Resolution", &water.cascades.resolution, 8,
-                     1024);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::DragFloat("Base Scale", &water.cascades.base_scale, 0.05f, 0.01f,
-                     100.0f);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::TextDisabled("Cascade 0 is base scale x 4 m; each next one twice");
-    ImGui::DragFloat("Min Texels", &water.cascades.min_texels, 0.1f, 1.0f,
-                     64.0f);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::TextDisabled("Texels across a cascade's shortest wave");
-    ImGui::DragFloat("Gravity", &water.cascades.gravity, 0.05f, 0.0f, 100.0f,
-                     "%.2f m/s2");
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::ColorEdit3("Colour", &water.look.colour.x);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::SliderFloat("Roughness", &water.look.roughness, 0.0f, 1.0f);
-    changed |= ImGui::IsItemDeactivatedAfterEdit();
+  if (IMComponents::Foldout("Stages", true)) {
+    ImGui::TextDisabled(
+        "What the planet makes of its regions. Level L's cells are 32 << L "
+        "m wide; a radius of 0 leaves the stage to its own limits");
 
-    ImGui::Checkbox("Force Weather Event", &planet.force_weather_event);
-    ImGui::TextDisabled("Picks as though a weather event is under way");
-    if (planet.water_state < 0) {
-      ImGui::TextDisabled("The planet content has no water states");
-    } else {
-      ImGui::Text("State %d (from %d, %.0f%%)", planet.water_state,
-                  planet.water_state_from, planet.water_blend * 100.0f);
-      ImGui::TextDisabled("Weights and timing come from the planet content");
+    // Loading settings apply from the next frame, no rebuild needed
+    ProcWorld::TerrainStage& terrain = planet.terrain;
+    if (_BeginStage(terrain, "Terrain", "The finest level", 0, 5,
+                    "Regions farther are not loaded; 0: no limit", false,
+                    changed)) {
+      ImGui::SliderInt("Coarsest Level", &terrain.coarsest_level, terrain.grid,
+                       9);
+      ImGui::SliderFloat("Split Distance", &terrain.split_distance, 0.5f, 8.0f);
+      ImGui::TextDisabled("A region splits when nearer than this many widths");
     }
-  }
 
-  // Applies from the next frame, no rebuild needed
-  if (IMComponents::Foldout("Creatures")) {
-    ProcWorld::HerdSettings& herd = planet.creatures;
-    ImGui::Checkbox("Roam", &herd.roam);
-    ImGui::DragFloat("Walk Speed", &herd.walk_speed, 0.05f, 0.0f, 50.0f,
-                     "%.2f m/s");
-    ImGui::TextDisabled("Every creature's speed, times its model's speed scale");
-    ImGui::DragFloat("Turn Rate", &herd.turn_rate, 1.0f, 1.0f, 1080.0f,
-                     "%.0f deg/s");
-    ImGui::DragFloat("Roam Radius", &herd.roam_radius, 0.5f, 0.0f, 1000.0f,
-                     "%.1f m");
-    ImGui::TextDisabled("Walks end this near where a creature was placed");
-    ImGui::DragFloatRange2("Rest", &herd.rest_min, &herd.rest_max, 0.1f, 0.0f,
-                           600.0f, "%.1f s");
-    ImGui::DragFloat("Nav Reach", &herd.nav_reach, 0.1f, 0.0f, 100.0f,
-                     "%.1f m");
-    ImGui::TextDisabled("Points find navmesh polygons this near");
-    ImGui::DragFloat("Roam Distance", &herd.roam_distance, 5.0f, 0.0f, 1.0e5f,
-                     "%.0f m");
-    ImGui::TextDisabled("Only creatures this near the viewer roam");
-    char clip[128];
-    std::snprintf(clip, sizeof(clip), "%s", herd.walk_clip.c_str());
-    if (ImGui::InputText("Walk Clip", clip, sizeof(clip)))
-      herd.walk_clip = clip;
-    std::snprintf(clip, sizeof(clip), "%s", herd.rest_clip.c_str());
-    if (ImGui::InputText("Rest Clip", clip, sizeof(clip)))
-      herd.rest_clip = clip;
-    ImGui::TextDisabled("The first clip whose name holds this, in any case");
-    ImGui::DragFloat("Fade", &herd.fade, 0.01f, 0.0f, 5.0f, "%.2f s");
-    ImGui::DragFloat3("Forward", &herd.forward.x, 0.01f, -1.0f, 1.0f);
-    ImGui::TextDisabled("The axis the models face along; zero: each walk clip's own");
-    ImGui::Checkbox("Gaits", &herd.match_stride);
-    ImGui::TextDisabled("The gait nearest the speed, at a rate within its own");
-    ImGui::TextDisabled("Off: the first clip at speed 1, at Walk Speed");
-    ImGui::DragFloatRange2("Walk Rates", &herd.walk_min_rate,
-                           &herd.walk_max_rate, 0.01f, 0.0f, 10.0f, "%.2fx");
-    ImGui::TextDisabled("For models without gaits: the walk clip's rates");
-    ImGui::Checkbox("Keep Pace", &herd.keep_pace);
-    ImGui::TextDisabled("Move as fast as the gait reaches, so feet don't slide");
-    ImGui::SeparatorText("Animation");
-    InspectableComponents::DrawAnimatorSettings(herd.animation);
+    _BeginStage(planet.buildings, "Buildings",
+                "Placed on the terrain's regions of this level or finer", 0, 9,
+                "Only on regions this near; 0: as far as the terrain", true,
+                changed);
+
+    if (_BeginStage(planet.objects, "Objects", nullptr, 0, 0,
+                    "No kind places farther; 0: each as far as it draws", false,
+                    changed)) {
+      ImGui::TextDisabled(
+          "Kinds of object it places (.object assets), after the region "
+          "content's own, each by the cells of its placement size and as far "
+          "as it draws. Open one to edit its placement and its model");
+      int remove = -1;
+      for (size_t i = 0; i < planet.objects.assets.size(); ++i) {
+        ImGui::PushID(static_cast<int>(i));
+        if (ImGui::SmallButton("Remove"))
+          remove = static_cast<int>(i);
+        ImGui::SameLine();
+        if (IMComponents::Foldout(
+                (planet.objects.assets[i] + "###Object").c_str())) {
+          // The asset's own editor: it saves the file and rebuilds the planets
+          if (auto asset =
+                  Runtime::Project().Assets().Find(planet.objects.assets[i])) {
+            ImGui::PushTextWrapPos(-1.0f);
+            asset->DrawInspectorUI();
+            ImGui::PopTextWrapPos();
+          } else {
+            ImGui::TextDisabled("Not an asset of the project");
+          }
+        }
+        ImGui::PopID();
+      }
+      if (remove >= 0) {
+        planet.objects.assets.erase(planet.objects.assets.begin() + remove);
+        changed = true;
+      }
+      static char added[260] = "";
+      if (ImGui::InputTextWithHint("##AddObject", "objects/rock.object", added,
+                                   sizeof(added),
+                                   ImGuiInputTextFlags_EnterReturnsTrue) &&
+          added[0] != '\0') {
+        planet.objects.assets.push_back(added);
+        added[0] = '\0';
+        changed = true;
+      }
+      ImGui::TextDisabled("Type a project-relative path and press Enter");
+      // TODO: Drop .object assets from the asset browser here
+    }
+
+    // Applies from the next frame, no rebuild needed
+    if (_BeginStage(planet.herds, "Herds",
+                    "Herds come from the cells of this level", 0, 5,
+                    "Only over regions this near; 0: as far as the level",
+                    false, changed)) {
+      ProcWorld::HerdSettings& herd = planet.herds.creatures;
+      ImGui::Checkbox("Roam", &herd.roam);
+      ImGui::DragFloat("Walk Speed", &herd.walk_speed, 0.05f, 0.0f, 50.0f,
+                       "%.2f m/s");
+      ImGui::TextDisabled(
+          "Every creature's speed, times its model's speed scale");
+      ImGui::DragFloat("Turn Rate", &herd.turn_rate, 1.0f, 1.0f, 1080.0f,
+                       "%.0f deg/s");
+      ImGui::DragFloat("Roam Radius", &herd.roam_radius, 0.5f, 0.0f, 1000.0f,
+                       "%.1f m");
+      ImGui::TextDisabled("Walks end this near where a creature was placed");
+      ImGui::DragFloatRange2("Rest", &herd.rest_min, &herd.rest_max, 0.1f, 0.0f,
+                             600.0f, "%.1f s");
+      ImGui::DragFloat("Nav Reach", &herd.nav_reach, 0.1f, 0.0f, 100.0f,
+                       "%.1f m");
+      ImGui::TextDisabled("Points find navmesh polygons this near");
+      ImGui::DragFloat("Roam Distance", &herd.roam_distance, 5.0f, 0.0f, 1.0e5f,
+                       "%.0f m");
+      ImGui::TextDisabled("Only creatures this near the viewer roam");
+      char clip[128];
+      std::snprintf(clip, sizeof(clip), "%s", herd.walk_clip.c_str());
+      if (ImGui::InputText("Walk Clip", clip, sizeof(clip)))
+        herd.walk_clip = clip;
+      std::snprintf(clip, sizeof(clip), "%s", herd.rest_clip.c_str());
+      if (ImGui::InputText("Rest Clip", clip, sizeof(clip)))
+        herd.rest_clip = clip;
+      ImGui::TextDisabled("The first clip whose name holds this, in any case");
+      ImGui::DragFloat("Fade", &herd.fade, 0.01f, 0.0f, 5.0f, "%.2f s");
+      ImGui::DragFloat3("Forward", &herd.forward.x, 0.01f, -1.0f, 1.0f);
+      ImGui::TextDisabled(
+          "The axis the models face along; zero: each walk clip's own");
+      ImGui::Checkbox("Gaits", &herd.match_stride);
+      ImGui::TextDisabled(
+          "The gait nearest the speed, at a rate within its own");
+      ImGui::TextDisabled("Off: the first clip at speed 1, at Walk Speed");
+      ImGui::DragFloatRange2("Walk Rates", &herd.walk_min_rate,
+                             &herd.walk_max_rate, 0.01f, 0.0f, 10.0f, "%.2fx");
+      ImGui::TextDisabled("For models without gaits: the walk clip's rates");
+      ImGui::Checkbox("Keep Pace", &herd.keep_pace);
+      ImGui::TextDisabled(
+          "Move as fast as the gait reaches, so feet don't slide");
+      ImGui::SeparatorText("Animation");
+      InspectableComponents::DrawAnimatorSettings(herd.animation);
+    }
+
+    if (_BeginStage(planet.sea, "Sea", nullptr, 0, 0, nullptr, true, changed)) {
+      // The surface is made again on regenerating
+      Water::SurfaceSettings& water = planet.sea.water;
+      ImGui::DragFloat("Patch Size", &water.patch_size, 16.0f, 16.0f, 1.0e5f,
+                       "%.0f m");
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::TextDisabled("Across the grid drawn under the viewer");
+      ImGui::SliderInt("Grid Resolution", &water.grid_resolution, 2, 1024);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::SliderInt("Cascades", &water.cascades.count, 1, 16);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::SliderInt("Cascade Resolution", &water.cascades.resolution, 8,
+                       1024);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::DragFloat("Base Scale", &water.cascades.base_scale, 0.05f, 0.01f,
+                       100.0f);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::TextDisabled("Cascade 0 is base scale x 4 m; each next one twice");
+      ImGui::DragFloat("Min Texels", &water.cascades.min_texels, 0.1f, 1.0f,
+                       64.0f);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::TextDisabled("Texels across a cascade's shortest wave");
+      ImGui::DragFloat("Gravity", &water.cascades.gravity, 0.05f, 0.0f, 100.0f,
+                       "%.2f m/s2");
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::ColorEdit3("Colour", &water.look.colour.x);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::SliderFloat("Roughness", &water.look.roughness, 0.0f, 1.0f);
+      changed |= ImGui::IsItemDeactivatedAfterEdit();
+
+      ImGui::Checkbox("Force Weather Event", &planet.force_weather_event);
+      ImGui::TextDisabled("Picks as though a weather event is under way");
+      if (planet.water_state < 0) {
+        ImGui::TextDisabled("The planet content has no water states");
+      } else {
+        ImGui::Text("State %d (from %d, %.0f%%)", planet.water_state,
+                    planet.water_state_from, planet.water_blend * 100.0f);
+        ImGui::TextDisabled("Weights and timing come from the planet content");
+      }
+    }
   }
 
   ImGui::Separator();

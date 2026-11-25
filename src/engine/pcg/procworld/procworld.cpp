@@ -656,7 +656,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->terrain = built.terrain;
       if (generator.planet_radius > 0.0f)
         content->radius = generator.planet_radius;
-      if (content->terrain.sea_level > 0.0f &&
+      if (generator.sea.enabled && content->terrain.sea_level > 0.0f &&
           !planet.water_waves.states.empty()) {
         state.water_waves =
             std::make_shared<Worldgen::WaterWaveSettings>(planet.water_waves);
@@ -664,7 +664,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         ecs.Add<ProceduralInstanceComponent>(sea, volume);
         EngineContext::PCG().GetWater().Make(
             ecs, sea, state.water_waves,
-            content->radius + content->terrain.sea_level, generator.water);
+            content->radius + content->terrain.sea_level,
+            generator.sea.water);
         state.sea = sea;
       }
       if (planet.buildings.active) {
@@ -675,7 +676,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       }
       // The planet's object kinds; one that doesn't load is left out (and
       // logged)
-      for (const std::string& path : generator.objects) {
+      for (const std::string& path : generator.objects.assets) {
         Worldgen::RegionObject object;
         std::string error;
         if (_LoadContent(root_, path, object, error))
@@ -786,8 +787,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   };
 
   const float radius = state.content->radius;
-  const int finest = std::max(generator.finest_level, 0);
-  const int coarsest = std::clamp(generator.coarsest_level, finest, 9);
+  const TerrainStage& terrain = generator.terrain;
+  const int finest = std::max(terrain.grid, 0);
+  const int coarsest = std::clamp(terrain.coarsest_level, finest, 9);
   // The viewers in the planet's space; it loads around each of them
   const glm::mat4 to_planet =
       glm::inverse(ecs.Get<TransformComponent>(volume).model_);
@@ -820,11 +822,11 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       [&](const Worldgen::PlanetCell& cell) {
         const float distance = distance_to(cell);
         const float width = static_cast<float>(32 << cell.level);
-        if (generator.view_distance > 0.0f &&
-            distance - width > generator.view_distance)
+        if (terrain.generation_radius > 0.0f &&
+            distance - width > terrain.generation_radius)
           return;
         if (cell.level <= finest ||
-            distance >= generator.split_distance * width) {
+            distance >= terrain.split_distance * width) {
           wanted.push_back({cell, distance});
           return;
         }
@@ -846,13 +848,16 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     is_wanted[_CellKey(w.cell)] = true;
 
   // The herd-level cells over the wanted regions that fine or finer (coarser
-  // ones are too far for creatures)
-  const int herd_level = generator.herd_level;
+  // ones are too far for creatures), within the stage's radius
+  const HerdStage& herds = generator.herds;
+  const int herd_level = herds.grid;
   std::unordered_map<uint64_t, Worldgen::PlanetCell> herd_cells;
-  if (herd_level >= 0 && state.herd_content &&
+  if (herds.enabled && herd_level >= 0 && state.herd_content &&
       !state.herd_content->herds.empty())
     for (const Wanted& w : wanted)
-      if (w.cell.level <= herd_level) {
+      if (w.cell.level <= herd_level &&
+          (herds.generation_radius <= 0.0f ||
+           w.distance <= herds.generation_radius)) {
         const int shift = herd_level - w.cell.level;
         const Worldgen::PlanetCell cell{w.cell.face, w.cell.i >> shift,
                                         w.cell.j >> shift, herd_level};
@@ -870,7 +875,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       transform.position_ =
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
       ecs.Add<ProceduralInstanceComponent>(entity, volume);
-      ecs.Add<HerdComponent>(entity).settings_ = generator.creatures;
+      ecs.Add<HerdComponent>(entity).settings_ = herds.creatures;
       RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
                                      root_, &state.textures, &build.objects);
       _FadeIn(ecs, {entity}, generator.fade_time);
@@ -880,7 +885,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   std::erase_if(state.herds, [&](auto& entry) {
     if (herd_cells.count(entry.first)) {
       if (auto* herd = ecs.Reg().try_get<HerdComponent>(entry.second))
-        herd->settings_ = generator.creatures;
+        herd->settings_ = herds.creatures;
       return false;
     }
     _FadeOut(ecs, entry.second, generator.fade_time);
@@ -901,17 +906,27 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         placement_cells.try_emplace(_CellKey(cell), Placement{cell, distance});
     it->second.distance = std::min(it->second.distance, distance);
   };
+  // The farthest an object of the level draws (infinite: no limit), within
+  // the stage's radius
+  const auto reach_of = [&](int level) {
+    for (const auto& objects : state.object_levels)
+      if (objects.level == level)
+        return generator.objects.generation_radius > 0.0f
+                   ? std::min(objects.reach, generator.objects.generation_radius)
+                   : objects.reach;
+    return 0.0f;
+  };
   // A cell's objects lie within this share of its width from its centre
   constexpr float extent = 0.75f;
   // Cells load this many of their widths before their objects' reach, so
   // they're made before the objects can show
   constexpr float lead = 1.0f;
-  if (state.object_content)
+  if (state.object_content && generator.objects.enabled)
     for (const auto& objects : state.object_levels) {
       const int level = objects.level;
-      const bool limited = std::isfinite(objects.reach);
+      const bool limited = std::isfinite(reach_of(level));
       const float cell_width = static_cast<float>(32 << level);
-      const float reach = objects.reach + lead * cell_width;
+      const float reach = reach_of(level) + lead * cell_width;
       for (const Wanted& w : wanted) {
         const float width = static_cast<float>(32 << w.cell.level);
         if (limited && w.distance - extent * width > reach)
@@ -938,6 +953,11 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           }
       }
     }
+  // The terrain's own regions, while its stage is on: off, they all go
+  if (!terrain.enabled) {
+    wanted.clear();
+    is_wanted.clear();
+  }
   state.placing.Finish([&](uint64_t key, RegionBuild build) {
     const Worldgen::Region& region = build.region;
     if (placement_cells.count(key)) {
@@ -972,13 +992,6 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         retire(key);
     }
   });
-  // The farthest an object of the level draws (infinite: no limit)
-  const auto reach_of = [&](int level) {
-    for (const auto& objects : state.object_levels)
-      if (objects.level == level)
-        return objects.reach;
-    return 0.0f;
-  };
   // Those no longer wanted fade out once their objects are all past their
   // reach (the cells' test goes by their centres, roughly), then go
   std::erase_if(state.placements, [&](auto& entry) {
@@ -1119,6 +1132,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                state.placing.Size() >=
            jobs;
   };
+  // Whether the stage gathers a region's buildings
+  const auto building_reach = [&](const Wanted& w) {
+    const PCG::Stage& buildings = generator.buildings;
+    return buildings.enabled && (buildings.generation_radius <= 0.0f ||
+                                 w.distance <= buildings.generation_radius);
+  };
   Paging::StartQueue starts;
   for (const Wanted& w : wanted)
     starts.Add(w.distance, [&, w] {
@@ -1131,7 +1150,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           _CellKey(w.cell),
           [content,
            buildings =
-               level <= generator.building_level ? state.buildings : nullptr,
+               level <= generator.buildings.grid && building_reach(w)
+                   ? state.buildings
+                   : nullptr,
            x = centre[0], y = centre[1], z = centre[2], level, root = root_,
            archetypes = state.archetypes,
            &procmodel = EngineContext::PCG().GetProcModel()] {

@@ -135,6 +135,29 @@ static void _ReadCreatures(const nlohmann::json& in, HerdSettings& herd) {
   a.sample_distance = animation->value("sample_distance", a.sample_distance);
 }
 
+static void _ReadStages(const nlohmann::json& in, PlanetGenerator& planet) {
+  const auto stages = in.find("stages");
+  if (stages == in.end())
+    return;
+  const auto read = [&](const char* name, PCG::Stage& stage) {
+    const auto it = stages->find(name);
+    if (it == stages->end())
+      return nlohmann::json::object();
+    PCG::ReadStage(*it, stage);
+    return *it;
+  };
+  const nlohmann::json terrain = read("terrain", planet.terrain);
+  planet.terrain.coarsest_level =
+      terrain.value("coarsest_level", planet.terrain.coarsest_level);
+  planet.terrain.split_distance =
+      terrain.value("split_distance", planet.terrain.split_distance);
+  read("buildings", planet.buildings);
+  planet.objects.assets =
+      read("objects", planet.objects).value("assets", planet.objects.assets);
+  _ReadCreatures(read("herds", planet.herds), planet.herds.creatures);
+  _ReadWater(read("sea", planet.sea), planet.sea.water);
+}
+
 nlohmann::json WriteSettings(const PCG::Generator& generator) {
   switch (generator.GetType()) {
     case PCG::GeneratorType::Region: {
@@ -148,15 +171,24 @@ nlohmann::json WriteSettings(const PCG::Generator& generator) {
     }
     case PCG::GeneratorType::Planet: {
       const auto& planet = static_cast<const PlanetGenerator&>(generator);
+      nlohmann::json terrain = PCG::WriteStage(planet.terrain);
+      terrain["coarsest_level"] = planet.terrain.coarsest_level;
+      terrain["split_distance"] = planet.terrain.split_distance;
+      nlohmann::json objects = PCG::WriteStage(planet.objects);
+      objects["assets"] = planet.objects.assets;
+      nlohmann::json herds = PCG::WriteStage(planet.herds);
+      herds["creatures"] = _WriteCreatures(planet.herds.creatures);
+      nlohmann::json sea = PCG::WriteStage(planet.sea);
+      sea["water"] = _WriteWater(planet.sea.water);
       return {{"type", "Planet"},
               {"content", planet.content_path},
-              {"finest_level", planet.finest_level},
-              {"coarsest_level", planet.coarsest_level},
-              {"split_distance", planet.split_distance},
-              {"view_distance", planet.view_distance},
-              {"objects", planet.objects},
-              {"building_level", planet.building_level},
-              {"herd_level", planet.herd_level},
+              // By name, so a profile's overrides patch single settings
+              {"stages",
+               {{"terrain", terrain},
+                {"buildings", PCG::WriteStage(planet.buildings)},
+                {"objects", objects},
+                {"herds", herds},
+                {"sea", sea}}},
               {"worker_jobs", planet.worker_jobs},
               {"fade_time", planet.fade_time},
               {"planet", planet.planet_path},
@@ -164,9 +196,7 @@ nlohmann::json WriteSettings(const PCG::Generator& generator) {
               {"biome", planet.biome},
               {"subtype", planet.subtype},
               {"size", planet.size},
-              {"look", _WriteLook(planet.look)},
-              {"creatures", _WriteCreatures(planet.creatures)},
-              {"water", _WriteWater(planet.water)}};
+              {"look", _WriteLook(planet.look)}};
     }
     case PCG::GeneratorType::Craft: {
       const auto& craft = static_cast<const CraftGenerator&>(generator);
@@ -197,16 +227,7 @@ void ReadSettings(PCG::Generator& generator, const nlohmann::json& in) {
     case PCG::GeneratorType::Planet: {
       auto* planet = static_cast<PlanetGenerator*>(&generator);
       planet->content_path = in.value("content", planet->content_path);
-      planet->finest_level = in.value("finest_level", planet->finest_level);
-      planet->coarsest_level =
-          in.value("coarsest_level", planet->coarsest_level);
-      planet->split_distance =
-          in.value("split_distance", planet->split_distance);
-      planet->view_distance = in.value("view_distance", planet->view_distance);
-      planet->objects = in.value("objects", planet->objects);
-      planet->building_level =
-          in.value("building_level", planet->building_level);
-      planet->herd_level = in.value("herd_level", planet->herd_level);
+      _ReadStages(in, *planet);
       planet->fade_time = in.value("fade_time", planet->fade_time);
       planet->worker_jobs = in.value("worker_jobs", planet->worker_jobs);
       planet->planet_path = in.value("planet", planet->planet_path);
@@ -215,8 +236,6 @@ void ReadSettings(PCG::Generator& generator, const nlohmann::json& in) {
       planet->subtype = in.value("subtype", planet->subtype);
       planet->size = in.value("size", planet->size);
       _ReadLook(in, planet->look);
-      _ReadCreatures(in, planet->creatures);
-      _ReadWater(in, planet->water);
       break;
     }
     case PCG::GeneratorType::Craft: {

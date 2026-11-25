@@ -50,8 +50,8 @@ void ObjectAsset::RebuildPlanets() const {
       continue;
     const auto& planet =
         static_cast<const ProcWorld::PlanetGenerator&>(*resource->Get());
-    if (std::find(planet.objects.begin(), planet.objects.end(), path) !=
-        planet.objects.end())
+    if (std::find(planet.objects.assets.begin(), planet.objects.assets.end(),
+                  path) != planet.objects.assets.end())
       volume.dirty = true;
   }
 }

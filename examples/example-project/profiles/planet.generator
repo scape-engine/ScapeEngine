@@ -1,41 +1,7 @@
 {
   "biome": 0,
-  "building_level": 9,
-  "coarsest_level": 5,
   "content": "worldgen/region.json",
-  "creatures": {
-    "animation": {
-      "full_rate_distance": 20.0,
-      "max_step": 8,
-      "plant_distance": 60.0,
-      "plant_feet": true,
-      "plant_reach": 0.5,
-      "sample_distance": 250.0
-    },
-    "fade": 0.30000001192092896,
-    "forward": [
-      0.0,
-      0.0,
-      0.0
-    ],
-    "keep_pace": true,
-    "match_stride": true,
-    "nav_reach": 4.0,
-    "rest_clip": "idle",
-    "rest_max": 12.0,
-    "rest_min": 4.0,
-    "roam": true,
-    "roam_distance": 150.0,
-    "roam_radius": 20.0,
-    "turn_rate": 120.0,
-    "walk_clip": "walk",
-    "walk_max_rate": 1.0,
-    "walk_min_rate": 1.0,
-    "walk_speed": 1.0
-  },
   "fade_time": 0.5,
-  "finest_level": 0,
-  "herd_level": 1,
   "look": {
     "height_offset": [
       0.0,
@@ -237,31 +203,93 @@
       0.0
     ]
   },
-  "objects": [
-    "objects/rock.object",
-    "objects/tree.object"
-  ],
   "planet": "worldgen/planet.json",
   "seed": 1,
   "size": 0,
-  "split_distance": 2.0,
+  "stages": {
+    "buildings": {
+      "enabled": true,
+      "generation_radius": 0.0,
+      "grid": 9,
+      "label": "Buildings"
+    },
+    "herds": {
+      "creatures": {
+        "animation": {
+          "full_rate_distance": 20.0,
+          "max_step": 8,
+          "plant_distance": 60.0,
+          "plant_feet": true,
+          "plant_reach": 0.5,
+          "sample_distance": 250.0
+        },
+        "fade": 0.30000001192092896,
+        "forward": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "keep_pace": true,
+        "match_stride": true,
+        "nav_reach": 4.0,
+        "rest_clip": "idle",
+        "rest_max": 12.0,
+        "rest_min": 4.0,
+        "roam": true,
+        "roam_distance": 150.0,
+        "roam_radius": 20.0,
+        "turn_rate": 120.0,
+        "walk_clip": "walk",
+        "walk_max_rate": 1.0,
+        "walk_min_rate": 1.0,
+        "walk_speed": 1.0
+      },
+      "enabled": true,
+      "generation_radius": 0.0,
+      "grid": 1,
+      "label": "Creatures"
+    },
+    "objects": {
+      "assets": [
+        "objects/rock.object",
+        "objects/tree.object"
+      ],
+      "enabled": true,
+      "generation_radius": 0.0,
+      "grid": -1,
+      "label": "Objects"
+    },
+    "sea": {
+      "enabled": true,
+      "generation_radius": 0.0,
+      "grid": -1,
+      "label": "Sea",
+      "water": {
+        "base_scale": 2.0,
+        "cascades": 8,
+        "colour": [
+          0.019999999552965164,
+          0.09000000357627869,
+          0.11999999731779099
+        ],
+        "gravity": 9.8100004196167,
+        "grid_resolution": 256,
+        "min_texels": 4.0,
+        "patch_size": 4096.0,
+        "resolution": 256,
+        "roughness": 0.05000000074505806
+      }
+    },
+    "terrain": {
+      "coarsest_level": 5,
+      "enabled": true,
+      "generation_radius": 8192.0,
+      "grid": 0,
+      "label": "Terrain",
+      "split_distance": 2.0
+    }
+  },
   "subtype": 0,
   "type": "Planet",
-  "view_distance": 8192.0,
-  "water": {
-    "base_scale": 2.0,
-    "cascades": 8,
-    "colour": [
-      0.019999999552965164,
-      0.09000000357627869,
-      0.11999999731779099
-    ],
-    "gravity": 9.8100004196167,
-    "grid_resolution": 256,
-    "min_texels": 4.0,
-    "patch_size": 4096.0,
-    "resolution": 256,
-    "roughness": 0.05000000074505806
-  },
   "worker_jobs": 0
 }

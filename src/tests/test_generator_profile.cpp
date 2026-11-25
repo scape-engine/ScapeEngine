@@ -16,19 +16,24 @@ namespace Tests {
 void TestGeneratorProfile() {
   ProcWorld::PlanetGenerator planet;
   planet.seed = 7;
-  planet.objects = {"objects/rock.object"};
+  planet.objects.assets = {"objects/rock.object"};
   const nlohmann::json profile = ProcWorld::WriteSettings(planet);
 
   planet.seed = 9;
   planet.look.roughness = 0.5f;
-  planet.creatures.animation.sample_distance = 10.0f;
+  planet.herds.creatures.animation.sample_distance = 10.0f;
+  planet.sea.enabled = false;
   const nlohmann::json settings = ProcWorld::WriteSettings(planet);
 
   const nlohmann::json overrides = PCG::ProfileOverrides(profile, settings);
   assert(overrides.size() == 3);
   assert(overrides.at("seed") == 9);
   assert(overrides.at("look").size() == 1);
-  assert(overrides.at("creatures").at("animation").size() == 1);
+  // A stage's settings override one by one
+  const nlohmann::json& stages = overrides.at("stages");
+  assert(stages.size() == 2);
+  assert(stages.at("herds").at("creatures").at("animation").size() == 1);
+  assert(stages.at("sea").size() == 1 && stages.at("sea").at("enabled") == false);
   assert(PCG::ProfileOverrides(profile, profile).empty());
 
   nlohmann::json merged = profile;
