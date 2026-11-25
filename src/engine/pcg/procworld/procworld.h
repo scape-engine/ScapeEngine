@@ -82,7 +82,13 @@ private:
     std::unordered_map<uint64_t, Entity> herds;  // by cell key
     std::unordered_map<uint64_t, std::future<RegionBuild>> herd_building;
     std::shared_ptr<const Worldgen::RegionContent> object_content;
-    std::vector<int> object_levels;  // the levels some object kind's size is
+    // The levels some object kind's size is, and how far from the viewer its
+    // kinds draw (their farthest fade end; infinite: one has no limit)
+    struct ObjectLevel {
+      int level;
+      float reach;
+    };
+    std::vector<ObjectLevel> object_levels;
     std::unordered_map<uint64_t, Entity> placements;  // by cell key
     std::unordered_map<uint64_t, std::future<RegionBuild>> placing;
     // The procmodels of its objects and creatures, loaded with the content

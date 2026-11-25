@@ -190,6 +190,10 @@ void Imposter::Bake() {
                bx::Handedness::Left);
   const glm::mat4 projection = glm::make_mat4(ortho);
   const int columns = views_ * static_cast<int>(variants_.size());
+  // The scene's projection flips y where the origin is top left
+  // (Transformation::Projection), and DrawList::Cull's sides suit it; this one
+  // doesn't, so its triangles wind the other way there
+  const bool mirrored = !caps->originBottomLeft;
   const uint16_t tile = static_cast<uint16_t>(resolution_ / views_);
   for (size_t v = 0; v < variants_.size(); ++v)
     for (int i = 0; i < views_; ++i)
@@ -235,7 +239,8 @@ void Imposter::Bake() {
           bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
                          BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS |
                          DrawList::Cull(part.material,
-                                        DrawList::Mirrored(part.matrix)));
+                                        DrawList::Mirrored(part.matrix) !=
+                                            mirrored));
           bgfx::submit(view, program);
         }
       }

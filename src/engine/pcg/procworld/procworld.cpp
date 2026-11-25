@@ -2,8 +2,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <fstream>
 #include <functional>
+#include <limits>
 #include <sstream>
 #include <thread>
 
@@ -730,12 +732,19 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       content->objects.clear();
       state.object_levels.clear();
       for (const Worldgen::RegionObject& object : objects->objects)
-        for (int level = 0; level <= 9; ++level)
-          if (object.placement_size == 32 << level &&
-              std::find(state.object_levels.begin(),
-                        state.object_levels.end(),
-                        level) == state.object_levels.end())
-            state.object_levels.push_back(level);
+        for (int level = 0; level <= 9; ++level) {
+          if (object.placement_size != 32 << level)
+            continue;
+          auto found = std::find_if(
+              state.object_levels.begin(), state.object_levels.end(),
+              [&](const auto& objects) { return objects.level == level; });
+          if (found == state.object_levels.end())
+            found = state.object_levels.insert(found, {level, 0.0f});
+          const bool limited = object.spawn.fade_end > object.spawn.fade_start;
+          found->reach = std::max(
+              found->reach, limited ? object.spawn.fade_end
+                                    : std::numeric_limits<float>::infinity());
+        }
       // Their procmodels load here, on the main thread, so the workers can
       // generate the instances
       static constexpr std::string_view prefix = "procmodel:";
@@ -775,6 +784,15 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       glm::inverse(ecs.Get<TransformComponent>(volume).model_) *
       glm::vec4(viewer_, 1.0f);
 
+  // From the viewer to a cell's centre on the surface
+  const auto distance_to = [&](const Worldgen::PlanetCell& cell) {
+    int centre[3];
+    Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
+    const glm::vec3 surface =
+        glm::normalize(glm::vec3(centre[0], centre[1], centre[2])) * radius;
+    return glm::length(viewer - surface);
+  };
+
   // The leaves around the viewer, with their distance
   struct Wanted {
     Worldgen::PlanetCell cell;
@@ -783,12 +801,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   std::vector<Wanted> wanted;
   std::function<void(const Worldgen::PlanetCell&)> visit =
       [&](const Worldgen::PlanetCell& cell) {
-        int centre[3];
-        Worldgen::PlanetGrid::CellCentre(cell, radius, centre);
-        const glm::vec3 surface =
-            glm::normalize(glm::vec3(centre[0], centre[1], centre[2])) *
-            radius;
-        const float distance = glm::length(viewer - surface);
+        const float distance = distance_to(cell);
         const float width = static_cast<float>(32 << cell.level);
         if (generator.view_distance > 0.0f &&
             distance - width > generator.view_distance)
@@ -865,25 +878,53 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     return true;
   });
 
-  // The cells of each object level over the wanted regions that fine or finer
-  // (the objects' regions reach as far as the terrain is that detailed),
-  // nearest first
+  // The cells of each object level within its kinds' reach, whatever the
+  // terrain's detail there (their regions are built apart): their objects
+  // fade out by distance before the cells go. A level without a reach places
+  // as far as the terrain is that fine
   struct Placement {
     Worldgen::PlanetCell cell;
     float distance;
   };
   std::unordered_map<uint64_t, Placement> placement_cells;
+  const auto place = [&](const Worldgen::PlanetCell& cell, float distance) {
+    auto [it, added] =
+        placement_cells.try_emplace(_CellKey(cell), Placement{cell, distance});
+    it->second.distance = std::min(it->second.distance, distance);
+  };
+  // A cell's objects lie within this share of its width from its centre
+  constexpr float extent = 0.75f;
   if (state.object_content)
-    for (const Wanted& w : wanted)
-      for (const int level : state.object_levels)
+    for (const auto& objects : state.object_levels) {
+      const int level = objects.level;
+      const bool limited = std::isfinite(objects.reach);
+      for (const Wanted& w : wanted) {
+        const float width = static_cast<float>(32 << w.cell.level);
+        if (limited && w.distance - extent * width > objects.reach)
+          continue;
         if (w.cell.level <= level) {
           const int shift = level - w.cell.level;
-          const Worldgen::PlanetCell cell{w.cell.face, w.cell.i >> shift,
-                                          w.cell.j >> shift, level};
-          auto [it, added] =
-              placement_cells.try_emplace(_CellKey(cell), Placement{cell, w.distance});
-          it->second.distance = std::min(it->second.distance, w.distance);
+          place({w.cell.face, w.cell.i >> shift, w.cell.j >> shift, level},
+                w.distance);
+          continue;
         }
+        if (!limited)
+          continue;
+        // A coarser leaf: its cells of the level within reach
+        const int shift = w.cell.level - level;
+        const int cells = Worldgen::PlanetGrid::CellsPerSide(radius, level);
+        const float cell_width = static_cast<float>(32 << level);
+        for (int i = w.cell.i << shift;
+             i < std::min((w.cell.i + 1) << shift, cells); ++i)
+          for (int j = w.cell.j << shift;
+               j < std::min((w.cell.j + 1) << shift, cells); ++j) {
+            const Worldgen::PlanetCell cell{w.cell.face, i, j, level};
+            const float distance = distance_to(cell);
+            if (distance - extent * cell_width <= objects.reach)
+              place(cell, distance);
+          }
+      }
+    }
   for (auto it = state.placing.begin(); it != state.placing.end();) {
     if (it->second.wait_for(std::chrono::seconds(0)) !=
         std::future_status::ready) {
