@@ -24,12 +24,14 @@
 
 namespace GeneratorProperties {
 
-// Marks the volumes using the generator for a rebuild
+// Marks the volumes using the generator for a rebuild, and the scene, which
+// saves its settings, changed
 static void _RequestRebuild(ResourceID id) {
   for (auto [entity, volume] : ECS::Main().View<VolumeComponent>().each()) {
     if (volume.generator_id == id)
       volume.dirty = true;
   }
+  Runtime::Project().MarkSceneDirty();
 }
 
 // A path field, project-relative; true once one is entered
@@ -260,7 +262,16 @@ static void _DrawStage(ProcWorld::PlanetGenerator& planet,
       planet.objects.assets.push_back(added);
       changed = true;
     }
-    // TODO: Drop .object assets from the asset browser here
+    // Or dropped from the asset browser
+    if (ImGui::BeginDragDropTarget()) {
+      if (const ImGuiPayload* payload =
+              ImGui::AcceptDragDropPayload("OBJECT_ASSET")) {
+        planet.objects.assets.emplace_back(
+            static_cast<const char*>(payload->Data));
+        changed = true;
+      }
+      ImGui::EndDragDropTarget();
+    }
   }
 
   // Applies from the next frame, no rebuild needed
@@ -565,7 +576,6 @@ static void _DrawProfile(ResourceID id, PCG::GeneratorResource& resource) {
   if (!revert.empty() && profile.contains(revert)) {
     ProcWorld::ReadSettings(generator, {{revert, profile.at(revert)}});
     _RequestRebuild(id);
-    Runtime::Project().MarkSceneDirty();
   }
 
   if (ImGui::Button("Apply to Profile")) {
@@ -589,7 +599,6 @@ static void _DrawProfile(ResourceID id, PCG::GeneratorResource& resource) {
   if (ImGui::Button("Revert All") && !profile.is_null()) {
     ProcWorld::ReadSettings(generator, profile);
     _RequestRebuild(id);
-    Runtime::Project().MarkSceneDirty();
   }
   IMComponents::Tooltip("Drop every override");
   ImGui::SameLine();

@@ -611,10 +611,16 @@ static const InstanceSourceComponent::Source* _SourceOf(Entity entity,
                                                        int instance) {
   auto& ecs = ECS::Main();
   const auto* sources = ecs.Reg().try_get<InstanceSourceComponent>(entity);
-  const auto& set = ecs.Get<InstancedMeshComponent>(entity);
-  if (!sources || set.anchors_.size() != set.locals_.size())
+  const auto* set = ecs.Reg().try_get<InstancedMeshComponent>(entity);
+  if (!sources)
     return nullptr;
-  return sources->Find(set.anchors_[instance]);
+  // An object made as an entity of its own
+  if (!set)
+    return sources->sources_.size() == 1 ? &sources->sources_.front()
+                                         : nullptr;
+  if (set->anchors_.size() != set->locals_.size())
+    return nullptr;
+  return sources->Find(set->anchors_[instance]);
 }
 
 std::string InstanceName(Entity entity, int instance) {
@@ -634,7 +640,6 @@ void DrawInstance(Entity entity, int instance,
                   const std::function<void()>& fields) {
   if (!_BeginComponent("Instance", 0))
     return;
-  const auto& set = ECS::Main().Get<InstancedMeshComponent>(entity);
   const auto text = [](const std::string& value) {
     return [value] {
       ImGui::AlignTextToFramePadding();
@@ -655,9 +660,11 @@ void DrawInstance(Entity entity, int instance,
   if (source)
     IMComponents::Row("Seed", text(std::to_string(source->seed)));
   // Its object's origin in the world
-  const glm::vec3 local = set.anchors_.size() == set.locals_.size()
-                              ? set.anchors_[instance]
-                              : glm::vec3(set.locals_[instance][3]);
+  const auto* set = ECS::Main().Reg().try_get<InstancedMeshComponent>(entity);
+  const glm::vec3 local = !set ? glm::vec3(0.0f)
+                          : set->anchors_.size() == set->locals_.size()
+                              ? set->anchors_[instance]
+                              : glm::vec3(set->locals_[instance][3]);
   const glm::vec3 at = ECS::Main().Get<TransformComponent>(entity).model_ *
                        glm::vec4(local, 1.0f);
   char position[96];

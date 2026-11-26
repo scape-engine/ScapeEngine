@@ -2,6 +2,9 @@
 #define INSTANCE_EDITS_H
 
 #include <cstdint>
+#include <string>
+
+#include <glm/glm.hpp>
 
 #include "engine/ecs/ecs_collection.h"
 #include "engine/pcg/generator_resource.h"
@@ -13,10 +16,11 @@
 // changes
 namespace InstanceEdits {
 
-// Whether the instance (of the entity's InstancedMeshComponent) takes edits
-// TODO: edits on objects that are entities of their own (animated models,
-// primitives), on buildings and herds, and on a region generator's objects;
-// only a planet's instanced Objects stage objects take them
+// Whether the instance (of the entity's InstancedMeshComponent) takes edits;
+// instance -1: the entity, an object made as an entity of its own (an
+// animated model, a primitive)
+// TODO: edits on buildings and herds, and on a region generator's objects;
+// only a planet's Objects stage objects take them
 bool Editable(Entity entity, int instance);
 
 // The instance's fields, as rows of the Inspector's Instance section, marked
@@ -26,6 +30,11 @@ void Draw(Entity entity, int instance);
 // Under its name, as Unity's prefab row: an Overrides dropdown listing what
 // overrides the generator (Revert All), and Remove
 void DrawOverrides(Entity entity, int instance);
+
+// An .object asset (project-relative) placed by hand at a world point on a
+// planet volume, with a new seed, and selected once made. False: the volume
+// can't place it there
+bool Place(Entity volume, const std::string& object, const glm::vec3& point);
 
 // The instance takes another seed
 void SetSeed(Entity entity, int instance, uint64_t seed);

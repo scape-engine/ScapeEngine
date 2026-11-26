@@ -653,6 +653,16 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
       ImGui::Text("%s", node->path_.filename().string().c_str());
       ImGui::EndDragDropSource();
     }
+
+    // Drag operation for .object assets: onto a planet, or its Objects list
+    if (extension == ".object" &&
+        ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+      const std::string path_str = node->path_.generic_string();
+      ImGui::SetDragDropPayload("OBJECT_ASSET", path_str.c_str(),
+                                path_str.size() + 1);
+      ImGui::Text("%s", node->path_.filename().string().c_str());
+      ImGui::EndDragDropSource();
+    }
   }
 
   return true;

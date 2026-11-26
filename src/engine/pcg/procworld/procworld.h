@@ -52,6 +52,20 @@ public:
   void SetRoot(const std::filesystem::path& root) { root_ = root; }
   const std::filesystem::path& Root() const { return root_; }
 
+  // Where a hand-placed object goes in a planet volume's edits (an
+  // InstanceAddition): the stage and cell its placement size places it in,
+  // and its matrix relative to that cell's region, upright on the planet
+  struct CellPoint {
+    std::string stage;
+    uint64_t cell = 0;
+    PCG::PointMatrix matrix{};
+  };
+  // `object`: an .object asset, relative to Root(); `point`: in the world.
+  // nullopt: the volume isn't a loaded planet, or the object can't load or
+  // has no placement size of a level
+  std::optional<CellPoint> Placement(Entity volume, const std::string& object,
+                                     const glm::vec3& point) const;
+
 private:
   struct LoadedRegion {
     Entity entity = entt::null;

@@ -147,6 +147,58 @@ static bool _SameEdits(const std::optional<PCG::CellEdits>& built,
   return now && *now == *built;
 }
 
+std::optional<Subsystem::CellPoint> Subsystem::Placement(
+    Entity volume, const std::string& object, const glm::vec3& point) const {
+  const auto planet = planets_.find(volume);
+  if (planet == planets_.end() || !planet->second.content)
+    return std::nullopt;
+  const Worldgen::RegionContent& content = *planet->second.content;
+  Worldgen::RegionObject kind;
+  std::string error;
+  if (!_LoadContent(root_, object, kind, error))
+    return std::nullopt;
+  int level = 0;
+  while (level <= 9 && kind.placement_size != 32 << level)
+    ++level;
+  if (level > 9)
+    return std::nullopt;
+
+  const glm::vec3 at =
+      glm::inverse(ECS::Main().Get<TransformComponent>(volume).model_) *
+      glm::vec4(point, 1.0f);
+  if (glm::dot(at, at) == 0.0f)
+    return std::nullopt;
+  const float p[3] = {at.x, at.y, at.z};
+  const Worldgen::PlanetCell cell =
+      Worldgen::PlanetGrid::CellAt(p, content.radius, level);
+  // The cell's region origin, as BuildRegion finds it, from the terrain's
+  // noise rather than the detail map it builds
+  int centre[3];
+  Worldgen::PlanetGrid::CellCentre(cell, content.radius, centre);
+  const int k = std::clamp(level, 0, 5);
+  const Worldgen::VoxelRegionInput region =
+      Worldgen::VoxelGenerator::RegionInit(centre[0], centre[1], centre[2],
+                                           level, content.radius,
+                                           content.columns[k],
+                                           content.layers[k]);
+  const float zero[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+  float origin[4] = {};
+  Worldgen::VoxelGenerator::LocalToSurface(region, content.terrain, nullptr, 0,
+                                           zero, origin);
+
+  // Up from the planet's centre, facing along any line across it
+  const glm::vec3 up = glm::normalize(at);
+  const glm::vec3 across = std::abs(up.y) < 0.99f
+                               ? glm::vec3(0.0f, 1.0f, 0.0f)
+                               : glm::vec3(1.0f, 0.0f, 0.0f);
+  const glm::vec3 x = glm::normalize(glm::cross(up, across));
+  const glm::vec3 z = glm::cross(x, up);
+  const glm::vec3 t = at - glm::vec3(origin[0], origin[1], origin[2]);
+  return CellPoint{"objects", _CellKey(cell),
+                   {x.x, x.y, x.z, 0.0f, up.x, up.y, up.z, 0.0f, z.x, z.y, z.z,
+                    0.0f, t.x, t.y, t.z, 1.0f}};
+}
+
 void Subsystem::Init() {}
 
 // After Jobs::Shutdown: no job still reads what this frees
@@ -799,21 +851,6 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       // The objects' content keeps the buildings, which objects keep clear of
       auto objects = std::make_shared<Worldgen::RegionContent>(*content);
       content->objects.clear();
-      state.object_levels.clear();
-      for (const Worldgen::RegionObject& object : objects->objects)
-        for (int level = 0; level <= 9; ++level) {
-          if (object.placement_size != 32 << level)
-            continue;
-          auto found = std::find_if(
-              state.object_levels.begin(), state.object_levels.end(),
-              [&](const auto& objects) { return objects.level == level; });
-          if (found == state.object_levels.end())
-            found = state.object_levels.insert(found, {level, 0.0f});
-          const bool limited = object.spawn.fade_end > object.spawn.fade_start;
-          found->reach = std::max(
-              found->reach, limited ? object.spawn.fade_end
-                                    : std::numeric_limits<float>::infinity());
-        }
       // Their procmodels load here, on the main thread, so the workers can
       // generate the instances
       static constexpr std::string_view prefix = "procmodel:";
@@ -841,6 +878,22 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         }
       for (const auto& object : instancing->objects)
         load(object.id);
+      // The levels of the objects, the edits' too
+      state.object_levels.clear();
+      for (const Worldgen::RegionObject& object : instancing->objects)
+        for (int level = 0; level <= 9; ++level) {
+          if (object.placement_size != 32 << level)
+            continue;
+          auto found = std::find_if(
+              state.object_levels.begin(), state.object_levels.end(),
+              [&](const auto& objects) { return objects.level == level; });
+          if (found == state.object_levels.end())
+            found = state.object_levels.insert(found, {level, 0.0f});
+          const bool limited = object.spawn.fade_end > object.spawn.fade_start;
+          found->reach = std::max(
+              found->reach, limited ? object.spawn.fade_end
+                                    : std::numeric_limits<float>::infinity());
+        }
       for (const std::string& id : state.herd_content->herd_ids)
         load(id);
       state.content = std::move(content);

@@ -8,6 +8,8 @@
 #include <imgui.h>
 #include <algorithm>
 
+#include "editor/gui/components/inspectable_components.h"
+#include "editor/gui/components/instance_edits.h"
 #include "editor/gui/styles/editor_styles.h"
 #include "editor/gui/viewport/action_overlay.h"
 #include "editor/gui/viewport/axis_gizmo.h"
@@ -28,6 +30,7 @@
 #include "engine/core/types/material_data.h"
 #include "engine/core/view_ids.h"
 
+#include "engine/ecs/components/instance_source_component.h"
 #include "engine/ecs/world.h"
 #include "engine/math/transformation.h"
 
@@ -167,10 +170,13 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       auto& pipeline = Runtime::GetSceneViewPipeline();
 
       Entity selected_entity = state.selected_entity;
-      // An instance moves with its set: no gizmo for it
-      bool has_selection = selected_entity != entt::null &&
-                           state.selected_instance < 0 &&
-                           ECS::Main().Has<TransformComponent>(selected_entity);
+      // An instance moves with its set, and a generated entity is set again
+      // by its generator: no gizmo for them
+      bool has_selection =
+          selected_entity != entt::null && state.selected_instance < 0 &&
+          ECS::Main().Has<TransformComponent>(selected_entity) &&
+          InspectableComponents::FindOrigin(selected_entity).volume ==
+              entt::null;
 
       // Get camera matrices
       auto& camera_transform = std::get<0>(pipeline.GetGodCamera());
@@ -266,8 +272,14 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       }
 
       // A click (not a drag, nor on a gizmo or a button) selects what shows
-      // under it, once the pick comes back
+      // under it, once the pick comes back. While an .object asset is dragged
+      // over it, picks find where it would stand instead
       static bool pressed_here = false;
+      static bool drop_picking = false;  // the pick under way is a drop's
+      static bool drop_pending = false;
+      static std::optional<PickPass::Hit> drop_hit;
+      if (!ImGui::GetDragDropPayload())
+        drop_hit.reset();
       if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
         pressed_here = hovered && !ImGui::IsAnyItemHovered() &&
                        !ImGuizmo::IsOver() && !ImGuizmo::IsUsing();
@@ -279,22 +291,84 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
                 ImGui::GetIO().MouseDragThreshold *
                     ImGui::GetIO().MouseDragThreshold &&
             at.x >= 0.0f && at.y >= 0.0f && at.x < rendered_size.x &&
-            at.y < rendered_size.y)
+            at.y < rendered_size.y) {
           // The image shows the scene texture upside down
+          drop_picking = false;
           pipeline.Pick(glm::vec2(at.x * scale.x,
                                   rendered_h - 1.0f - at.y * scale.y));
+        }
       }
       if (const auto hit = pipeline.TakePick()) {
-        if (hit->entity == entt::null || !ECS::Main().Reg().valid(hit->entity))
+        if (drop_picking) {
+          drop_pending = false;
+          drop_hit = hit;
+        } else if (hit->entity == entt::null ||
+                   !ECS::Main().Reg().valid(hit->entity))
           state.ClearSelection();
         else if (hit->instance >= 0)
           state.SelectInstance(hit->entity, hit->instance);
-        else
-          state.SelectEntity(hit->entity);
+        else {
+          // A part of an object made as an entity selects the object
+          auto& ecs = ECS::Main();
+          Entity entity = hit->entity;
+          for (Entity up = entity; ecs.Reg().valid(up);
+               up = ecs.Get<TransformComponent>(up).parent_)
+            if (ecs.Has<InstanceSourceComponent>(up)) {
+              entity = up;
+              break;
+            }
+          state.SelectEntity(entity);
+        }
       }
 
       // Handle drop operations for glTF files after drawing image
       if (ImGui::BeginDragDropTarget()) {
+        // An .object asset stands on a planet where it's dropped: a marker
+        // shows where, on the planet's surface under the cursor
+        // TODO: show the object itself while it is dragged
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(
+                "OBJECT_ASSET",
+                ImGuiDragDropFlags_AcceptBeforeDelivery |
+                    ImGuiDragDropFlags_AcceptNoDrawDefaultRect)) {
+          if (!drop_pending || !drop_picking) {
+            const ImVec2 at = ImGui::GetMousePos() - pos;
+            drop_picking = drop_pending = true;
+            pipeline.Pick(glm::vec2(at.x * scale.x,
+                                    rendered_h - 1.0f - at.y * scale.y));
+          }
+          const Entity volume =
+              drop_hit && ECS::Main().Reg().valid(drop_hit->entity)
+                  ? InspectableComponents::FindOrigin(drop_hit->entity).volume
+                  : entt::null;
+          if (volume != entt::null) {
+            const auto screen = [&](const glm::vec3& point) {
+              const glm::vec4 clip =
+                  gizmoProjection * view * glm::vec4(point, 1.0f);
+              return ImVec2(
+                  pos.x + (clip.x / clip.w * 0.5f + 0.5f) * rendered_size.x,
+                  pos.y + (0.5f - clip.y / clip.w * 0.5f) * rendered_size.y);
+            };
+            const float reach =
+                0.05f * glm::distance(glm::vec3(glm::inverse(view)[3]),
+                                      drop_hit->position);
+            auto* draw = ImGui::GetWindowDrawList();
+            const ImVec2 base = screen(drop_hit->position);
+            draw->AddLine(base,
+                          screen(drop_hit->position + drop_hit->normal * reach),
+                          EditorColor::accent, 2.0f);
+            draw->AddCircleFilled(base, 4.0f, EditorColor::accent);
+          }
+          if (payload->IsDelivery()) {
+            const std::string object(static_cast<const char*>(payload->Data));
+            if (volume == entt::null ||
+                !InstanceEdits::Place(volume, object, drop_hit->position))
+              Logger::getInstance().Log(
+                  LogLevel::Warning,
+                  "Drop " + object + " onto a planet's terrain to place it");
+            drop_hit.reset();
+          }
+        }
+
         const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GLTF_FILE");
         if (payload) {
           // Get file path from payload

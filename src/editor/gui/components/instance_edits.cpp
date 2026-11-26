@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <random>
 #include <string>
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -21,6 +22,8 @@
 #include "engine/ecs/components/fade_component.h"
 #include "engine/ecs/components/instance_source_component.h"
 #include "engine/ecs/components/instanced_mesh_component.h"
+#include "engine/ecs/components/volume_component.h"
+#include "engine/pcg/pcg_engine.h"
 #include "engine/ecs/world.h"
 
 namespace InstanceEdits {
@@ -35,19 +38,24 @@ struct Target {
   const InstanceSourceComponent::Source* source = nullptr;
 };
 
+// An instance of the entity's set, or (instance -1) the entity as an object
+// of its own
 std::optional<Target> _Target(Entity entity, int instance) {
   auto& ecs = ECS::Main();
   if (!ecs.Reg().valid(entity))
     return std::nullopt;
   const auto* set = ecs.Reg().try_get<InstancedMeshComponent>(entity);
   const auto* sources = ecs.Reg().try_get<InstanceSourceComponent>(entity);
-  if (!set || !sources || sources->stage_.empty() || instance < 0 ||
-      set->anchors_.size() != set->locals_.size() ||
-      instance >= static_cast<int>(set->anchors_.size()))
+  if (!sources || sources->stage_.empty())
     return std::nullopt;
   Target target;
   target.sources = sources;
-  target.source = sources->Find(set->anchors_[instance]);
+  if (!set && instance < 0 && sources->sources_.size() == 1)
+    target.source = &sources->sources_.front();
+  else if (set && instance >= 0 &&
+           set->anchors_.size() == set->locals_.size() &&
+           instance < static_cast<int>(set->anchors_.size()))
+    target.source = sources->Find(set->anchors_[instance]);
   target.volume = InspectableComponents::FindOrigin(entity).volume;
   if (!target.source || target.volume == entt::null)
     return std::nullopt;
@@ -89,19 +97,17 @@ Follow s_follow;
 // layer's file defaults to one named after the volume
 // TODO: undo and redo of edits; and saving them apart from the scene (they
 // are written only when the scene is saved)
-void _Change(const Target& target,
+void _Change(Entity volume, PCG::GeneratorResource& resource,
+             const std::string& stage, uint64_t cell_key,
              const std::function<void(PCG::EditLayer&, PCG::CellEdits&)>&
                  change) {
-  PCG::GeneratorResource& resource = *target.resource;
   auto layer = resource.edit_layer_
                    ? std::make_shared<PCG::EditLayer>(*resource.edit_layer_)
                    : std::make_shared<PCG::EditLayer>();
-  const std::string& stage = target.sources->stage_;
-  change(*layer, layer->Cell(stage, target.sources->cell_));
+  change(*layer, layer->Cell(stage, cell_key));
   // Edits left with no change go, and a cell left with none
   auto& cells = layer->stages_[stage];
-  if (const auto cell = cells.find(target.sources->cell_);
-      cell != cells.end()) {
+  if (const auto cell = cells.find(cell_key); cell != cells.end()) {
     std::erase_if(cell->second.edits, [](const PCG::InstanceEdit& edit) {
       return !edit.removed && !edit.position && !edit.rotation &&
              !edit.scale && edit.replacement.empty() && !edit.seed;
@@ -113,9 +119,17 @@ void _Change(const Target& target,
     layer->stages_.erase(stage);
   if (resource.edits_.empty())
     resource.edits_ =
-        "edits/" + ECS::Main().Get<TransformComponent>(target.volume).name_ +
+        "edits/" + ECS::Main().Get<TransformComponent>(volume).name_ +
         ".edits";
   resource.edit_layer_ = std::move(layer);
+  Runtime::Project().MarkSceneDirty();
+}
+
+void _Change(const Target& target,
+             const std::function<void(PCG::EditLayer&, PCG::CellEdits&)>&
+                 change) {
+  _Change(target.volume, *target.resource, target.sources->stage_,
+          target.sources->cell_, change);
 }
 
 // Changes the instance, then follows it into its remade cell
@@ -164,6 +178,31 @@ void SetSeed(Entity entity, int instance, uint64_t seed) {
     _ChangeInstance(
         entity, *target, [&](PCG::InstanceEdit& edit) { edit.seed = seed; },
         [&](PCG::InstanceAddition& addition) { addition.seed = seed; });
+}
+
+bool Place(Entity volume, const std::string& object, const glm::vec3& point) {
+  auto& ecs = ECS::Main();
+  if (!ecs.Reg().valid(volume) || !ecs.Has<VolumeComponent>(volume))
+    return false;
+  const auto resource =
+      EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+          ecs.Get<VolumeComponent>(volume).generator_id);
+  const auto placement =
+      EngineContext::PCG().GetProcWorld().Placement(volume, object, point);
+  if (!resource || !placement)
+    return false;
+  static std::mt19937_64 random{std::random_device{}()};
+  const uint64_t seed = random();
+  int index = 0;
+  _Change(volume, *resource, placement->stage, placement->cell,
+          [&](PCG::EditLayer&, PCG::CellEdits& cell) {
+            index = static_cast<int>(cell.additions.size());
+            cell.additions.push_back({object, seed, placement->matrix});
+          });
+  Runtime::State().ClearSelection();
+  s_follow = {volume,          entt::null, placement->stage,
+              placement->cell, {object, 0, {}, index}, 0};
+  return true;
 }
 
 void Draw(Entity entity, int instance) {
@@ -338,6 +377,7 @@ void DrawLayer(PCG::GeneratorResource& resource, size_t orphans) {
       PCG::LoadEditLayer(absolute, *layer);
       resource.edit_layer_ = std::move(layer);
     }
+    Runtime::Project().MarkSceneDirty();
   }
   const size_t count =
       resource.edit_layer_ ? resource.edit_layer_->Count() : 0;
@@ -350,8 +390,10 @@ void DrawLayer(PCG::GeneratorResource& resource, size_t orphans) {
         "Edits in the loaded cells whose instances its rules no longer "
         "place there; they change nothing until the rules place them again");
   if (count > 0 &&
-      IMComponents::ButtonBig("Clear Edits", "Back to what it places"))
+      IMComponents::ButtonBig("Clear Edits", "Back to what it places")) {
     resource.edit_layer_ = std::make_shared<PCG::EditLayer>();
+    Runtime::Project().MarkSceneDirty();
+  }
 }
 
 void Update() {
@@ -365,8 +407,7 @@ void Update() {
     s_follow = {};
     return;
   }
-  for (auto [entity, sources, set] :
-       ecs.View<InstanceSourceComponent, InstancedMeshComponent>().each()) {
+  for (auto [entity, sources] : ecs.View<InstanceSourceComponent>().each()) {
     if (entity == s_follow.from || sources.stage_ != s_follow.stage ||
         sources.cell_ != s_follow.cell)
       continue;
@@ -382,8 +423,14 @@ void Update() {
           key.index != s_follow.key.index ||
           key.addition != s_follow.key.addition)
         continue;
-      for (size_t i = 0; i < set.anchors_.size(); ++i)
-        if (set.anchors_[i] == source.anchor) {
+      const auto* set = ecs.Reg().try_get<InstancedMeshComponent>(entity);
+      if (!set) {
+        state.SelectEntity(entity);
+        s_follow = {};
+        return;
+      }
+      for (size_t i = 0; i < set->anchors_.size(); ++i)
+        if (set->anchors_[i] == source.anchor) {
           state.SelectInstance(entity, static_cast<int>(i));
           s_follow = {};
           return;

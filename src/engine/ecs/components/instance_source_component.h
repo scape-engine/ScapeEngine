@@ -10,7 +10,9 @@
 #include "engine/pcg/edit_layer.h"
 
 // What made each object of the entity's InstancedMeshComponent (an object
-// being the instances sharing an anchor): its source and seed
+// being the instances sharing an anchor): its source and seed. Without an
+// InstancedMeshComponent the entity is one object, made as an entity of its
+// own: its one source's anchor and matrix are in its parent's space
 struct InstanceSourceComponent {
   struct Source {
     glm::vec3 anchor{0.0f};  // as in InstancedMeshComponent::anchors_

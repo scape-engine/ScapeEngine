@@ -288,8 +288,8 @@ bool RegionInstancer::InstanceObjects(
       progress.made++;
       continue;
     }
-    // TODO: the object's key (InstanceSourceComponent) on these too, so
-    // edits reach objects made as entities (animated models, primitives)
+    // An entity of its own (an animated model, a primitive), keyed as the
+    // instanced ones are
     const Entity entity =
         CreateObject(ecs, id, source, seed, root, planet, models);
     if (entity == entt::null) {
@@ -301,6 +301,10 @@ bool RegionInstancer::InstanceObjects(
     _SetTransform(ecs.Get<TransformComponent>(entity),
                   instances.matrices[progress.at++]);
     ecs.Add<ProceduralInstanceComponent>(entity, source);
+    auto& sources = ecs.Add<InstanceSourceComponent>(entity);
+    sources.sources_.push_back({origin, id, seed, key, matrix});
+    sources.stage_ = progress.stage;
+    sources.cell_ = progress.cell;
     progress.made++;
     if (made)
       made->push_back(entity);

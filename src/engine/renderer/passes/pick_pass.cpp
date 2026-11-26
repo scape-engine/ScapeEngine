@@ -1,5 +1,8 @@
 #include "pick_pass.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <glm/gtc/type_ptr.hpp>
 
 #include "engine/context/engine_context.h"
@@ -26,13 +29,19 @@ void PickPass::Create() {
 
   colour_ = bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::RGBA8,
                                   BGFX_TEXTURE_RT | BGFX_SAMPLER_POINT);
-  const bgfx::TextureHandle attachments[2] = {
-      colour_,
+  surface_ = bgfx::createTexture2D(1, 1, false, 1,
+                                   bgfx::TextureFormat::RGBA32F,
+                                   BGFX_TEXTURE_RT | BGFX_SAMPLER_POINT);
+  const bgfx::TextureHandle attachments[3] = {
+      colour_, surface_,
       bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::D24S8,
                             BGFX_TEXTURE_RT | BGFX_TEXTURE_RT_WRITE_ONLY)};
-  target_ = bgfx::createFrameBuffer(2, attachments, true);
+  target_ = bgfx::createFrameBuffer(3, attachments, true);
   read_ = bgfx::createTexture2D(
       1, 1, false, 1, bgfx::TextureFormat::RGBA8,
+      BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK | BGFX_SAMPLER_POINT);
+  surface_read_ = bgfx::createTexture2D(
+      1, 1, false, 1, bgfx::TextureFormat::RGBA32F,
       BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK | BGFX_SAMPLER_POINT);
 }
 
@@ -41,10 +50,12 @@ void PickPass::Destroy() {
     bgfx::destroy(target_);
   if (bgfx::isValid(read_))
     bgfx::destroy(read_);
+  if (bgfx::isValid(surface_read_))
+    bgfx::destroy(surface_read_);
   if (bgfx::isValid(u_pick_id_))
     bgfx::destroy(u_pick_id_);
   target_ = BGFX_INVALID_HANDLE;
-  colour_ = read_ = BGFX_INVALID_HANDLE;
+  colour_ = read_ = surface_ = surface_read_ = BGFX_INVALID_HANDLE;
   u_pick_id_ = BGFX_INVALID_HANDLE;
 }
 
@@ -65,6 +76,15 @@ void PickPass::Request(const glm::vec2& pixel, uint16_t width, uint16_t height,
   zoom[3][0] = -ndc.x * width;
   zoom[3][1] = -ndc.y * height;
   const glm::mat4 pick_projection = zoom * projection;
+  // The pixel's ray in view space, through two depths of the projection
+  const glm::mat4 inverse_projection = glm::inverse(projection);
+  const auto unproject = [&](float z) {
+    const glm::vec4 p = inverse_projection * glm::vec4(ndc, z, 1.0f);
+    return glm::vec3(p) / p.w;
+  };
+  ray_from_ = unproject(0.25f);
+  ray_ = unproject(0.75f) - ray_from_;
+  inverse_view_ = glm::inverse(view);
 
   DrawList draws;
   DrawList::Build({{&draws, pick_projection * view}}, viewer, {}, false);
@@ -108,7 +128,9 @@ void PickPass::Request(const glm::vec2& pixel, uint16_t width, uint16_t height,
 
   bgfx::touch(ViewID::PICK_READ);
   bgfx::blit(ViewID::PICK_READ, read_, 0, 0, colour_);
-  ready_frame_ = bgfx::readTexture(read_, pixel_);
+  bgfx::blit(ViewID::PICK_READ, surface_read_, 0, 0, surface_);
+  ready_frame_ = std::max(bgfx::readTexture(read_, pixel_),
+                          bgfx::readTexture(surface_read_, surface_pixel_));
   pending_ = true;
 }
 
@@ -120,5 +142,17 @@ std::optional<PickPass::Hit> PickPass::Take() {
                       (static_cast<uint32_t>(pixel_[3]) << 24);
   if (id == 0 || id > drawn_.size())
     return Hit{};
-  return drawn_[id - 1];
+  Hit hit = drawn_[id - 1];
+  // Along the pixel's ray to the surface's view depth
+  const float depth = surface_pixel_[3];
+  const glm::vec3 point =
+      ray_from_ +
+      ray_ * (std::abs(ray_.z) > 0.0f ? (depth - ray_from_.z) / ray_.z : 0.0f);
+  hit.position = inverse_view_ * glm::vec4(point, 1.0f);
+  const glm::vec3 normal = glm::mat3(inverse_view_) *
+                           glm::vec3(surface_pixel_[0], surface_pixel_[1],
+                                     surface_pixel_[2]);
+  if (glm::dot(normal, normal) > 0.0f)
+    hit.normal = glm::normalize(normal);
+  return hit;
 }

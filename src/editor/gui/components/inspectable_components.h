@@ -36,9 +36,10 @@ struct GeneratedOrigin {
 };
 GeneratedOrigin FindOrigin(Entity entity);
 
-// One of the entity's InstancedMeshComponent instances: its object's name
-// (its source's), and its details (source, seed, position); `fields`, when
-// given, are drawn after its source in place of the rest
+// One of the entity's InstancedMeshComponent instances (-1: the entity, an
+// object made as an entity of its own): its object's name (its source's),
+// and its details (source, seed, position); `fields`, when given, are drawn
+// after its source in place of the rest
 std::string InstanceName(Entity entity, int instance);
 void DrawInstance(Entity entity, int instance,
                   const std::function<void()>& fields = {});

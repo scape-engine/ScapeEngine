@@ -78,7 +78,7 @@ void EntityInspectable::RenderStaticContent(ImDrawList& draw_list) {
   const auto origin = InspectableComponents::FindOrigin(item.entity.Handle());
   if (origin.volume != entt::null) {
     _DrawOrigin(origin);
-    if (instance >= 0)
+    if (InstanceEdits::Editable(item.entity.Handle(), instance))
       InstanceEdits::DrawOverrides(item.entity.Handle(), instance);
     return;
   }
@@ -94,8 +94,12 @@ void EntityInspectable::RenderStaticContent(ImDrawList& draw_list) {
 }
 
 void EntityInspectable::RenderDynamicContent(ImDrawList& draw_list) {
-  // An instance: its own details and its stage's
-  if (const int instance = SelectedInstance(); instance >= 0) {
+  // An instance, or an object made as an entity that takes edits: its own
+  // details and its stage's
+  // TODO: a part of such an object, selected in the hierarchy, shows its own
+  // components rather than its object's edit fields
+  const int instance = SelectedInstance();
+  if (instance >= 0 || InstanceEdits::Editable(item.entity.Handle(), -1)) {
     const Entity entity = item.entity.Handle();
     // One its generator takes edits on: its fields edit it
     if (InstanceEdits::Editable(entity, instance))
@@ -115,13 +119,21 @@ void EntityInspectable::RenderDynamicContent(ImDrawList& draw_list) {
   const auto& registry = ComponentRegistry::Get();
   const auto& keys_ordered = ComponentRegistry::OrderedKeys();
 
-  InspectableComponents::AllowRemoving(
-      InspectableComponents::FindOrigin(item.entity.Handle()).volume ==
-      entt::null);
+  // A generated entity's components belong to its generator, and its
+  // transform is set again whenever its generator remakes it: read-only, as
+  // only edits (InstanceEdits) move it
+  // TODO: buildings and herds move through edits too (phase 3c, 3d)
+  const bool generated =
+      InspectableComponents::FindOrigin(item.entity.Handle()).volume !=
+      entt::null;
+  InspectableComponents::AllowRemoving(!generated);
   for (const auto& key : keys_ordered) {
     auto it = registry.find(key);
     if (it != registry.end()) {
+      const bool locked = generated && key == "Transform";
+      ImGui::BeginDisabled(locked);
       it->second.try_draw_inspectable(item.entity.Handle());
+      ImGui::EndDisabled();
     }
   }
   InspectableComponents::AllowRemoving(true);
@@ -174,6 +186,8 @@ ProcModelPreview* EntityInspectable::ProcModel() {
     return procmodel_.get();
   procmodel_instance_ = instance;
   procmodel_.reset();
+  // TODO: the seed preview (and "Use this seed") for an object made as an
+  // entity of its own (instance -1, InstanceEdits::Editable)
   if (instance < 0)
     return nullptr;
   // What made its object
