@@ -7,6 +7,8 @@
 
 #include <glm/glm.hpp>
 
+#include "engine/pcg/edit_layer.h"
+
 // What made each object of the entity's InstancedMeshComponent (an object
 // being the instances sharing an anchor): its source and seed
 struct InstanceSourceComponent {
@@ -16,8 +18,15 @@ struct InstanceSourceComponent {
     // path), relative to the project root
     std::string id;
     uint64_t seed = 0;
+    // Which point of its cell it is, for edits (PCG::EditLayer)
+    PCG::InstanceKey key;
+    glm::mat4 matrix{1.0f};  // where it is, in the entity's space
   };
   std::vector<Source> sources_;
+  // The generator's stage and key for the cell they were placed in; an
+  // empty stage: no edits apply to them
+  std::string stage_;
+  uint64_t cell_ = 0;
 
   // The object anchored at `anchor`; null: none
   const Source* Find(const glm::vec3& anchor) const {

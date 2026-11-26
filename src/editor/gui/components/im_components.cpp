@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
+#include <utility>
 
 #include "editor/editor_ui.h"
 #include "editor/gui/styles/editor_styles.h"
@@ -351,6 +352,47 @@ static float _LabelWidth() {
                   6.5f * ImGui::GetFontSize());
 }
 
+// MarkOverride's state: for the next row, and what the last row's menu chose
+static bool s_override = false;
+static bool s_revert = false;
+
+void MarkOverride(bool overridden) { s_override = overridden; }
+
+bool RevertChosen() { return s_revert; }
+
+// A property row's label at the cursor, `height` tall (its fields'); marked
+// when an override, with its Revert menu
+static void _RowLabel(const std::string& label, bool wrapped, float height,
+                      const char* tooltip) {
+  const bool overridden = std::exchange(s_override, false);
+  s_revert = false;
+  const ImVec2 at = ImGui::GetCursorScreenPos();
+  if (overridden) {
+    // Unity's bar, in the margin left of the label
+    ImGui::GetWindowDrawList()->AddRectFilled(
+        ImVec2(at.x - 6.0f, at.y), ImVec2(at.x - 4.0f, at.y + height),
+        EditorColor::accent);
+    ImGui::PushFont(EditorStyles::GetFonts().p_bold);
+  }
+  if (wrapped) {
+    ImGui::TextWrapped("%s", label.c_str());
+  } else {
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(label.c_str());
+  }
+  if (overridden)
+    ImGui::PopFont();
+  Tooltip(tooltip);
+  if (!overridden)
+    return;
+  if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+    ImGui::OpenPopup("##override");
+  if (ImGui::BeginPopup("##override")) {
+    s_revert = ImGui::MenuItem("Revert");
+    ImGui::EndPopup();
+  }
+}
+
 // A label and its field in two columns, as Input lays them out
 template <class Field>
 static bool _Row(std::string label, Field field, const char* tooltip) {
@@ -367,8 +409,7 @@ static bool _Row(std::string label, Field field, const char* tooltip) {
     ImGui::TableNextRow();
 
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextWrapped("%s", label.c_str());
-    Tooltip(tooltip);
+    _RowLabel(label, true, ImGui::GetFrameHeight(), tooltip);
 
     ImGui::TableSetColumnIndex(1);
     ImGui::PushItemWidth(-1);
@@ -477,9 +518,7 @@ void Input(std::string label, glm::vec3& value, float speed,
   const ImVec2 origin = ImVec2(std::floor(cursor.x), std::floor(cursor.y));
 
   // LABEL
-  ImGui::AlignTextToFramePadding();
-  ImGui::TextUnformatted(label.c_str());
-  Tooltip(tooltip);
+  _RowLabel(label, false, 3.0f * row_height + 2.0f * row_gap, tooltip);
 
   for (int i = 0; i < 3; ++i) {
     const float y = origin.y + i * (row_height + row_gap);
@@ -614,8 +653,7 @@ bool ColorPicker(std::string label, glm::vec3& value, const char* tooltip) {
     ImGui::TableNextRow();
 
     ImGui::TableSetColumnIndex(0);
-    ImGui::TextWrapped("%s", label.c_str());
-    Tooltip(tooltip);
+    _RowLabel(label, true, ImGui::GetFrameHeight(), tooltip);
 
     ImGui::TableSetColumnIndex(1);
     if (ImGui::Button("Pick Color")) {

@@ -103,6 +103,15 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume,
           volume.generator_id);
   if (!generator || !generator->Get())
     return out;
+  if (!generator->edits_.empty()) {
+    out["edits"] = generator->edits_;
+    if (generator->edit_layer_ &&
+        !PCG::SaveEditLayer(_Absolute(generator->edits_, root),
+                            *generator->edit_layer_))
+      Logger::getInstance().Log(
+          LogLevel::Error,
+          "SceneSerializer: can't write edit layer " + generator->edits_);
+  }
   nlohmann::json settings = ProcWorld::WriteSettings(*generator->Get());
   if (settings.is_null())
     return out;
@@ -147,6 +156,15 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in,
           PCG::GetGeneratorTypeName(generator->GetType()));
   resource->SetGenerator(std::move(generator));
   resource->profile_ = profile;
+  resource->edits_ = in.value("edits", std::string());
+  if (!resource->edits_.empty()) {
+    auto layer = std::make_shared<PCG::EditLayer>();
+    if (!PCG::LoadEditLayer(_Absolute(resource->edits_, root), *layer))
+      Logger::getInstance().Log(
+          LogLevel::Warning,
+          "SceneSerializer: unreadable edit layer " + resource->edits_);
+    resource->edit_layer_ = std::move(layer);
+  }
   volume.generator_id = id;
   volume.dirty = true;
 }

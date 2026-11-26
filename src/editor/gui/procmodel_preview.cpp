@@ -124,18 +124,19 @@ void ProcModelPreview::RenderOverlay(AssetPreview& preview) {
   draw_list.AddCircleFilled(origin, 3.5f, IM_COL32(255, 255, 255, 255));
 }
 
-void ProcModelPreview::RenderRows() {
-  // Any seed of the model; back to its own
+void ProcModelPreview::RenderRows(const std::function<void(uint64_t)>& use) {
+  // Any seed of the model; back to its own, or made its own
   IMComponents::Row(
       "Seed",
       [&] {
         // The value, then the buttons at the field's right end, room kept for
-        // the reset so they stay put; a value too long is clipped
+        // the reset and use so they stay put; a value too long is clipped
         const float button = ImGui::GetFrameHeight();
+        const float buttons = use ? 5.0f : 4.0f;
         const ImVec2 at = ImGui::GetCursorScreenPos();
         const float buttons_x =
-            at.x + std::max(ImGui::GetContentRegionAvail().x - button * 4.0f -
-                                6.0f,
+            at.x + std::max(ImGui::GetContentRegionAvail().x -
+                                button * buttons - 2.0f * (buttons - 1.0f),
                             0.0f);
         const std::string value =
             std::to_string(static_cast<unsigned long long>(seed_));
@@ -176,6 +177,16 @@ void ProcModelPreview::RenderRows() {
           if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Back to %llu",
                               static_cast<unsigned long long>(start_seed_));
+          if (use) {
+            ImGui::SameLine(0.0f, 2.0f);
+            if (IMComponents::ToolButton(ICON_FA_CHECK, false,
+                                         ImVec2(button, button))) {
+              start_seed_ = seed_;
+              use(seed_);
+            }
+            if (ImGui::IsItemHovered())
+              ImGui::SetTooltip("Use this seed");
+          }
         }
         if (changed)
           Generate();

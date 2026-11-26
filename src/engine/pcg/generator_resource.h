@@ -2,6 +2,7 @@
 #define GENERATOR_RESOURCE_H
 
 #include "engine/memory/resource.h"
+#include "engine/pcg/edit_layer.h"
 #include "engine/pcg/generator_base.h"
 
 namespace PCG {
@@ -44,6 +45,11 @@ public:
   // The profile asset its settings start from, project-relative; empty: none
   // (see generator_profile.h)
   std::string profile_;
+  // The edit layer asset holding hand edits on what it placed,
+  // project-relative; empty: none (see edit_layer.h)
+  std::string edits_;
+  // Its edits, shared with the generator's builds
+  std::shared_ptr<const EditLayer> edit_layer_;
 
 private:
   std::unique_ptr<Generator> generator_;

@@ -45,13 +45,26 @@ public:
       std::map<std::pair<std::string, uint64_t>,
                std::optional<ProcModel::InstanceData>>;
 
+  // An object's seed and which point of its cell it is (for edits)
+  struct ObjectTag {
+    uint64_t seed = 0;
+    PCG::InstanceKey key;
+  };
+  // Each object's, by its place in region.objects and in their matrices
+  using ObjectTags = std::vector<std::vector<ObjectTag>>;
+  // The seeds the region's objects take when none are given: from its
+  // origin, each object the next; no keys
+  static ObjectTags Tags(const Worldgen::Region& region);
+
   // The procmodel instances the region's objects and herds (with `herds`)
-  // will need, from the archetypes given. Any thread
+  // will need, from the archetypes given; the objects' seeds as tagged, else
+  // Tags'. Any thread
   static ObjectModels GenerateObjects(const Worldgen::Region& region,
                                       const Worldgen::RegionContent& content,
                                       bool herds, const Archetypes& archetypes,
                                       const ProcModel::Subsystem& procmodel,
-                                      const Worldgen::TextureInput* planet);
+                                      const Worldgen::TextureInput* planet,
+                                      const ObjectTags* tags = nullptr);
 
   struct InstanceResult {
     Entity terrain = entt::null;
@@ -70,6 +83,10 @@ public:
 
   // How far InstanceObjects got through a region's objects
   struct ObjectProgress {
+    // The stage and cell the objects' edits are keyed by
+    // (InstanceSourceComponent); an empty stage: none
+    std::string stage;
+    uint64_t cell = 0;
     size_t kind = 0;  // into region.objects
     size_t at = 0;    // into its matrices
     uint64_t seed = 0;
@@ -104,7 +121,7 @@ public:
   // Instanced parts take their kind's fade distances (ObjectSpawn). A
   // procmodel with an imposter places only the imposter's variants (picked by
   // the object's seed), so its card shows the same model; once baked, the
-  // card draws past the imposter's distance.
+  // card draws past the imposter's distance. Tags as GenerateObjects'.
   // TODO: Coarser meshes at the kind's LOD distances
   // TODO: Other engine runtime systems. The game's own streaming, LOD
   // selection and render batching can be decompiled like the PCG code was;
@@ -116,7 +133,8 @@ public:
                               const ObjectModels* models,
                               ObjectProgress& progress,
                               const std::function<bool()>& more,
-                              std::vector<Entity>* made = nullptr);
+                              std::vector<Entity>* made = nullptr,
+                              const ObjectTags* tags = nullptr);
 
   // One entity per creature of the region's herds, as children of the source,
   // made from the content's herd ids (sources as above)

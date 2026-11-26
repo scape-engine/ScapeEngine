@@ -53,11 +53,23 @@ static uint64_t _KindSeed(const Worldgen::RegionContent& content, size_t spawn,
   return seed;
 }
 
+RegionInstancer::ObjectTags RegionInstancer::Tags(
+    const Worldgen::Region& region) {
+  ObjectTags tags;
+  uint64_t seed = _ObjectSeed(region);
+  for (const Worldgen::ObjectInstances& instances : region.objects) {
+    auto& kind = tags.emplace_back(instances.matrices.size());
+    for (ObjectTag& tag : kind)
+      tag.seed = ++seed;
+  }
+  return tags;
+}
+
 RegionInstancer::ObjectModels RegionInstancer::GenerateObjects(
     const Worldgen::Region& region, const Worldgen::RegionContent& content,
     bool herds, const Archetypes& archetypes,
     const ProcModel::Subsystem& procmodel,
-    const Worldgen::TextureInput* planet) {
+    const Worldgen::TextureInput* planet, const ObjectTags* tags) {
   ObjectModels models;
   const auto generate = [&](const std::string& id, uint64_t seed) {
     const auto archetype = archetypes.find(id);
@@ -68,10 +80,13 @@ RegionInstancer::ObjectModels RegionInstancer::GenerateObjects(
       it->second = procmodel.Generate(*archetype->second, seed);
   };
   uint64_t seed = _ObjectSeed(region);
-  for (const Worldgen::ObjectInstances& instances : region.objects) {
+  for (size_t kind = 0; kind < region.objects.size(); ++kind) {
+    const Worldgen::ObjectInstances& instances = region.objects[kind];
     const std::string& id = content.objects[instances.object].id;
-    for (size_t i = 0; i < instances.matrices.size(); ++i)
-      generate(id, ++seed);
+    for (size_t i = 0; i < instances.matrices.size(); ++i) {
+      ++seed;
+      generate(id, tags ? (*tags)[kind][i].seed : seed);
+    }
   }
   if (herds)
     for (size_t spawn = 0;
@@ -193,7 +208,8 @@ bool RegionInstancer::InstanceObjects(
     const Worldgen::RegionContent& content, Entity source,
     const std::filesystem::path& root, const Worldgen::TextureInput* planet,
     const ObjectModels* models, ObjectProgress& progress,
-    const std::function<bool()>& more, std::vector<Entity>* made) {
+    const std::function<bool()>& more, std::vector<Entity>* made,
+    const ObjectTags* tags) {
   Diagnostics::ScopedSection section("Objects");
   if (!progress.started) {
     progress.seed = _ObjectSeed(region);
@@ -210,7 +226,10 @@ bool RegionInstancer::InstanceObjects(
       return false;
     const Worldgen::RegionObject& object = content.objects[instances.object];
     const std::string& id = object.id;
-    const uint64_t seed = ++progress.seed;
+    ++progress.seed;
+    const ObjectTag* tag = tags ? &(*tags)[progress.kind][progress.at] : nullptr;
+    const uint64_t seed = tag ? tag->seed : progress.seed;
+    const PCG::InstanceKey key = tag ? tag->key : PCG::InstanceKey{};
     glm::mat4 matrix = glm::make_mat4(
         instances.matrices[progress.at].data());  // rows read as glm columns
     // The decorator's w lanes are not a projective row (_SetTransform skips
@@ -245,7 +264,7 @@ bool RegionInstancer::InstanceObjects(
       placed.anchors.push_back(origin);
     };
     if (imposter) {
-      progress.sources.push_back({origin, id, seed});
+      progress.sources.push_back({origin, id, seed, key, matrix});
       const auto& variants = imposter->imposter->Variants();
       const size_t variant = seed % variants.size();
       for (const Imposter::Part& part : variants[variant])
@@ -260,7 +279,7 @@ bool RegionInstancer::InstanceObjects(
     std::shared_ptr<const ProcModel::Subsystem::DeformedMeshes> deformed;
     if (const auto parts =
             _ObjectParts(id, seed, root, planet, models, deformed)) {
-      progress.sources.push_back({origin, id, seed});
+      progress.sources.push_back({origin, id, seed, key, matrix});
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
         place(part.mesh, part.material, matrix * part.matrix, 0.0f, 0.0f);
       if (deformed)
@@ -269,6 +288,8 @@ bool RegionInstancer::InstanceObjects(
       progress.made++;
       continue;
     }
+    // TODO: the object's key (InstanceSourceComponent) on these too, so
+    // edits reach objects made as entities (animated models, primitives)
     const Entity entity =
         CreateObject(ecs, id, source, seed, root, planet, models);
     if (entity == entt::null) {
@@ -302,8 +323,10 @@ bool RegionInstancer::InstanceObjects(
     if (!progress.owned.empty())
       ecs.Add<MeshOwnerComponent>(entity).meshes_ =
           std::move(progress.owned);
-    ecs.Add<InstanceSourceComponent>(entity).sources_ =
-        std::move(progress.sources);
+    auto& sources = ecs.Add<InstanceSourceComponent>(entity);
+    sources.sources_ = std::move(progress.sources);
+    sources.stage_ = progress.stage;
+    sources.cell_ = progress.cell;
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();
     progress.owned.clear();

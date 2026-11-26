@@ -5,6 +5,7 @@
 #include "editor/runtime/runtime.h"
 #include "editor/vendor/imgui/imgui_impl_bgfx.h"
 
+#include "editor/gui/components/instance_edits.h"
 #include "editor/gui/viewport/viewport_settings.h"
 #include "gui/asset_browser.h"
 #include "gui/asset_browser_window.h"
@@ -613,6 +614,8 @@ void EditorUI::RenderUI() {
     ImGui::DebugStartItemPicker();
     debug_activate_picker_ = false;
   }
+
+  InstanceEdits::Update();
 
   // Push current state to pipeline for rendering
   {

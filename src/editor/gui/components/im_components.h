@@ -72,6 +72,13 @@ bool InputText(std::string label, std::string& value, const char* hint = "",
 bool Row(std::string label, const std::function<bool()>& field,
          const char* tooltip = "");
 
+// The next property row holds an override (of a prefab's, a generator's
+// value), as Unity marks one: its label bold with an accent bar, and
+// right-clicking the label offers Revert
+void MarkOverride(bool overridden);
+// Whether Revert was chosen on the last property row
+bool RevertChosen();
+
 void IndicatorLabel(std::string label, std::string value,
                     std::string additional = "");
 void IndicatorLabel(std::string label, int32_t value,

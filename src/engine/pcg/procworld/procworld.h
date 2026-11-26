@@ -7,10 +7,12 @@
 #include <future>
 #include <glm/glm.hpp>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 
 #include "engine/ecs/world.h"
 #include "engine/paging/cell_jobs.h"
+#include "engine/pcg/edit_layer.h"
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/material/terrain_material.h"
 #include "engine/renderer/model/mesh.h"
@@ -62,6 +64,13 @@ private:
     // Its procmodel objects' (and creatures') instances, generated on the
     // worker so the main thread only makes their entities
     RegionInstancer::ObjectModels objects;
+    // Its objects' seeds and keys, for an object cell; empty:
+    // RegionInstancer::Tags'
+    RegionInstancer::ObjectTags tags;
+    // The edits it was built with, and those whose objects the rules no
+    // longer place there
+    std::optional<PCG::CellEdits> edits;
+    size_t orphan_edits = 0;
   };
   struct PlanetState {
     // Shared with the jobs building from it, so a reload leaves them intact
@@ -92,6 +101,7 @@ private:
       Entity entity = entt::null;
       glm::vec3 centre{0.0f};
       float radius = -1.0f;
+      size_t orphan_edits = 0;
     };
     std::unordered_map<uint64_t, ObjectCell> placements;  // by cell key
     // Cells made from older draw settings (ProcModel's DrawVersion), each
@@ -99,6 +109,13 @@ private:
     std::unordered_map<uint64_t, ObjectCell> old_placements;
     uint64_t draw_version = 0;
     Paging::CellJobs<RegionBuild> placing;
+    // Hand edits on the cells' objects (the "objects" stage's), as loaded
+    std::shared_ptr<const PCG::EditLayer> edits;
+    // The objects' content with the objects the edits name after its own:
+    // the cells' objects are made from it. The edits' objects by name, as
+    // indices into it
+    std::shared_ptr<const Worldgen::RegionContent> instance_content;
+    std::shared_ptr<const std::unordered_map<std::string, int>> edit_objects;
     // The procmodels of its objects and creatures, loaded with the content
     RegionInstancer::Archetypes archetypes;
     // Those the object cells generate instances of: a kind with an imposter
@@ -156,8 +173,9 @@ private:
   void Build(Entity volume, RegionGenerator& generator);
   void Build(Entity volume, CraftGenerator& generator);
   void Make(Entity volume, CraftGenerator& generator, CraftState& state);
+  // `edits`: hand edits on what it places; null: none
   void Stream(Entity volume, PlanetGenerator& generator, PlanetState& state,
-              bool reload);
+              bool reload, std::shared_ptr<const PCG::EditLayer> edits);
   // The weather event at `now` (seconds on the world clock)
   void Weather(PlanetGenerator& generator, PlanetState& state, double now);
   // The water's state at `now`, blending into a new one; the sea's waves

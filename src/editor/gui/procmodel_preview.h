@@ -2,6 +2,7 @@
 #define PROCMODEL_PREVIEW_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,7 +25,8 @@ public:
 
   void RenderButtons(AssetPreview& preview);
   void RenderOverlay(AssetPreview& preview);
-  void RenderRows();
+  // `use`, when given, makes the seed previewed the item's own
+  void RenderRows(const std::function<void(uint64_t)>& use = {});
 
 private:
   // A part of the descriptor: its meshes in the model's space

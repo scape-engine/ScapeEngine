@@ -630,7 +630,8 @@ std::string InstanceName(Entity entity, int instance) {
       .string();
 }
 
-void DrawInstance(Entity entity, int instance) {
+void DrawInstance(Entity entity, int instance,
+                  const std::function<void()>& fields) {
   if (!_BeginComponent("Instance", 0))
     return;
   const auto& set = ECS::Main().Get<InstancedMeshComponent>(entity);
@@ -641,11 +642,18 @@ void DrawInstance(Entity entity, int instance) {
       return false;
     };
   };
-  if (const auto* source = _SourceOf(entity, instance)) {
+  const auto* source = _SourceOf(entity, instance);
+  if (source)
     IMComponents::Row("Source", text(source->id),
                       "What it was made from, relative to the project");
-    IMComponents::Row("Seed", text(std::to_string(source->seed)));
+  // Fields given in place of its details
+  if (fields) {
+    fields();
+    _EndComponent();
+    return;
   }
+  if (source)
+    IMComponents::Row("Seed", text(std::to_string(source->seed)));
   // Its object's origin in the world
   const glm::vec3 local = set.anchors_.size() == set.locals_.size()
                               ? set.anchors_[instance]

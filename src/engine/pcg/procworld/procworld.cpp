@@ -89,6 +89,64 @@ static uint64_t _CellKey(const Worldgen::PlanetCell& cell) {
          static_cast<uint64_t>(cell.i) << 26 | static_cast<uint64_t>(cell.j);
 }
 
+// A cell's edits on the objects its rules placed (PCG::ApplyEdits), with
+// their seeds and keys. Objects are known by their content id; an edited one
+// becomes the kind of `content` its edit names, by `edit_objects` (an
+// .object asset) else by id, and is dropped when there is none. Returns how
+// many edits found no object
+// TODO: edits on the buildings and herds stages, and on a region generator's
+// objects
+static size_t _EditObjects(
+    const PCG::CellEdits& edits, const Worldgen::RegionContent& content,
+    const std::unordered_map<std::string, int>& edit_objects,
+    Worldgen::Region& region, RegionInstancer::ObjectTags& tags) {
+  tags = RegionInstancer::Tags(region);
+  std::vector<PCG::InstancePoint> points;
+  for (size_t kind = 0; kind < region.objects.size(); ++kind) {
+    const Worldgen::ObjectInstances& instances = region.objects[kind];
+    for (size_t i = 0; i < instances.matrices.size(); ++i)
+      points.push_back({content.objects[instances.object].id,
+                        instances.matrices[i], tags[kind][i].seed,
+                        instances.object});
+  }
+  const size_t orphans = PCG::ApplyEdits(edits, points).size();
+
+  region.objects.clear();
+  tags.clear();
+  std::unordered_map<int, size_t> slots;  // by kind
+  for (const PCG::InstancePoint& point : points) {
+    int kind = point.kind;
+    if (kind < 0) {
+      if (const auto found = edit_objects.find(point.object);
+          found != edit_objects.end())
+        kind = found->second;
+      else
+        for (size_t k = 0; k < content.objects.size() && kind < 0; ++k)
+          if (content.objects[k].id == point.object)
+            kind = static_cast<int>(k);
+      if (kind < 0)
+        continue;
+    }
+    auto [slot, added] = slots.try_emplace(kind, region.objects.size());
+    if (added) {
+      region.objects.push_back({kind, {}});
+      tags.emplace_back();
+    }
+    region.objects[slot->second].matrices.push_back(point.matrix);
+    tags[slot->second].push_back({point.seed, point.key});
+  }
+  return orphans;
+}
+
+// Whether a cell built with `built` edits has the layer's
+static bool _SameEdits(const std::optional<PCG::CellEdits>& built,
+                       const PCG::EditLayer* layer, uint64_t key) {
+  const PCG::CellEdits* now = layer ? layer->Find("objects", key) : nullptr;
+  if (!built || built->edits.empty() && built->additions.empty())
+    return !now;
+  return now && *now == *built;
+}
+
 void Subsystem::Init() {}
 
 // After Jobs::Shutdown: no job still reads what this frees
@@ -222,7 +280,10 @@ void Subsystem::Update() {
         if (state.tile_colours[i].a > 0.0f)
           look.tile_colours[i] = glm::vec3(state.tile_colours[i]);
       Look(entity, look);
-      Stream(entity, planet, state, volume.dirty);
+      Stream(entity, planet, state, volume.dirty,
+             resource_mgr
+                 .GetResourceAs<PCG::GeneratorResource>(volume.generator_id)
+                 ->edit_layer_);
       Weather(planet, state, now);
       Water(planet, state, now);
       volume.dirty = false;
@@ -609,11 +670,26 @@ static bool _Shown(ECS& ecs, Entity entity) {
 // it are loaded, so no holes show.
 // TODO: floating origin; positions are planet-relative floats
 void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
-                       PlanetState& state, bool reload) {
+                       PlanetState& state, bool reload,
+                       std::shared_ptr<const PCG::EditLayer> edits) {
   auto& ecs = ECS::Main();
+  // A changed edit layer remakes the object cells whose edits changed
+  // (below); one naming an object not loaded yet reloads
+  std::shared_ptr<const PCG::EditLayer> previous_edits;
+  bool edits_changed = false;
+  if (!reload && edits != state.edits) {
+    if (edits && state.edit_objects)
+      for (const std::string& object : edits->Objects())
+        reload |= !state.edit_objects->count(object);
+    if (!reload) {
+      previous_edits = std::exchange(state.edits, edits);
+      edits_changed = true;
+    }
+  }
   if (reload) {
     Clear(volume);
     generator.error.clear();
+    state.edits = std::move(edits);
 
     // The planet itself, from its own content: its terrain settings and tile
     // colours replace the region content's and the look's
@@ -748,15 +824,34 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
             EngineContext::PCG().GetProcModel().Archetype(
                 (root_ / id.substr(prefix.size())).string());
       };
-      for (const auto& object : objects->objects)
+      // The objects the edits name, after the planet's own: no rule places
+      // them. One that doesn't load is left out (and logged)
+      auto instancing = std::shared_ptr<Worldgen::RegionContent>(objects);
+      auto edit_objects = std::make_shared<std::unordered_map<std::string, int>>();
+      if (state.edits)
+        for (const std::string& path : state.edits->Objects()) {
+          Worldgen::RegionObject object;
+          std::string error;
+          if (!_LoadContent(root_, path, object, error))
+            continue;
+          if (instancing == objects)
+            instancing = std::make_shared<Worldgen::RegionContent>(*objects);
+          (*edit_objects)[path] = static_cast<int>(instancing->objects.size());
+          instancing->objects.push_back(std::move(object));
+        }
+      for (const auto& object : instancing->objects)
         load(object.id);
       for (const std::string& id : state.herd_content->herd_ids)
         load(id);
       state.content = std::move(content);
       state.object_content = std::move(objects);
+      state.instance_content = std::move(instancing);
+      state.edit_objects = std::move(edit_objects);
       state.draw_version = UINT64_MAX;  // imposters looked up below
     } else {
-      state.content = state.herd_content = state.object_content = nullptr;
+      state.content = state.herd_content = state.object_content =
+          state.instance_content = nullptr;
+      state.edit_objects = nullptr;
     }
   }
   if (!state.content) {
@@ -781,8 +876,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
     state.draw_version = procmodels.DrawVersion();
     state.object_archetypes.clear();
     static constexpr std::string_view prefix = "procmodel:";
-    if (state.object_content)
-      for (const auto& object : state.object_content->objects) {
+    if (state.instance_content)
+      for (const auto& object : state.instance_content->objects) {
         const auto archetype = state.archetypes.find(object.id);
         if (archetype == state.archetypes.end() ||
             procmodels.Imposter(
@@ -792,6 +887,24 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         state.object_archetypes.insert(*archetype);
       }
   }
+  // Cells whose edits changed are made again, each old one kept until its
+  // new one is made
+  if (edits_changed)
+    for (auto it = state.placements.begin(); it != state.placements.end();) {
+      const PCG::CellEdits* before =
+          previous_edits ? previous_edits->Find("objects", it->first) : nullptr;
+      const PCG::CellEdits* after =
+          state.edits ? state.edits->Find("objects", it->first) : nullptr;
+      if (before == after || (before && after && *before == *after)) {
+        ++it;
+        continue;
+      }
+      if (auto old = state.old_placements.find(it->first);
+          old != state.old_placements.end())
+        _FadeOut(ecs, old->second.entity, generator.fade_time);
+      state.old_placements[it->first] = it->second;
+      it = state.placements.erase(it);
+    }
   // Fades out the cell's old one, if any
   const auto retire = [&](uint64_t key) {
     if (const auto old = state.old_placements.find(key);
@@ -991,7 +1104,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   }
   state.placing.Finish([&](uint64_t key, RegionBuild build) {
     const Worldgen::Region& region = build.region;
-    if (placement_cells.count(key)) {
+    // One built with edits since changed is started again
+    if (placement_cells.count(key) &&
+        _SameEdits(build.edits, state.edits.get(), key)) {
       const Worldgen::PlanetCell cell = _CellOf(key);
       auto [entity, transform] = ecs.CreateEntity(
           "Objects " + std::to_string(cell.face) + "/" +
@@ -1003,6 +1118,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       ecs.Add<ProceduralInstanceComponent>(entity, volume, "objects");
       PlanetState::ObjectCell& placed = state.placements[key];
       placed.entity = entity;
+      placed.orphan_edits = build.orphan_edits;
       glm::vec3 low(std::numeric_limits<float>::max());
       glm::vec3 high(std::numeric_limits<float>::lowest());
       for (const Worldgen::ObjectInstances& kind : region.objects)
@@ -1016,10 +1132,12 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         placed.radius = 0.5f * glm::length(high - low);
       }
       // Made a few per frame, with the other regions' objects
-      if (!build.region.objects.empty())
-        state.making.push_back(
-            {entity, state.object_content, std::move(build)});
-      else
+      if (!build.region.objects.empty()) {
+        auto& work = state.making.emplace_back(entity, state.instance_content,
+                                               std::move(build));
+        work.progress.stage = "objects";
+        work.progress.cell = key;
+      } else
         retire(key);
     }
   });
@@ -1061,7 +1179,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         !ecs.Reg().valid(work.region) ||
         RegionInstancer::InstanceObjects(
             ecs, work.build.region, *work.content, work.region, root_,
-            &state.textures, &work.build.objects, work.progress, more, &made);
+            &state.textures, &work.build.objects, work.progress, more, &made,
+            work.build.tags.empty() ? nullptr : &work.build.tags);
     _FadeIn(ecs, made, generator.fade_time);
     objects_made += work.progress.made - before;
     if (done) {
@@ -1220,17 +1339,30 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         [&, placement] {
           int centre[3];
           Worldgen::PlanetGrid::CellCentre(placement.cell, radius, centre);
+          // Its edits, copied: the layer can change while it builds
+          const uint64_t key = _CellKey(placement.cell);
+          const PCG::CellEdits* edits =
+              state.edits ? state.edits->Find("objects", key) : nullptr;
           state.placing.Start(
-              _CellKey(placement.cell),
-              [content = state.object_content, x = centre[0], y = centre[1],
-               z = centre[2], level = placement.cell.level,
+              key,
+              [content = state.object_content,
+               instancing = state.instance_content,
+               edit_objects = state.edit_objects,
+               edits = edits ? *edits : PCG::CellEdits(),
+               x = centre[0], y = centre[1], z = centre[2],
+               level = placement.cell.level,
                archetypes = state.object_archetypes,
                &procmodel = EngineContext::PCG().GetProcModel()] {
                 RegionBuild build{
                     Worldgen::BuildRegion(*content, x, y, z, level)};
+                // Keyed even unedited, so the first edit finds its object
+                build.orphan_edits = _EditObjects(
+                    edits, *instancing, *edit_objects, build.region,
+                    build.tags);
+                build.edits = edits;
                 build.objects = RegionInstancer::GenerateObjects(
-                    build.region, *content, false, archetypes, procmodel,
-                    nullptr);
+                    build.region, *instancing, false, archetypes, procmodel,
+                    nullptr, &build.tags);
                 return build;
               });
         });
@@ -1262,6 +1394,9 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   const bool was_loading =
       generator.queued_regions + generator.building_regions > 0;
   generator.loaded_regions = state.regions.size();
+  generator.orphan_edits = 0;
+  for (const auto& entry : state.placements)
+    generator.orphan_edits += entry.second.orphan_edits;
   generator.building_regions = state.building.Size();
   generator.queued_regions = wanted.size() - started;
   if (was_loading &&

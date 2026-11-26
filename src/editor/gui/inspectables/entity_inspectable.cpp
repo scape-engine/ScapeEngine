@@ -5,6 +5,7 @@
 #include "editor/editor_ui.h"
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/components/inspectable_components.h"
+#include "editor/gui/components/instance_edits.h"
 #include "editor/gui/hierarchy_panel.h"
 #include "editor/gui/search/search_popup.h"
 #include "editor/gui/styles/editor_styles.h"
@@ -77,6 +78,8 @@ void EntityInspectable::RenderStaticContent(ImDrawList& draw_list) {
   const auto origin = InspectableComponents::FindOrigin(item.entity.Handle());
   if (origin.volume != entt::null) {
     _DrawOrigin(origin);
+    if (instance >= 0)
+      InstanceEdits::DrawOverrides(item.entity.Handle(), instance);
     return;
   }
   ImGui::Dummy(ImVec2(0.0f, 3.0f));
@@ -94,7 +97,13 @@ void EntityInspectable::RenderDynamicContent(ImDrawList& draw_list) {
   // An instance: its own details and its stage's
   if (const int instance = SelectedInstance(); instance >= 0) {
     const Entity entity = item.entity.Handle();
-    InspectableComponents::DrawInstance(entity, instance);
+    // One its generator takes edits on: its fields edit it
+    if (InstanceEdits::Editable(entity, instance))
+      InspectableComponents::DrawInstance(entity, instance, [&] {
+        InstanceEdits::Draw(entity, instance);
+      });
+    else
+      InspectableComponents::DrawInstance(entity, instance);
     if (auto* generated =
             ECS::Main().Reg().try_get<ProceduralInstanceComponent>(entity))
       InspectableComponents::DrawProceduralInstanceComponent(entity,
@@ -193,6 +202,16 @@ void EntityInspectable::RenderPreviewOverlay(AssetPreview& preview) {
 }
 
 void EntityInspectable::RenderPreviewRows(AssetPreview& preview) {
-  if (ProcModelPreview* procmodel = ProcModel())
+  ProcModelPreview* procmodel = ProcModel();
+  if (!procmodel)
+    return;
+  // An editable instance can take the seed previewed
+  const Entity entity = item.entity.Handle();
+  const int instance = SelectedInstance();
+  if (InstanceEdits::Editable(entity, instance))
+    procmodel->RenderRows([entity, instance](uint64_t seed) {
+      InstanceEdits::SetSeed(entity, instance, seed);
+    });
+  else
     procmodel->RenderRows();
 }

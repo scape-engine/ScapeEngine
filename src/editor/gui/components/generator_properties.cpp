@@ -9,6 +9,7 @@
 #include "editor/events.h"
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/components/inspectable_components.h"
+#include "editor/gui/components/instance_edits.h"
 #include "editor/runtime/runtime.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
@@ -433,6 +434,8 @@ static void _DrawPlanet(ResourceID id) {
 
   if (IMComponents::Foldout("Stages", true))
     _DrawStages(planet, changed);
+
+  InstanceEdits::DrawLayer(*resource, planet.orphan_edits);
 
   std::string status = std::to_string(planet.loaded_regions) +
                        " regions loaded, " +

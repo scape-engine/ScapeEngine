@@ -510,6 +510,7 @@ namespace Tests {
 void TestShapes();
 void TestSceneSerializer();
 void TestGeneratorProfile();
+void TestEditLayer();
 void TestTerrainTiles();
 void TestModelGenerator();
 void TestModelOperations();
@@ -529,6 +530,7 @@ int main(int argc, char** argv) {
   Tests::TestShapes();
   Tests::TestSceneSerializer();
   Tests::TestGeneratorProfile();
+  Tests::TestEditLayer();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
   Tests::TestModelOperations();

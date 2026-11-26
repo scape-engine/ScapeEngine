@@ -105,6 +105,9 @@ public:
   // State, written by ProcWorld::Subsystem
   std::string error;
   size_t loaded_regions = 0;
+  // Edits in the loaded object cells whose objects the rules no longer place
+  // there (see PCG::ApplyEdits)
+  size_t orphan_edits = 0;
   size_t queued_regions = 0;
   size_t building_regions = 0;
   int planet_tile_colours = 0;  // tiles coloured by the planet
