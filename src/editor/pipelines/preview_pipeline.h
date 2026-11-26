@@ -7,7 +7,15 @@
 
 #include "engine/ecs/ecs_collection.h"
 
+class Mesh;
 class Model;
+
+// A mesh to preview, its transform in the preview's space and its tint
+struct PreviewMesh {
+  const Mesh* mesh;
+  glm::mat4 transform;
+  glm::vec4 color{1.0f};
+};
 
 struct PreviewOutput {
   bgfx::TextureHandle color_texture = BGFX_INVALID_HANDLE;
@@ -29,6 +37,11 @@ struct PreviewRenderInstruction {
   std::vector<uint32_t> mesh_filter;
   std::unordered_map<uint32_t, TransformComponent> mesh_transforms;
   std::unordered_map<uint32_t, glm::vec3> mesh_colors;  // ! remove this
+
+  // Meshes of their own, drawn with the model's (or without one)
+  std::vector<PreviewMesh> meshes;
+  // Lit by a sun; false: flat, each in its colour
+  bool lit = true;
 
   // ! add lighting?
   TransformComponent model_transform;

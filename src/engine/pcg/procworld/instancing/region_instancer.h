@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "engine/ecs/components/instance_source_component.h"
 #include "engine/ecs/world.h"
 #include "engine/renderer/material/material_registry.h"
 #include "engine/renderer/model/mesh.h"
@@ -85,6 +86,8 @@ public:
                         float, float>,
              PartInstances>
         instances;
+    // What made each instanced object (InstanceSourceComponent)
+    std::vector<InstanceSourceComponent::Source> sources;
     // What keeps the instanced ones' meshes alive (deformed ones,
     // imposters), for the set
     std::vector<std::shared_ptr<const void>> owned;

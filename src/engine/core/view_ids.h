@@ -43,6 +43,11 @@ constexpr uint8_t WATER_PASS = 151;
 // Editor selection, grid and gizmos, on top of everything in the scene
 constexpr uint8_t SCENE_OVERLAY = 152;
 
+// What shows at a pixel (PickPass): its draws, then the copy read back (a
+// view's blits run before its draws)
+constexpr uint8_t PICK = 153;
+constexpr uint8_t PICK_READ = 154;
+
 // miscellaneous
 constexpr uint8_t UI = 254;
 constexpr uint8_t COUNT = 255;

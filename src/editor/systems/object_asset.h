@@ -3,9 +3,11 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <string>
 
 #include "api/region.h"
+#include "editor/gui/procmodel_preview.h"
 #include "editor/systems/editor_asset.h"
 #include "engine/renderer/model/draw_settings.h"
 
@@ -21,8 +23,15 @@ public:
   void OnReload() override;
   void DrawInspectorUI() override;
   uint32_t GetIcon() const override;
+  // Its model; a procedural one with its seeds, parts and origin
+  std::vector<PreviewMesh> PreviewMeshes() override;
+  void RenderPreviewButtons(AssetPreview& preview) override;
+  void RenderPreviewOverlay(AssetPreview& preview) override;
+  void RenderPreviewRows(AssetPreview& preview) override;
 
 private:
+  // Its procedural model's preview, made for `previewed_`; null: not one
+  ProcModelPreview* ProcModel();
   void Save();
   // Marks the planets placing it for a rebuild
   void RebuildPlanets() const;
@@ -35,6 +44,9 @@ private:
   std::string descriptor_;
   ImposterSettings imposter_;
   bool imposter_pending_ = false;
+
+  std::unique_ptr<ProcModelPreview> procmodel_;
+  std::string previewed_;  // the model id procmodel_ is of
 };
 
 #endif  // OBJECT_ASSET_H

@@ -13,6 +13,7 @@
 #include "engine/core/engine_globals.h"
 #include "engine/core/logger.h"
 #include "engine/core/view_ids.h"
+#include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/ecs/components/water_surface_tag.h"
 #include "engine/ecs/world.h"
 #include "engine/fade/fade_system.h"
@@ -535,6 +536,11 @@ void SceneViewPipeline::RenderSelectionOutlineNode(
   CameraView::GetViewMatrix(camera_transform, viewMatrix);
   CameraView::GetProjectionMatrix(camera_component, projMatrix, CanvasAspect());
 
+  if (selected_instance_ >= 0) {
+    RenderSelectedInstanceOutline();
+    return;
+  }
+
   // Render every selected entity and write to stencil first, so one mesh's
   // outline never covers another selected mesh
   for (auto selection : selected_entities_) {
@@ -678,14 +684,51 @@ void SceneViewPipeline::RenderSelectedEntityOutline(EntityContainer* entity) {
   if (!renderer.mesh_)
     return;
 
+  SubmitOutline(*renderer.mesh_, transform.model_, 3.0f);
+}
+
+void SceneViewPipeline::RenderSelectedInstanceOutline() {
+  auto& world = ECS::Main();
+  const auto* set =
+      selected_entities_.empty()
+          ? nullptr
+          : world.Reg().try_get<InstancedMeshComponent>(selected_entities_[0]);
+  if (!set || selected_instance_ >= static_cast<int>(set->worlds_.size()))
+    return;
+  const auto draws = set->ObjectOf(selected_instance_);
+  // The stencil first, so one part's outline never covers another
+  for (const auto& draw : draws)
+    SubmitOutline(*draw.part->mesh, set->worlds_[draw.instance], 0.0f);
+  if (wireframe_ || !show_selection_outline_)
+    return;
+  for (const auto& draw : draws)
+    SubmitOutline(*draw.part->mesh, set->worlds_[draw.instance], 3.0f);
+}
+
+void SceneViewPipeline::SubmitOutline(const Mesh& mesh, const glm::mat4& model,
+                                      float thickness) {
   auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
 
-  // Outline settings
-  const float thickness = 3.0f;  // framebuffer pixels
   const float outline_params[4] = {thickness, 0.0f, 0.0f, 0.0f};
   const float outline_color[4] = {0.95f, 0.6f, 0.0f, 1.0f};
   bgfx::setUniform(graphics->GetOutlineParamsUniform(), outline_params);
   bgfx::setUniform(graphics->GetMeshColorUniform(), outline_color);
+  bgfx::setTransform(glm::value_ptr(model));
+  mesh.Bind();
+  const uint64_t cull =
+      DrawList::Mirrored(model) ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
+
+  if (thickness <= 0.0f) {
+    // Its silhouette: stencil 1, no colour. No depth test: it is drawn
+    // already, by other shaders, and would fight its own depth
+    bgfx::setStencil(
+        BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) |
+        BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_REPLACE |
+        BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE);
+    bgfx::setState(cull);
+    bgfx::submit(ViewID::SCENE_OVERLAY, selection_program_);
+    return;
+  }
 
   // Render mesh as outline: vs_selection pushes vertices out along their
   // normals by a fixed pixel width, so the mesh keeps its own transform
@@ -693,13 +736,10 @@ void SceneViewPipeline::RenderSelectedEntityOutline(EntityContainer* entity) {
   bgfx::setStencil(BGFX_STENCIL_TEST_NOTEQUAL | BGFX_STENCIL_FUNC_REF(1) |
                    BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_KEEP |
                    BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP);
-  bgfx::setTransform(glm::value_ptr(transform.model_));
-  renderer.mesh_->Bind();
 
   // Pass depth test if less or equal, with blending
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                 BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_CULL_CW |
-                 BGFX_STATE_BLEND_ALPHA);
+                 BGFX_STATE_DEPTH_TEST_LEQUAL | cull | BGFX_STATE_BLEND_ALPHA);
   bgfx::submit(ViewID::SCENE_OVERLAY, selection_program_);
 }
 
@@ -906,6 +946,12 @@ void SceneViewPipeline::Render() {
     DrawList::Build({{&draws_, view_projection}}, camera_transform.position_,
                     selected_entities_, !unlit_);
   }
+  // A pick asked for since the last frame, with this frame's transforms
+  if (pick_pixel_) {
+    pick_pass_.Request(*pick_pixel_, canvasViewportW, canvasViewportH, view_,
+                       projection_, camera_transform.position_);
+    pick_pixel_.reset();
+  }
 
   // Start gizmos frame
   IMGizmo& gizmos = Runtime::SceneGizmos();
@@ -1012,11 +1058,13 @@ for (const auto& item : render_queue) {
 void SceneViewPipeline::CreatePasses() {
   pre_pass_.Create();
   ssao_pass_.Create();
+  pick_pass_.Create();
 }
 
 void SceneViewPipeline::DestroyPasses() {
   pre_pass_.Destroy();
   ssao_pass_.Destroy();
+  pick_pass_.Destroy();
 }
 
 void SceneViewPipeline::SetSelectedEntities(

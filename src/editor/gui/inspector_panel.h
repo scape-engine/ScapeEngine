@@ -5,7 +5,9 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <vector>
 
+#include "editor/gui/asset_preview.h"
 #include "editor/systems/asset_meta.h"
 #include "window_base.h"
 
@@ -35,20 +37,24 @@ private:
   Entity last_inspected_entity_ = entt::null;
   AssetSID last_inspected_asset_ = 0;
 
-  // Output texture of preview viewer
-  size_t preview_viewer_output_;
-
-  // Current height of preview viewer
-  float preview_viewer_height_;
-
-  // Transform of preview viewer camera
-  TransformComponent preview_camera_transform_;
+  // The preview under the inspector, and the same in its own window
+  // (popped out); the inspected item they were last reset for
+  AssetPreview preview_;
+  AssetPreview viewer_;
+  const InspectableBase* previewed_ = nullptr;
+  bool preview_open_ = true;
+  bool popped_out_ = false;
+  // The preview's height under its header, set by dragging its top edge
+  float preview_height_ = 300.0f;
 
   // Render the nothing is inspected text?
   void RenderNoneInspected();
 
-  // Render preview based on given preview renderer
-  void RenderPreviewViewer(ImDrawList& draw_list, ImVec2 size);
+  // The preview's header (folding it, its buttons, popping it out) and,
+  // while open here, the preview itself
+  void RenderPreview(ImDrawList& draw_list);
+  // The preview in its own window, while popped out
+  void RenderViewer();
 };
 
 #endif  // INSPECTOR_PANEL_H

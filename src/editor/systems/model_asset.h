@@ -17,6 +17,8 @@ public:
   void OnReload() override;
   void DrawInspectorUI() override;
   uint32_t GetIcon() const override;
+  // Its meshes, loaded on first use
+  std::vector<PreviewMesh> PreviewMeshes() override;
 
 private:
   // Saves the settings and applies them to the loaded model

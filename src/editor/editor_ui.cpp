@@ -334,7 +334,7 @@ void EditorUI::Run() {
     renderer_->Render();  // finalize rendering
     // Waits for the render thread (and with it the GPU) to take the frame
     Diagnostics::ScopedSection section("Submit");
-    bgfx::frame();        // submit to GPU and swap buffers
+    EngineContext::SubmitFrame();  // submit to GPU and swap buffers
   }
   Logger::getInstance().Log(LogLevel::Info, "EditorUI loop exited");
 }
@@ -623,6 +623,8 @@ void EditorUI::RenderUI() {
       state_list.push_back(state.selected_entity);
     }
     Runtime::GetSceneViewPipeline().SetSelectedEntities(state_list);
+    Runtime::GetSceneViewPipeline().SetSelectedInstance(
+        state_list.empty() ? -1 : state.selected_instance);
   }
 
   // -------- Card corners over all docked leaves --------

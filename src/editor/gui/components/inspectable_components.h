@@ -36,6 +36,11 @@ struct GeneratedOrigin {
 };
 GeneratedOrigin FindOrigin(Entity entity);
 
+// One of the entity's InstancedMeshComponent instances: its object's name
+// (its source's), and its details (source, seed, position)
+std::string InstanceName(Entity entity, int instance);
+void DrawInstance(Entity entity, int instance);
+
 // Off: the components drawn next have no remove button (a generated
 // entity's belong to its generator)
 void AllowRemoving(bool allow);

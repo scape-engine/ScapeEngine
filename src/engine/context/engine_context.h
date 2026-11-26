@@ -1,6 +1,7 @@
 #ifndef ENGINE_CONTEXT_H
 #define ENGINE_CONTEXT_H
 
+#include <cstdint>
 #include <memory>
 
 #include "engine/memory/resource_manager.h"
@@ -23,6 +24,11 @@ bool Init();     // TODO: rename to Create later?
 bool Running();  // returns false when SDL quit requested
 void Destroy();
 void NextFrame();
+// Hands the frame to the GPU (bgfx::frame)
+void SubmitFrame();
+// The number of the frame last submitted: a GPU read-back
+// (bgfx::readTexture) is ready once this reaches the number it gave
+uint32_t Frame();
 
 // --------------- global singletons ----------------
 WindowManager& Window();

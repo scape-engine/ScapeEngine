@@ -52,6 +52,26 @@ struct InstancedMeshComponent {
   std::vector<glm::vec3> anchors_;
   bool enabled_{true};
 
+  // The meshes of the object `instance` is part of (the instances sharing its
+  // anchor; without anchors, it alone), not its imposter's card: each its
+  // part and transform
+  struct ObjectDraw {
+    const Part* part;
+    uint32_t instance;
+  };
+  std::vector<ObjectDraw> ObjectOf(uint32_t instance) const {
+    std::vector<ObjectDraw> draws;
+    const bool anchored = anchors_.size() == locals_.size();
+    for (const Part& part : parts_) {
+      if (part.from > 0.0f)
+        continue;
+      for (uint32_t i = part.first; i < part.first + part.count; ++i)
+        if (anchored ? anchors_[i] == anchors_[instance] : i == instance)
+          draws.push_back({&part, i});
+    }
+    return draws;
+  }
+
   // Owns a GPU buffer; moves with the component
   struct Buffer {
     bgfx::VertexBufferHandle handle = BGFX_INVALID_HANDLE;

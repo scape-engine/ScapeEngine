@@ -245,6 +245,7 @@ bool RegionInstancer::InstanceObjects(
       placed.anchors.push_back(origin);
     };
     if (imposter) {
+      progress.sources.push_back({origin, id, seed});
       const auto& variants = imposter->imposter->Variants();
       const size_t variant = seed % variants.size();
       for (const Imposter::Part& part : variants[variant])
@@ -259,6 +260,7 @@ bool RegionInstancer::InstanceObjects(
     std::shared_ptr<const ProcModel::Subsystem::DeformedMeshes> deformed;
     if (const auto parts =
             _ObjectParts(id, seed, root, planet, models, deformed)) {
+      progress.sources.push_back({origin, id, seed});
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
         place(part.mesh, part.material, matrix * part.matrix, 0.0f, 0.0f);
       if (deformed)
@@ -300,9 +302,12 @@ bool RegionInstancer::InstanceObjects(
     if (!progress.owned.empty())
       ecs.Add<MeshOwnerComponent>(entity).meshes_ =
           std::move(progress.owned);
+    ecs.Add<InstanceSourceComponent>(entity).sources_ =
+        std::move(progress.sources);
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();
     progress.owned.clear();
+    progress.sources.clear();
     if (made)
       made->push_back(entity);
   }

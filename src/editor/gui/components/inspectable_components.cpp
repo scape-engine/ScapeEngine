@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <glm/gtc/type_ptr.hpp>
 #include <string>
@@ -20,6 +21,8 @@
 #include "im_components.h"
 
 #include "engine/animation/animation.h"
+#include "engine/ecs/components/instance_source_component.h"
+#include "engine/ecs/components/instanced_mesh_component.h"
 #include "engine/context/engine_context.h"  // ! should be removed?
 #include "engine/pcg/generator_resource.h"  // ! should be removed?
 #include "engine/pcg/stage.h"
@@ -601,6 +604,59 @@ void DrawSpotlightComponent(Entity entity, SpotlightComponent& spotlight) {
 
   if (removed)
     _EcsRemove<SpotlightComponent>(entity);
+}
+
+// The object an instance is part of: what made it; null: unrecorded
+static const InstanceSourceComponent::Source* _SourceOf(Entity entity,
+                                                       int instance) {
+  auto& ecs = ECS::Main();
+  const auto* sources = ecs.Reg().try_get<InstanceSourceComponent>(entity);
+  const auto& set = ecs.Get<InstancedMeshComponent>(entity);
+  if (!sources || set.anchors_.size() != set.locals_.size())
+    return nullptr;
+  return sources->Find(set.anchors_[instance]);
+}
+
+std::string InstanceName(Entity entity, int instance) {
+  const auto* source = _SourceOf(entity, instance);
+  if (!source)
+    return "Instance " + std::to_string(instance);
+  // "procmodel:models/rock.json": rock
+  const size_t colon = source->id.find(':');
+  return std::filesystem::path(colon == std::string::npos
+                                   ? source->id
+                                   : source->id.substr(colon + 1))
+      .stem()
+      .string();
+}
+
+void DrawInstance(Entity entity, int instance) {
+  if (!_BeginComponent("Instance", 0))
+    return;
+  const auto& set = ECS::Main().Get<InstancedMeshComponent>(entity);
+  const auto text = [](const std::string& value) {
+    return [value] {
+      ImGui::AlignTextToFramePadding();
+      ImGui::TextUnformatted(value.c_str());
+      return false;
+    };
+  };
+  if (const auto* source = _SourceOf(entity, instance)) {
+    IMComponents::Row("Source", text(source->id),
+                      "What it was made from, relative to the project");
+    IMComponents::Row("Seed", text(std::to_string(source->seed)));
+  }
+  // Its object's origin in the world
+  const glm::vec3 local = set.anchors_.size() == set.locals_.size()
+                              ? set.anchors_[instance]
+                              : glm::vec3(set.locals_[instance][3]);
+  const glm::vec3 at = ECS::Main().Get<TransformComponent>(entity).model_ *
+                       glm::vec4(local, 1.0f);
+  char position[96];
+  std::snprintf(position, sizeof(position), "%.2f, %.2f, %.2f", at.x, at.y,
+                at.z);
+  IMComponents::Row("Position", text(position));
+  _EndComponent();
 }
 
 GeneratedOrigin FindOrigin(Entity entity) {

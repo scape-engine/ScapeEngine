@@ -252,6 +252,7 @@ before_buildcmd_file(function(target, batchcmds, shaderfile, opt)
 		sky_light = "varying_fullscreen.def.sc",
 		ssao = "varying_fullscreen.def.sc",
 		pre_pass = "varying_pre_pass.def.sc",
+		pick = "varying_pre_pass.def.sc",
 		imposter = "varying_imposter.def.sc",
 	}
 

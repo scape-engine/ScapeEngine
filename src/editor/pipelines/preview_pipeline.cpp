@@ -116,7 +116,7 @@ void PreviewPipeline::Render() {
         bgfx::touch(view_id);
       }
 
-      if (!instruction->model)
+      if (!instruction->model && instruction->meshes.empty())
         continue;
 
       // ------ Build view and projection matrices ------
@@ -144,7 +144,35 @@ void PreviewPipeline::Render() {
       bgfx::setViewTransform(view_id, glm::value_ptr(view_mtx),
                              glm::value_ptr(proj_mtx));
 
-      uint32_t mesh_count = instruction->model->NLoadedMeshes();
+      // One matte, lit draw
+      const auto submit = [&](const Mesh& mesh, const glm::mat4& transform,
+                              const glm::vec4& color) {
+        bgfx::setTransform(glm::value_ptr(transform));
+        bgfx::setUniform(u_mesh_color_, glm::value_ptr(color));
+        Light::SetDirectionalLight(
+            0, glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)),  // Direction
+            glm::vec3(instruction->lit ? 0.2f : 1.0f),  // Ambient intensity
+            glm::vec3(instruction->lit ? 3.0f : 0.0f),  // Diffuse intensity
+            glm::vec3(instruction->lit ? 1.0f : 0.0f)   // Specular intensity
+        );
+        Light::SetLightCounts(1, 0, 0);
+        Light::ApplyUniforms();
+        mesh.Bind();
+        auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
+        bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
+                         graphics->GetWhiteTexture());
+        bgfx::setState((BGFX_STATE_DEFAULT & ~BGFX_STATE_CULL_MASK) |
+                       (glm::determinant(glm::mat3(transform)) < 0.0f
+                            ? BGFX_STATE_CULL_CCW
+                            : BGFX_STATE_CULL_CW));
+        bgfx::submit(view_id, preview_program_);
+      };
+      for (const PreviewMesh& loose : instruction->meshes)
+        if (loose.mesh)
+          submit(*loose.mesh, loose.transform, loose.color);
+
+      const uint32_t mesh_count =
+          instruction->model ? instruction->model->NLoadedMeshes() : 0;
       for (uint32_t m = 0; m < mesh_count; m++) {
         if (!instruction->mesh_filter.empty() &&
             std::find(instruction->mesh_filter.begin(),
@@ -158,15 +186,11 @@ void PreviewPipeline::Render() {
           continue;
 
         // Submit per-mesh transform override or default model transform
+        glm::mat4 mtx = model_mtx;
         auto mt = instruction->mesh_transforms.find(m);
-        if (mt != instruction->mesh_transforms.end()) {
-
-          glm::mat4 mtx = Transformation::Model(
-              mt->second.position_, mt->second.rotation_, mt->second.scale_);
-          bgfx::setTransform(glm::value_ptr(mtx));
-        } else {
-          bgfx::setTransform(glm::value_ptr(model_mtx));
-        }
+        if (mt != instruction->mesh_transforms.end())
+          mtx = Transformation::Model(mt->second.position_,
+                                      mt->second.rotation_, mt->second.scale_);
 
         // ! REMOVE THIS - only used for procmodel (applies diffuse light to
         // coloring)
@@ -174,33 +198,7 @@ void PreviewPipeline::Render() {
         glm::vec4 color = (mc != instruction->mesh_colors.end())
                               ? glm::vec4(mc->second, 1.0f)
                               : glm::vec4(1.0f);
-        bgfx::setUniform(u_mesh_color_,
-                         glm::value_ptr(color));  // Matte Lighting
-
-        // ----------------------------
-        // 1. Set primary directional light (Bright white sunlight to pop the
-        // model details)
-        Light::SetDirectionalLight(
-            0, glm::normalize(glm::vec3(-0.5f, -1.0f, -0.5f)),  // Direction
-            glm::vec3(0.2f),  // Ambient intensity
-            glm::vec3(3.0f),  // Diffuse intensity
-            glm::vec3(1.0f)   // Specular intensity
-        );
-
-        // 2. using exactly 1 directional light, 0 point, 0 spot
-        Light::SetLightCounts(1, 0, 0);
-
-        // 3. Push data to BGFX uniforms for this render pass
-        Light::ApplyUniforms();
-
-        mesh->Bind();
-
-        auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
-        bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
-                         graphics->GetWhiteTexture());
-
-        bgfx::setState(BGFX_STATE_DEFAULT | BGFX_STATE_CULL_CW);
-        bgfx::submit(view_id, preview_program_);
+        submit(*mesh, mtx, color);
       }
     }
   }

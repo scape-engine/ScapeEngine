@@ -19,6 +19,7 @@
 #include "engine/pcg/pcg_engine.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/renderer/icons/icon_loader.h"
+#include "engine/scene/model_entity_factory.h"
 
 void ObjectAsset::OnDefaultLoad(const std::filesystem::path& meta_path) {
   object_ = {};
@@ -228,4 +229,42 @@ void ObjectAsset::DrawInspectorUI() {
 
 uint32_t ObjectAsset::GetIcon() const {
   return IconLoader::GetIconHandle("file");
+}
+
+ProcModelPreview* ObjectAsset::ProcModel() {
+  static constexpr std::string_view prefix = "procmodel:";
+  if (object_.id != previewed_) {
+    previewed_ = object_.id;
+    procmodel_.reset();
+    if (object_.id.rfind(prefix, 0) == 0)
+      procmodel_ = std::make_unique<ProcModelPreview>(
+          object_.id.substr(prefix.size()), 0);
+  }
+  return procmodel_.get();
+}
+
+std::vector<PreviewMesh> ObjectAsset::PreviewMeshes() {
+  if (ProcModelPreview* procmodel = ProcModel())
+    return procmodel->Meshes();
+  std::vector<PreviewMesh> meshes;
+  if (!object_.id.empty())
+    for (const auto& [mesh, material] : ModelEntityFactory::Meshes(
+             object_.id, Runtime::Project().GetProject().path_))
+      meshes.push_back({mesh, glm::mat4(1.0f)});
+  return meshes;
+}
+
+void ObjectAsset::RenderPreviewButtons(AssetPreview& preview) {
+  if (ProcModelPreview* procmodel = ProcModel())
+    procmodel->RenderButtons(preview);
+}
+
+void ObjectAsset::RenderPreviewOverlay(AssetPreview& preview) {
+  if (ProcModelPreview* procmodel = ProcModel())
+    procmodel->RenderOverlay(preview);
+}
+
+void ObjectAsset::RenderPreviewRows(AssetPreview& preview) {
+  if (ProcModelPreview* procmodel = ProcModel())
+    procmodel->RenderRows();
 }

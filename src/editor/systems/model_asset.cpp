@@ -100,3 +100,12 @@ void ModelAsset::DrawInspectorUI() {
 uint32_t ModelAsset::GetIcon() const {
   return IconLoader::GetIconHandle("file");
 }
+
+std::vector<PreviewMesh> ModelAsset::PreviewMeshes() {
+  // A model's meshes share its space
+  std::vector<PreviewMesh> meshes;
+  for (const auto& [mesh, material] : ModelEntityFactory::Meshes(
+           GetPath().generic_string(), Runtime::Project().GetProject().path_))
+    meshes.push_back({mesh, glm::mat4(1.0f)});
+  return meshes;
+}

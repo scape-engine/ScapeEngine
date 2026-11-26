@@ -7,7 +7,9 @@
 #include <vector>
 
 #include "asset_meta.h"
+#include "editor/pipelines/preview_pipeline.h"
 
+class AssetPreview;
 class ProjectAssets;
 
 enum class AssetType {
@@ -79,6 +81,12 @@ public:
 
   // Returns the asset's icon
   virtual uint32_t GetIcon() const = 0;
+
+  // Its preview under the inspector, as InspectableBase's; none by default
+  virtual std::vector<PreviewMesh> PreviewMeshes() { return {}; }
+  virtual void RenderPreviewButtons(AssetPreview& preview) {}
+  virtual void RenderPreviewOverlay(AssetPreview& preview) {}
+  virtual void RenderPreviewRows(AssetPreview& preview) {}
 };
 
 inline EditorAsset::~EditorAsset() {}

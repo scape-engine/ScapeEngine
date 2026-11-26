@@ -29,6 +29,9 @@
  **************************************************************************/
 
 #include "engine_context.h"
+
+#include <bgfx/bgfx.h>
+
 #include "engine/animation/animation.h"
 #include "engine/audio/sound_manager.h"
 #include "engine/context/subsystem_list.h"
@@ -101,6 +104,16 @@ bool Init() {
 
 bool Running() {
   return !WindowManager::ShouldQuit();
+}
+
+static uint32_t g_frame = 0;
+
+void SubmitFrame() {
+  g_frame = bgfx::frame();
+}
+
+uint32_t Frame() {
+  return g_frame;
 }
 
 void NextFrame() {

@@ -26,3 +26,23 @@ void AssetInspectable::RenderDynamicContent(ImDrawList& draw_list) {
   if (auto asset = Runtime::Project().Assets().Get(asset_id_))
     asset->DrawInspectorUI();
 }
+
+std::vector<PreviewMesh> AssetInspectable::PreviewMeshes() {
+  auto asset = Runtime::Project().Assets().Get(asset_id_);
+  return asset ? asset->PreviewMeshes() : std::vector<PreviewMesh>();
+}
+
+void AssetInspectable::RenderPreviewButtons(AssetPreview& preview) {
+  if (auto asset = Runtime::Project().Assets().Get(asset_id_))
+    asset->RenderPreviewButtons(preview);
+}
+
+void AssetInspectable::RenderPreviewOverlay(AssetPreview& preview) {
+  if (auto asset = Runtime::Project().Assets().Get(asset_id_))
+    asset->RenderPreviewOverlay(preview);
+}
+
+void AssetInspectable::RenderPreviewRows(AssetPreview& preview) {
+  if (auto asset = Runtime::Project().Assets().Get(asset_id_))
+    asset->RenderPreviewRows(preview);
+}

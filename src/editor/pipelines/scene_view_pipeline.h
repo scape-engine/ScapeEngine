@@ -4,10 +4,13 @@
 #include <bgfx/bgfx.h>
 #include <glm/glm.hpp>
 
+#include <optional>
+
 #include "engine/core/view_ids.h"
 #include "engine/ecs/ecs_collection.h"
 #include "engine/renderer/draw_list.h"
 #include "engine/renderer/frame_graph.h"
+#include "engine/renderer/passes/pick_pass.h"
 #include "engine/renderer/passes/pre_pass.h"
 #include "engine/renderer/passes/ssao_pass.h"
 #include "engine/transform/transform_system.h"
@@ -56,6 +59,13 @@ public:
   // Children are selected with their parent, so selecting a model's root
   // outlines all of its meshes
   void SetSelectedEntities(const std::vector<Entity>& entities);
+  // Of the selected entity's InstancedMeshComponent, the object of this
+  // instance is selected instead; -1: none
+  void SetSelectedInstance(int instance) { selected_instance_ = instance; }
+  // Finds what shows at `pixel` of the canvas (from its top left) over the
+  // next frames: TakePick gives it once found
+  void Pick(const glm::vec2& pixel) { pick_pixel_ = pixel; }
+  std::optional<PickPass::Hit> TakePick() { return pick_pass_.Take(); }
   void SetGridParams(const GridParams& params) { grid_params_ = params; }
   void SetBillboardParams(const BillboardParams& params) {
     billboard_params_ = params;
@@ -124,6 +134,11 @@ private:
                  bgfx::ViewId view = ViewID::SCENE_FORWARD);
   void RenderSelectedEntity(EntityContainer* entity);
   void RenderSelectedEntityOutline(EntityContainer* entity);
+  void RenderSelectedInstanceOutline();
+  // An outline `thickness` framebuffer pixels wide around the mesh, where the
+  // stencil isn't 1; 0: writes 1 to the stencil where the mesh shows instead
+  void SubmitOutline(const Mesh& mesh, const glm::mat4& model,
+                     float thickness);
 
   void BuildReferenceGrid(const glm::mat4& view_projection);
 
@@ -146,6 +161,7 @@ private:
 
   // Entity selection
   std::vector<Entity> selected_entities_;
+  int selected_instance_ = -1;
 
   // TODO: replace with actual implementation of selection material
   // bgfx::ProgramHandle selection_material_ BGFX_INVALID_HANDLE;  //
@@ -176,6 +192,8 @@ private:
 
   // Screen space ambient occlusion of the sky light
   PrePass pre_pass_;
+  PickPass pick_pass_;
+  std::optional<glm::vec2> pick_pixel_;
   SSAOPass ssao_pass_;
   AmbientOcclusionSettings ambient_occlusion_;
 };

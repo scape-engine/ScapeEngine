@@ -167,7 +167,9 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
       auto& pipeline = Runtime::GetSceneViewPipeline();
 
       Entity selected_entity = state.selected_entity;
+      // An instance moves with its set: no gizmo for it
       bool has_selection = selected_entity != entt::null &&
+                           state.selected_instance < 0 &&
                            ECS::Main().Has<TransformComponent>(selected_entity);
 
       // Get camera matrices
@@ -261,6 +263,34 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
             Runtime::Project().MarkSceneDirty();
           }
         }
+      }
+
+      // A click (not a drag, nor on a gizmo or a button) selects what shows
+      // under it, once the pick comes back
+      static bool pressed_here = false;
+      if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        pressed_here = hovered && !ImGui::IsAnyItemHovered() &&
+                       !ImGuizmo::IsOver() && !ImGuizmo::IsUsing();
+      if (pressed_here && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+        pressed_here = false;
+        const ImVec2 at = ImGui::GetMousePos() - pos;
+        const ImVec2 drag = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+        if (drag.x * drag.x + drag.y * drag.y <
+                ImGui::GetIO().MouseDragThreshold *
+                    ImGui::GetIO().MouseDragThreshold &&
+            at.x >= 0.0f && at.y >= 0.0f && at.x < rendered_size.x &&
+            at.y < rendered_size.y)
+          // The image shows the scene texture upside down
+          pipeline.Pick(glm::vec2(at.x * scale.x,
+                                  rendered_h - 1.0f - at.y * scale.y));
+      }
+      if (const auto hit = pipeline.TakePick()) {
+        if (hit->entity == entt::null || !ECS::Main().Reg().valid(hit->entity))
+          state.ClearSelection();
+        else if (hit->instance >= 0)
+          state.SelectInstance(hit->entity, hit->instance);
+        else
+          state.SelectEntity(hit->entity);
       }
 
       // Handle drop operations for glTF files after drawing image

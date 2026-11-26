@@ -10,6 +10,11 @@ public:
 
   void RenderStaticContent(ImDrawList& draw_list) override;
   void RenderDynamicContent(ImDrawList& draw_list) override;
+  // The asset's own preview
+  std::vector<PreviewMesh> PreviewMeshes() override;
+  void RenderPreviewButtons(AssetPreview& preview) override;
+  void RenderPreviewOverlay(AssetPreview& preview) override;
+  void RenderPreviewRows(AssetPreview& preview) override;
 
 private:
   AssetSID asset_id_;
