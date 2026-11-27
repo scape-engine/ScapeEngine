@@ -9,7 +9,7 @@
 #include "editor/gui/viewport/viewport_settings.h"
 #include "gui/asset_browser.h"
 #include "gui/asset_browser_window.h"
-#include "gui/asset_graph_editor.h"
+#include "gui/asset_graph_panel.h"
 #include "gui/console_panel.h"
 #include "gui/console_window.h"
 #include "gui/file_explorer.h"
@@ -182,6 +182,13 @@ void EditorUI::Initialize() {
                          std::move(pcg), 0, nullptr, nullptr,
                          [pcg_ptr] { return pcg_ptr->IsOpen(); },
                          [pcg_ptr] { pcg_ptr->CloseGraph(); }});
+  // Only while a model's descriptor is open (its preview's graph button)
+  auto asset_graph = std::make_unique<AssetGraphPanel>();
+  AssetGraphPanel* graph_ptr = asset_graph.get();
+  bottom_tabs.push_back({ICON_FA_SITEMAP, "Asset Graph", "Asset Graph",
+                         std::move(asset_graph), 0, nullptr, nullptr,
+                         [graph_ptr] { return graph_ptr->IsOpen(); },
+                         [graph_ptr] { graph_ptr->Close(); }});
 
   TabContainer* bottom = _AddWindow<TabContainer>(
       "Bottom Panels", std::move(bottom_tabs), ImGuiDir_Down, false);
@@ -192,7 +199,6 @@ void EditorUI::Initialize() {
   // _AddWindow<InspectorPanel>();
   // _AddWindow<ModelPreview>(&procmodel_data_);
   // _AddWindow<ModelViewer>(&procmodel_data_);
-  // _AddWindow<AssetGraphEditor>(&procmodel_data_);
 
   // events
   EditorEvents::entity_selected.connect(
@@ -201,6 +207,8 @@ void EditorUI::Initialize() {
       [properties](AssetSID) { properties->Select("Inspector"); });
   EditorEvents::open_graph_editor.connect(
       [bottom](ResourceID) { bottom->Select("PCG Graph"); });
+  EditorEvents::open_asset_graph.connect(
+      [bottom](const std::string&) { bottom->Select("Asset Graph"); });
 
   EditorEvents::focus_entity.connect([this](Entity entity) {
     auto& world = ECS::Main();

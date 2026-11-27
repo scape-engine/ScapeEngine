@@ -513,6 +513,7 @@ void TestGeneratorProfile();
 void TestEditLayer();
 void TestSpawner();
 void TestActivation();
+void TestDescriptorEdits();
 void TestTerrainTiles();
 void TestModelGenerator();
 void TestModelOperations();
@@ -535,6 +536,7 @@ int main(int argc, char** argv) {
   Tests::TestEditLayer();
   Tests::TestSpawner();
   Tests::TestActivation();
+  Tests::TestDescriptorEdits();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
   Tests::TestModelOperations();

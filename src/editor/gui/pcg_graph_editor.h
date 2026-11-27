@@ -17,24 +17,10 @@
 #include "engine/pcg/graph/node_types.h"
 #include "engine/pcg/graph/program_graph.h"
 
+#include "editor/gui/graph/graph_ids.h"
 #include "editor/gui/window_base.h"
 
 namespace ed = ax::NodeEditor;
-
-//
-// PIN/LINK ID HELPERS
-//
-struct PinID {
-  uint32_t node_id;
-  uint32_t port_index;
-  bool is_input;
-
-  static ed::PinId Encode(uint32_t node_id, uint32_t port_index, bool is_input);
-  static PinID Decode(ed::PinId id);
-};
-
-ed::LinkId MakeLinkID(uint32_t src_node, uint32_t src_port, uint32_t dst_node,
-                      uint32_t dst_port);
 
 //
 // NODE PREVIEW

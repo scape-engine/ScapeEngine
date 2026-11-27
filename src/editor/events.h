@@ -2,6 +2,7 @@
 #define EDITOR_EVENTS_H
 
 #include <boost/signals2/signal.hpp>
+#include <string>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
 
@@ -20,6 +21,8 @@ inline boost::signals2::signal<void(InputEvent)> game_inputed;
 
 inline boost::signals2::signal<void(ResourceID)> open_graph_editor;
 inline boost::signals2::signal<void()> close_graph_editor;
+// A procedural model's descriptor (project-relative) to show as a graph
+inline boost::signals2::signal<void(const std::string&)> open_asset_graph;
 
 inline boost::signals2::signal<void(Entity)> entity_selected;
 inline boost::signals2::signal<void()> selection_cleared;

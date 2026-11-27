@@ -7,6 +7,7 @@
 #include <functional>
 #include <random>
 
+#include "editor/events.h"
 #include "editor/gui/asset_preview.h"
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/styles/editor_styles.h"
@@ -105,6 +106,8 @@ void ProcModelPreview::RenderButtons(AssetPreview& preview) {
     colours_ = !colours_;
     Show();
   }
+  if (preview.Button(ICON_FA_SITEMAP, false, "Open in the asset graph"))
+    EditorEvents::open_asset_graph(descriptor_);
 }
 
 void ProcModelPreview::RenderOverlay(AssetPreview& preview) {
