@@ -137,13 +137,18 @@ public:
                               const ObjectTags* tags = nullptr);
 
   // One entity per creature of the region's herds, as children of the source,
-  // made from the content's herd ids (sources as above)
+  // made from the content's herd ids (sources as above). With a `stage`, each
+  // is keyed in the region's `cell` (its object its herd id, its matrix as
+  // placed, before the spawn's creatures spread out) and takes the cell's
+  // `edits` (null: none); `orphans` gets how many found no creature
   static std::vector<Entity> InstanceHerds(
       ECS& ecs, const Worldgen::Region& region,
       const Worldgen::RegionContent& content, Entity source,
       const std::filesystem::path& root,
       const Worldgen::TextureInput* planet = nullptr,
-      const ObjectModels* models = nullptr);
+      const ObjectModels* models = nullptr, const std::string& stage = {},
+      uint64_t cell = 0, const PCG::CellEdits* edits = nullptr,
+      size_t* orphans = nullptr);
 
   // A region's building pieces by source, as matrices in the region with
   // their buildings' origins as anchors, so a building fades and switches LOD
@@ -158,22 +163,33 @@ public:
     };
     std::vector<Object> objects;  // procmodels: their seeds pick their parts
     size_t buildings = 0;
+    // What made each building, keyed for edits: its cell is its seed as
+    // placed (unique to it, whatever the region's level), its object its
+    // class's name, its matrix in the planet's space; the objects' building
+    // by index
+    std::vector<InstanceSourceComponent::Source> sources;
+    std::vector<size_t> object_sources;
+    size_t orphan_edits = 0;  // edits whose building isn't there any more
   };
 
-  // The region's buildings' pieces (sources as above). Any thread: it also
-  // reads their models' data, so instancing them only uploads
+  // The region's buildings' pieces (sources as above), with the "buildings"
+  // stage's `edits` on them (null: none). Any thread: it also reads their
+  // models' data, so instancing them only uploads
   static BuildingPieces GatherBuildings(const Worldgen::Region& region,
                                         BuildingLibrary& library,
-                                        const std::filesystem::path& root);
+                                        const std::filesystem::path& root,
+                                        const PCG::EditLayer* edits = nullptr);
 
   // The pieces as children of the source: one entity whose
   // InstancedMeshComponent draws every model piece, a part per model mesh; one
-  // entity per procmodel piece
+  // entity per procmodel piece. Their buildings' sources are in `stage`
+  // (empty: no edits apply to them)
   // TODO: instance procmodel pieces too
   static std::vector<Entity> InstanceBuildings(
       ECS& ecs, const BuildingPieces& pieces, Entity source,
       const std::filesystem::path& root,
-      const Worldgen::TextureInput* planet = nullptr);
+      const Worldgen::TextureInput* planet = nullptr,
+      const std::string& stage = {});
 
   // One instance of a source (as above, the seed picks a procmodel's parts),
   // a child of the source entity; entt::null if it can't be made

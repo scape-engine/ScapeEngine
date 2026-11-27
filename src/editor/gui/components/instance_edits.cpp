@@ -71,7 +71,7 @@ std::optional<Target> _Target(Entity entity, int instance) {
 const PCG::InstanceEdit* _EditOf(const Target& target) {
   const auto& layer = target.resource->edit_layer_;
   const PCG::CellEdits* cell =
-      layer ? layer->Find(target.sources->stage_, target.sources->cell_)
+      layer ? layer->Find(target.sources->stage_, target.source->cell)
             : nullptr;
   if (!cell || target.source->key.addition >= 0)
     return nullptr;
@@ -129,7 +129,7 @@ void _Change(const Target& target,
              const std::function<void(PCG::EditLayer&, PCG::CellEdits&)>&
                  change) {
   _Change(target.volume, *target.resource, target.sources->stage_,
-          target.sources->cell_, change);
+          target.source->cell, change);
 }
 
 // Changes the instance, then follows it into its remade cell
@@ -142,11 +142,11 @@ void _ChangeInstance(Entity entity, const Target& target,
       if (key.addition < static_cast<int>(cell.additions.size()))
         added(cell.additions[key.addition]);
     } else {
-      placed(layer.Edit(target.sources->stage_, target.sources->cell_, key));
+      placed(layer.Edit(target.sources->stage_, target.source->cell, key));
     }
   });
   s_follow = {target.volume, entity, target.sources->stage_,
-              target.sources->cell_, key, 0};
+              target.source->cell, key, 0};
 }
 
 // The position, rotation (degrees) and scale being typed for an instance,
@@ -267,8 +267,9 @@ void Draw(Entity entity, int instance) {
   IMComponents::MarkOverride(edit && !edit->replacement.empty());
   const bool swapped = IMComponents::InputText(
       "Object", object, source.id.c_str(),
-      "Another object to stand here (.object asset, project-relative); "
-      "empty: its own");
+      "Another object to stand here: an .object asset (project-relative); "
+      "for a building another class's name, for a creature another of its "
+      "planet's herd ids. Empty: its own");
   if (IMComponents::RevertChosen())
     _ChangeInstance(
         entity, *target, [](PCG::InstanceEdit& e) { e.replacement.clear(); },
@@ -315,9 +316,9 @@ void DrawOverrides(Entity entity, int instance) {
   if (ImGui::Button("Remove", ImVec2(width, 0.0f))) {
     _Change(*target, [&](PCG::EditLayer& layer, PCG::CellEdits&) {
       if (added)
-        layer.Revert(target->sources->stage_, target->sources->cell_, key);
+        layer.Revert(target->sources->stage_, target->source->cell, key);
       else
-        layer.Edit(target->sources->stage_, target->sources->cell_, key)
+        layer.Edit(target->sources->stage_, target->source->cell, key)
             .removed = true;
     });
     Runtime::State().ClearSelection();
@@ -347,13 +348,13 @@ void DrawOverrides(Entity entity, int instance) {
   ImGui::Separator();
   if (ImGui::Button(added ? "Remove" : "Revert All")) {
     _Change(*target, [&](PCG::EditLayer& layer, PCG::CellEdits&) {
-      layer.Revert(target->sources->stage_, target->sources->cell_, key);
+      layer.Revert(target->sources->stage_, target->source->cell, key);
     });
     if (added)
       Runtime::State().ClearSelection();
     else
       s_follow = {target->volume, entity, target->sources->stage_,
-                  target->sources->cell_, key, 0};
+                  target->source->cell, key, 0};
     ImGui::CloseCurrentPopup();
   }
   // TODO: apply overrides to the generator's rules, as Unity applies them to
@@ -408,8 +409,7 @@ void Update() {
     return;
   }
   for (auto [entity, sources] : ecs.View<InstanceSourceComponent>().each()) {
-    if (entity == s_follow.from || sources.stage_ != s_follow.stage ||
-        sources.cell_ != s_follow.cell)
+    if (entity == s_follow.from || sources.stage_ != s_follow.stage)
       continue;
     // A cell fading out is the old one
     if (const auto* fade = ecs.Reg().try_get<FadeComponent>(entity);
@@ -419,7 +419,7 @@ void Update() {
       continue;
     for (const InstanceSourceComponent::Source& source : sources.sources_) {
       const PCG::InstanceKey& key = source.key;
-      if (key.object != s_follow.key.object ||
+      if (source.cell != s_follow.cell || key.object != s_follow.key.object ||
           key.index != s_follow.key.index ||
           key.addition != s_follow.key.addition)
         continue;

@@ -94,8 +94,8 @@ static uint64_t _CellKey(const Worldgen::PlanetCell& cell) {
 // becomes the kind of `content` its edit names, by `edit_objects` (an
 // .object asset) else by id, and is dropped when there is none. Returns how
 // many edits found no object
-// TODO: edits on the buildings and herds stages, and on a region generator's
-// objects
+// (Buildings and herds take theirs as they're gathered and made.)
+// TODO: edits on a region generator's objects
 static size_t _EditObjects(
     const PCG::CellEdits& edits, const Worldgen::RegionContent& content,
     const std::unordered_map<std::string, int>& edit_objects,
@@ -463,6 +463,7 @@ void Subsystem::Clear(Entity volume) {
     it->second.leaving.clear();  // destroyed above
     it->second.building.Clear();
     it->second.herds.clear();  // destroyed above
+    it->second.old_herds.clear();
     it->second.herd_building.Clear();
     it->second.placements.clear();  // destroyed above
     it->second.old_placements.clear();
@@ -731,7 +732,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   bool edits_changed = false;
   if (!reload && edits != state.edits) {
     if (edits && state.edit_objects)
-      for (const std::string& object : edits->Objects())
+      for (const std::string& object : edits->Objects("objects"))
         reload |= !state.edit_objects->count(object);
     if (!reload) {
       previous_edits = std::exchange(state.edits, edits);
@@ -866,7 +867,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       auto instancing = std::shared_ptr<Worldgen::RegionContent>(objects);
       auto edit_objects = std::make_shared<std::unordered_map<std::string, int>>();
       if (state.edits)
-        for (const std::string& path : state.edits->Objects()) {
+        for (const std::string& path : state.edits->Objects("objects")) {
           Worldgen::RegionObject object;
           std::string error;
           if (!_LoadContent(root_, path, object, error))
@@ -940,6 +941,61 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         state.object_archetypes.insert(*archetype);
       }
   }
+  // A region's buildings, made again (at once) from the edits now
+  const auto remake_buildings = [&](LoadedRegion& loaded,
+                                    RegionInstancer::BuildingPieces pieces) {
+    for (const Entity entity : loaded.building_entities)
+      if (ecs.Reg().valid(entity))
+        ecs.DestroyEntity(entity);
+    loaded.building_entities = RegionInstancer::InstanceBuildings(
+        ecs, pieces, loaded.entity, root_, &state.textures, "buildings");
+    for (const Entity building : loaded.building_entities)
+      ecs.Get<ProceduralInstanceComponent>(building).stage_ = "buildings";
+    loaded.orphan_edits = pieces.orphan_edits;
+  };
+  const auto gather_buildings = [&](const LoadedRegion& loaded) {
+    Worldgen::Region region;
+    region.buildings = loaded.buildings;
+    for (int k = 0; k < 3; ++k)
+      region.origin[k] = loaded.origin[k];
+    return RegionInstancer::GatherBuildings(region, *state.buildings, root_,
+                                            state.edits.get());
+  };
+  // Herd cells whose edits changed are made again, each old one kept until
+  // its new one is made
+  if (edits_changed)
+    for (auto it = state.herds.begin(); it != state.herds.end();) {
+      const PCG::CellEdits* before =
+          previous_edits ? previous_edits->Find("herds", it->first) : nullptr;
+      const PCG::CellEdits* after =
+          state.edits ? state.edits->Find("herds", it->first) : nullptr;
+      if (before == after || (before && after && *before == *after)) {
+        ++it;
+        continue;
+      }
+      if (auto old = state.old_herds.find(it->first);
+          old != state.old_herds.end())
+        _FadeOut(ecs, old->second, 0.0f);
+      state.old_herds[it->first] = it->second.entity;
+      it = state.herds.erase(it);
+    }
+  // Regions with a building whose edits changed make their buildings again
+  if (edits_changed && state.buildings)
+    for (auto& [key, loaded] : state.regions) {
+      const auto changed = [&](const Worldgen::RegionBuilding& building) {
+        const PCG::CellEdits* before =
+            previous_edits ? previous_edits->Find("buildings", building.seed)
+                           : nullptr;
+        const PCG::CellEdits* after =
+            state.edits ? state.edits->Find("buildings", building.seed)
+                        : nullptr;
+        return before != after && (!before || !after || *before != *after);
+      };
+      if (loaded.has_buildings &&
+          std::any_of(loaded.buildings.begin(), loaded.buildings.end(),
+                      changed))
+        remake_buildings(loaded, gather_buildings(loaded));
+    }
   // Cells whose edits changed are made again, each old one kept until its
   // new one is made
   if (edits_changed)
@@ -1048,6 +1104,13 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   if (!herds.enabled)
     for (const auto& entry : state.herds)
       herd_cells.emplace(entry.first, _CellOf(entry.first));
+  // Old cells go once their new one is made, or no longer wanted
+  std::erase_if(state.old_herds, [&](const auto& entry) {
+    if (herd_cells.count(entry.first))
+      return false;
+    _FadeOut(ecs, entry.second, generator.fade_time);
+    return true;
+  });
   state.herd_building.Finish([&](uint64_t key, RegionBuild build) {
     const Worldgen::Region& region = build.region;
     if (herd_cells.count(key)) {
@@ -1061,19 +1124,30 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
       ecs.Add<ProceduralInstanceComponent>(entity, volume, "herds");
       ecs.Add<HerdComponent>(entity).settings_ = herds.creatures;
-      RegionInstancer::InstanceHerds(ecs, region, *state.herd_content, entity,
-                                     root_, &state.textures, &build.objects);
-      _FadeIn(ecs, {entity}, generator.fade_time);
-      state.herds[key] = entity;
+      PlanetState::HerdCell& made = state.herds[key];
+      made.entity = entity;
+      RegionInstancer::InstanceHerds(
+          ecs, region, *state.herd_content, entity, root_, &state.textures,
+          &build.objects, "herds", key,
+          state.edits ? state.edits->Find("herds", key) : nullptr,
+          &made.orphan_edits);
+      // One made again for its edits replaces its old one at once
+      const auto old = state.old_herds.find(key);
+      _FadeIn(ecs, {entity},
+              old == state.old_herds.end() ? generator.fade_time : 0.0f);
+      if (old != state.old_herds.end()) {
+        _FadeOut(ecs, old->second, 0.0f);
+        state.old_herds.erase(old);
+      }
     }
   });
   std::erase_if(state.herds, [&](auto& entry) {
     if (herd_cells.count(entry.first)) {
-      if (auto* herd = ecs.Reg().try_get<HerdComponent>(entry.second))
+      if (auto* herd = ecs.Reg().try_get<HerdComponent>(entry.second.entity))
         herd->settings_ = herds.creatures;
       return false;
     }
-    _FadeOut(ecs, entry.second, generator.fade_time);
+    _FadeOut(ecs, entry.second.entity, generator.fade_time);
     return true;
   });
 
@@ -1270,12 +1344,20 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                                     looks_[volume].material, root_,
                                     skirt_depth, &state.textures,
                                     &build.objects, false);
-      // Its buildings fade in and out with it
-      for (const Entity building : RegionInstancer::InstanceBuildings(
-               ecs, build.pieces, entity, root_, &state.textures))
-        ecs.Get<ProceduralInstanceComponent>(building).stage_ = "buildings";
+      // Its buildings fade in and out with it; gathered with edits since
+      // changed, they're gathered again
+      LoadedRegion loaded{entity, std::move(result.terrain_mesh)};
+      if (build.has_buildings && state.buildings) {
+        loaded.has_buildings = true;
+        loaded.buildings = region.buildings;
+        loaded.origin =
+            glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
+        remake_buildings(loaded, build.layer == state.edits
+                                     ? std::move(build.pieces)
+                                     : gather_buildings(loaded));
+      }
       _FadeIn(ecs, {entity}, generator.fade_time);
-      state.regions[key] = {entity, std::move(result.terrain_mesh)};
+      state.regions[key] = std::move(loaded);
       if (!build.region.objects.empty())
         state.making.push_back({entity, content_of, std::move(build)});
     }
@@ -1357,15 +1439,18 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
                level <= generator.buildings.grid && building_reach(w)
                    ? state.buildings
                    : nullptr,
-           x = centre[0], y = centre[1], z = centre[2], level, root = root_,
-           archetypes = state.archetypes,
+           edits = state.edits, x = centre[0], y = centre[1], z = centre[2],
+           level, root = root_, archetypes = state.archetypes,
            &procmodel = EngineContext::PCG().GetProcModel()] {
             RegionBuild build{Worldgen::BuildRegion(*content, x, y, z, level)};
             build.objects = RegionInstancer::GenerateObjects(
                 build.region, *content, false, archetypes, procmodel, nullptr);
-            if (buildings)
-              build.pieces = RegionInstancer::GatherBuildings(build.region,
-                                                              *buildings, root);
+            if (buildings) {
+              build.has_buildings = true;
+              build.layer = edits;
+              build.pieces = RegionInstancer::GatherBuildings(
+                  build.region, *buildings, root, edits.get());
+            }
             return build;
           });
       started++;
@@ -1427,7 +1512,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   const float fade = generator.fade_time;
   _ShowStage(ecs, state.sea, generator.sea.enabled, fade);
   for (const auto& entry : state.herds)
-    _ShowStage(ecs, entry.second, herds.enabled, fade);
+    _ShowStage(ecs, entry.second.entity, herds.enabled, fade);
   for (const auto& entry : state.placements)
     _ShowStage(ecs, entry.second.entity, generator.objects.enabled, fade);
   // A region holds the terrain and its buildings
@@ -1449,6 +1534,10 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
   generator.loaded_regions = state.regions.size();
   generator.orphan_edits = 0;
   for (const auto& entry : state.placements)
+    generator.orphan_edits += entry.second.orphan_edits;
+  for (const auto& entry : state.regions)
+    generator.orphan_edits += entry.second.orphan_edits;
+  for (const auto& entry : state.herds)
     generator.orphan_edits += entry.second.orphan_edits;
   generator.building_regions = state.building.Size();
   generator.queued_regions = wanted.size() - started;

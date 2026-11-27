@@ -122,7 +122,6 @@ void EntityInspectable::RenderDynamicContent(ImDrawList& draw_list) {
   // A generated entity's components belong to its generator, and its
   // transform is set again whenever its generator remakes it: read-only, as
   // only edits (InstanceEdits) move it
-  // TODO: buildings and herds move through edits too (phase 3c, 3d)
   const bool generated =
       InspectableComponents::FindOrigin(item.entity.Handle()).volume !=
       entt::null;
@@ -186,8 +185,12 @@ ProcModelPreview* EntityInspectable::ProcModel() {
     return procmodel_.get();
   procmodel_instance_ = instance;
   procmodel_.reset();
-  // TODO: the seed preview (and "Use this seed") for an object made as an
-  // entity of its own (instance -1, InstanceEdits::Editable)
+  // TODO: the procmodel preview (parts list, seed stepper, "Use this seed")
+  // for an object made as an entity of its own (instance -1,
+  // InstanceEdits::Editable), such as a creature
+  // TODO: a preview add-on for buildings: their pieces listed with solo and
+  // hide, and a seed stepper that rebuilds the structure (they aren't
+  // procmodels)
   if (instance < 0)
     return nullptr;
   // What made its object

@@ -42,6 +42,11 @@ public:
   std::shared_ptr<const std::vector<Worldgen::BuildingPiece>> Structure(
       int cls, uint64_t seed);
 
+  // A class's name (its style's id, else "class <n>"), and the class of a
+  // name (-1: none)
+  std::string Name(int cls) const;
+  int ClassOf(const std::string& name) const;
+
   static constexpr size_t max_structures = 4096;
 
 private:

@@ -264,7 +264,8 @@ bool RegionInstancer::InstanceObjects(
       placed.anchors.push_back(origin);
     };
     if (imposter) {
-      progress.sources.push_back({origin, id, seed, key, matrix});
+      progress.sources.push_back(
+          {origin, id, seed, key, matrix, progress.cell});
       const auto& variants = imposter->imposter->Variants();
       const size_t variant = seed % variants.size();
       for (const Imposter::Part& part : variants[variant])
@@ -279,7 +280,8 @@ bool RegionInstancer::InstanceObjects(
     std::shared_ptr<const ProcModel::Subsystem::DeformedMeshes> deformed;
     if (const auto parts =
             _ObjectParts(id, seed, root, planet, models, deformed)) {
-      progress.sources.push_back({origin, id, seed, key, matrix});
+      progress.sources.push_back(
+          {origin, id, seed, key, matrix, progress.cell});
       for (const ProcModel::ModelInstantiator::Part& part : *parts)
         place(part.mesh, part.material, matrix * part.matrix, 0.0f, 0.0f);
       if (deformed)
@@ -302,9 +304,8 @@ bool RegionInstancer::InstanceObjects(
                   instances.matrices[progress.at++]);
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     auto& sources = ecs.Add<InstanceSourceComponent>(entity);
-    sources.sources_.push_back({origin, id, seed, key, matrix});
+    sources.sources_.push_back({origin, id, seed, key, matrix, progress.cell});
     sources.stage_ = progress.stage;
-    sources.cell_ = progress.cell;
     progress.made++;
     if (made)
       made->push_back(entity);
@@ -330,7 +331,6 @@ bool RegionInstancer::InstanceObjects(
     auto& sources = ecs.Add<InstanceSourceComponent>(entity);
     sources.sources_ = std::move(progress.sources);
     sources.stage_ = progress.stage;
-    sources.cell_ = progress.cell;
     ecs.Add<ProceduralInstanceComponent>(entity, source);
     progress.instances.clear();
     progress.owned.clear();
@@ -357,7 +357,8 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     ECS& ecs, const Worldgen::Region& region,
     const Worldgen::RegionContent& content, Entity source,
     const std::filesystem::path& root, const Worldgen::TextureInput* planet,
-    const ObjectModels* models) {
+    const ObjectModels* models, const std::string& stage, uint64_t cell,
+    const PCG::CellEdits* edits, size_t* orphans) {
   Diagnostics::ScopedSection section("Creatures");
   std::vector<Entity> creatures;
   // The region's terrain as ground for the creatures' feet, in the source's
@@ -385,105 +386,180 @@ std::vector<Entity> RegionInstancer::InstanceHerds(
     herd.origin_ =
         glm::vec3(region.origin[0], region.origin[1], region.origin[2]);
   }
-  // The matrices hold their scale. Skinned models animate (ModelInstantiator)
+  // The creatures as placed, each kind its spawn and place in it, then the
+  // cell's edits on them
+  std::vector<PCG::InstancePoint> points;
   for (size_t spawn = 0;
        spawn < region.herds.size() && spawn < content.herd_ids.size();
        ++spawn) {
     const std::string& id = content.herd_ids[spawn];
     const std::vector<float>& matrices = region.herds[spawn].matrices;
     const uint64_t kind_seed = _KindSeed(content, spawn, planet);
-    // The placement stands every creature of the spawn on one spot (the
-    // game's runtime spreads them out): they go round it on a sunflower
-    // spiral a body apart, on spots the navmesh reaches
-    float spacing = 0.0f;
-    int slot = 0;
     for (size_t at = 0; !id.empty() && at + 12 <= matrices.size(); at += 12) {
-      std::array<float, 16> rows{};  // 12 floats: rows without w
+      PCG::PointMatrix rows{};  // 12 floats: rows without w
       for (int row = 0; row < 4; ++row)
         for (int k = 0; k < 3; ++k)
           rows[row * 4 + k] = matrices[at + row * 3 + k];
       rows[15] = 1.0f;
-      const Entity entity =
-          CreateObject(ecs, id, source, kind_seed, root, planet, models);
-      if (entity == entt::null)
-        break;  // the source is missing: skip the rest of this kind
-      const glm::vec3 anchor(rows[12], rows[13], rows[14]);
-      if (at == 0)
-        spacing = 2.2f * _BodyRadius(ecs, entity) *
-                  glm::length(glm::vec3(rows[0], rows[1], rows[2]));
-      else if (spacing > 0.0f && ground) {
-        const glm::vec3 up = ground->Up();
-        const glm::vec3 side = glm::normalize(glm::cross(
-            up,
-            std::abs(up.x) < 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0)));
-        const glm::vec3 ahead = glm::cross(up, side);
-        glm::vec3 hit;
-        const float height =
-            ground->Under(anchor, hit) ? glm::dot(anchor - hit, up) : 0.0f;
-        const auto* herd = ecs.Reg().try_get<HerdComponent>(source);
-        for (int tries = 0; tries < 8; ++tries) {
-          ++slot;
-          const float angle = 2.39996323f * static_cast<float>(slot);
-          const glm::vec3 spot =
-              anchor + (side * std::cos(angle) + ahead * std::sin(angle)) *
-                           (spacing * std::sqrt(static_cast<float>(slot)));
-          if (!ground->Under(spot, hit))
-            continue;
-          const glm::vec3 placed = hit + up * height;
-          if (herd && herd->path_) {
-            const glm::vec3 world = placed + herd->origin_;
-            if (Worldgen::NavMesh::FindPolygon(*herd->path_,
-                                               {world.x, world.y, world.z},
-                                               herd->settings_.nav_reach) < 0)
-              continue;
-          }
-          rows[12] = placed.x;
-          rows[13] = placed.y;
-          rows[14] = placed.z;
-          break;
-        }
-      }
-      _SetTransform(ecs.Get<TransformComponent>(entity), rows);
-      ecs.Add<ProceduralInstanceComponent>(entity, source);
-      if (auto* animator = ecs.Reg().try_get<AnimatorComponent>(entity);
-          animator && ground)
-        animator->ground_ = source;
-      // Resting from a random share of the longest rest, so they set out
-      // apart
-      auto& roam = ecs.Add<RoamComponent>(entity);
-      roam.home_ = glm::vec3(rows[12], rows[13], rows[14]);
-      roam.random_ = (static_cast<uint32_t>(kind_seed ^ (kind_seed >> 32)) ^
-                      static_cast<uint32_t>(at * 2654435761u)) |
-                     1u;
-      if (const auto* herd = ecs.Reg().try_get<HerdComponent>(source))
-        roam.rest_ = herd->settings_.rest_max *
-                     ((roam.random_ >> 8) * (1.0f / 16777216.0f));
-      glm::vec3 hit;
-      if (ground && ground->Under(roam.home_, hit))
-        roam.height_ = glm::dot(roam.home_ - hit, ground->Up());
-      creatures.push_back(entity);
+      points.push_back({id, rows, kind_seed,
+                        static_cast<int>((at / 12) << 16 | spawn)});
     }
+  }
+  const size_t found =
+      PCG::ApplyEdits(edits ? *edits : PCG::CellEdits(), points).size();
+  if (orphans)
+    *orphans = found;
+  // The matrices hold their scale. Skinned models animate (ModelInstantiator).
+  // The placement stands every creature of a spawn on one spot (the game's
+  // runtime spreads them out): they go round it on a sunflower spiral a body
+  // apart, on spots the navmesh reaches
+  struct Spread {
+    float spacing = -1.0f;  // < 0: none made yet
+    int slot = 0;
+  };
+  std::vector<Spread> spreads(region.herds.size());
+  std::vector<bool> missing(region.herds.size(), false);
+  for (size_t i = 0; i < points.size(); ++i) {
+    const PCG::InstancePoint& point = points[i];
+    // Another herd id or one placed by hand: its spawn by id, its place its
+    // key's
+    int spawn = point.kind >= 0 ? point.kind & 0xffff : -1;
+    const size_t place = point.kind >= 0 ? point.kind >> 16 : point.key.index;
+    for (size_t k = 0; spawn < 0 && k < content.herd_ids.size() &&
+                       k < region.herds.size();
+         ++k)
+      if (content.herd_ids[k] == point.object)
+        spawn = static_cast<int>(k);
+    if (spawn < 0 || missing[spawn])
+      continue;
+    const std::string& id = point.object;
+    const uint64_t kind_seed = point.seed;
+    std::array<float, 16> rows = point.matrix;
+    const size_t at = 12 * place;
+    // One moved by hand stands where it was put
+    const bool moved = point.key.addition >= 0 ||
+                       glm::vec3(rows[12], rows[13], rows[14]) !=
+                           point.key.anchor;
+    Spread& spread = spreads[spawn];
+    const Entity entity =
+        CreateObject(ecs, id, source, kind_seed, root, planet, models);
+    if (entity == entt::null) {
+      missing[spawn] = true;  // the source is missing: skip the rest
+      continue;
+    }
+    const glm::vec3 anchor(rows[12], rows[13], rows[14]);
+    // The spawn's first stands on its spot
+    float& spacing = spread.spacing;
+    int& slot = spread.slot;
+    if (spacing < 0.0f)
+      spacing = 2.2f * _BodyRadius(ecs, entity) *
+                glm::length(glm::vec3(rows[0], rows[1], rows[2]));
+    if (place > 0 && spacing > 0.0f && ground && !moved) {
+      const glm::vec3 up = ground->Up();
+      const glm::vec3 side = glm::normalize(glm::cross(
+          up,
+          std::abs(up.x) < 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0)));
+      const glm::vec3 ahead = glm::cross(up, side);
+      glm::vec3 hit;
+      const float height =
+          ground->Under(anchor, hit) ? glm::dot(anchor - hit, up) : 0.0f;
+      const auto* herd = ecs.Reg().try_get<HerdComponent>(source);
+      for (int tries = 0; tries < 8; ++tries) {
+        ++slot;
+        const float angle = 2.39996323f * static_cast<float>(slot);
+        const glm::vec3 spot =
+            anchor + (side * std::cos(angle) + ahead * std::sin(angle)) *
+                         (spacing * std::sqrt(static_cast<float>(slot)));
+        if (!ground->Under(spot, hit))
+          continue;
+        const glm::vec3 placed = hit + up * height;
+        if (herd && herd->path_) {
+          const glm::vec3 world = placed + herd->origin_;
+          if (Worldgen::NavMesh::FindPolygon(*herd->path_,
+                                             {world.x, world.y, world.z},
+                                             herd->settings_.nav_reach) < 0)
+            continue;
+        }
+        rows[12] = placed.x;
+        rows[13] = placed.y;
+        rows[14] = placed.z;
+        break;
+      }
+    }
+    _SetTransform(ecs.Get<TransformComponent>(entity), rows);
+    ecs.Add<ProceduralInstanceComponent>(entity, source);
+    if (!stage.empty()) {
+      auto& sources = ecs.Add<InstanceSourceComponent>(entity);
+      sources.sources_.push_back({point.key.anchor, id, kind_seed, point.key,
+                                  glm::make_mat4(point.matrix.data()),
+                                  cell});
+      sources.stage_ = stage;
+    }
+    if (auto* animator = ecs.Reg().try_get<AnimatorComponent>(entity);
+        animator && ground)
+      animator->ground_ = source;
+    // Resting from a random share of the longest rest, so they set out
+    // apart
+    auto& roam = ecs.Add<RoamComponent>(entity);
+    roam.home_ = glm::vec3(rows[12], rows[13], rows[14]);
+    roam.random_ = (static_cast<uint32_t>(kind_seed ^ (kind_seed >> 32)) ^
+                    static_cast<uint32_t>(at * 2654435761u)) |
+                   1u;
+    if (const auto* herd = ecs.Reg().try_get<HerdComponent>(source))
+      roam.rest_ = herd->settings_.rest_max *
+                   ((roam.random_ >> 8) * (1.0f / 16777216.0f));
+    glm::vec3 hit;
+    if (ground && ground->Under(roam.home_, hit))
+      roam.height_ = glm::dot(roam.home_ - hit, ground->Up());
+    creatures.push_back(entity);
   }
   return creatures;
 }
 
 RegionInstancer::BuildingPieces RegionInstancer::GatherBuildings(
     const Worldgen::Region& region, BuildingLibrary& library,
-    const std::filesystem::path& root) {
+    const std::filesystem::path& root, const PCG::EditLayer* edits) {
   BuildingPieces pieces;
+  const glm::vec3 origin(region.origin[0], region.origin[1], region.origin[2]);
   for (const Worldgen::RegionBuilding& building : region.buildings) {
-    const auto structure = library.Structure(building.cls, building.seed);
+    // Each building is a cell of its own, edited in the planet's space
+    std::vector<PCG::InstancePoint> points{
+        {library.Name(building.cls), building.matrix, building.seed,
+         building.cls}};
+    for (int k = 0; k < 3; ++k)
+      points[0].matrix[12 + k] += origin[k];
+    const PCG::PointMatrix placed = points[0].matrix;
+    const PCG::CellEdits* edited =
+        edits ? edits->Find("buildings", building.seed) : nullptr;
+    pieces.orphan_edits +=
+        PCG::ApplyEdits(edited ? *edited : PCG::CellEdits(), points).size();
+    // TODO: buildings placed by hand (a cell's additions)
+    if (points.size() != 1 || points[0].key.addition >= 0)
+      continue;
+    const PCG::InstancePoint& point = points[0];
+    const int cls =
+        point.kind >= 0 ? point.kind : library.ClassOf(point.object);
+    const auto structure = library.Structure(cls, point.seed);
     if (structure->empty())
       continue;
     pieces.buildings++;
-    const glm::mat4 place = glm::make_mat4(building.matrix.data());
-    uint64_t seed = building.seed;
+    // rows read as glm columns; one not moved keeps its matrix in the region
+    // (exact, not through the planet's space)
+    const glm::mat4 planet = glm::make_mat4(point.matrix.data());
+    glm::mat4 place = glm::make_mat4(building.matrix.data());
+    if (point.matrix != placed) {
+      place = planet;
+      place[3] -= glm::vec4(origin, 0.0f);
+    }
+    pieces.sources.push_back({glm::vec3(place[3]), point.object, point.seed,
+                              point.key, planet, building.seed});
+    uint64_t seed = point.seed;
     for (const Worldgen::BuildingPiece& piece : *structure) {
-      // rows read as glm columns
       const glm::mat4 matrix = place * glm::make_mat4(piece.matrix.data());
       ++seed;
       if (_StartsWith(piece.model, procmodel_prefix)) {
         pieces.objects.push_back({piece.model, seed, matrix});
+        pieces.object_sources.push_back(pieces.sources.size() - 1);
         continue;
       }
       auto [it, added] = pieces.models.try_emplace(piece.model);
@@ -501,7 +577,8 @@ RegionInstancer::BuildingPieces RegionInstancer::GatherBuildings(
 
 std::vector<Entity> RegionInstancer::InstanceBuildings(
     ECS& ecs, const BuildingPieces& pieces, Entity source,
-    const std::filesystem::path& root, const Worldgen::TextureInput* planet) {
+    const std::filesystem::path& root, const Worldgen::TextureInput* planet,
+    const std::string& stage) {
   Diagnostics::ScopedSection section("Buildings");
   std::vector<Entity> entities;
   if (!pieces.models.empty()) {
@@ -524,9 +601,13 @@ std::vector<Entity> RegionInstancer::InstanceBuildings(
       }
     }
     ecs.Add<ProceduralInstanceComponent>(entity, source);
+    auto& sources = ecs.Add<InstanceSourceComponent>(entity);
+    sources.sources_ = pieces.sources;
+    sources.stage_ = stage;
     entities.push_back(entity);
   }
-  for (const BuildingPieces::Object& object : pieces.objects) {
+  for (size_t i = 0; i < pieces.objects.size(); ++i) {
+    const BuildingPieces::Object& object = pieces.objects[i];
     const Entity entity =
         CreateObject(ecs, object.id, source, object.seed, root, planet);
     if (entity == entt::null)
@@ -535,6 +616,10 @@ std::vector<Entity> RegionInstancer::InstanceBuildings(
     std::memcpy(rows.data(), glm::value_ptr(object.matrix), sizeof(rows));
     _SetTransform(ecs.Get<TransformComponent>(entity), rows);
     ecs.Add<ProceduralInstanceComponent>(entity, source);
+    // A piece of its building: edits on it are on the building
+    auto& sources = ecs.Add<InstanceSourceComponent>(entity);
+    sources.sources_.push_back(pieces.sources[pieces.object_sources[i]]);
+    sources.stage_ = stage;
     entities.push_back(entity);
   }
   return entities;

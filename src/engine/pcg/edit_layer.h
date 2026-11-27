@@ -97,8 +97,8 @@ public:
   void Revert(const std::string& stage, uint64_t cell, const InstanceKey& key);
   // Its edits and additions
   size_t Count() const;
-  // The objects its replacements and additions name
-  std::vector<std::string> Objects() const;
+  // The objects the stage's replacements and additions name
+  std::vector<std::string> Objects(const std::string& stage) const;
   bool Empty() const { return stages_.empty(); }
 
   // By stage, then cell

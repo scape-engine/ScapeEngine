@@ -95,20 +95,23 @@ size_t EditLayer::Count() const {
   return count;
 }
 
-std::vector<std::string> EditLayer::Objects() const {
+std::vector<std::string> EditLayer::Objects(
+    const std::string& stage) const {
   std::vector<std::string> objects;
   const auto add = [&](const std::string& object) {
     if (!object.empty() &&
         std::find(objects.begin(), objects.end(), object) == objects.end())
       objects.push_back(object);
   };
-  for (const auto& [stage, cells] : stages_)
-    for (const auto& [cell, edits] : cells) {
-      for (const InstanceEdit& edit : edits.edits)
-        add(edit.replacement);
-      for (const InstanceAddition& addition : edits.additions)
-        add(addition.object);
-    }
+  const auto cells = stages_.find(stage);
+  if (cells == stages_.end())
+    return objects;
+  for (const auto& [cell, edits] : cells->second) {
+    for (const InstanceEdit& edit : edits.edits)
+      add(edit.replacement);
+    for (const InstanceAddition& addition : edits.additions)
+      add(addition.object);
+  }
   return objects;
 }
 

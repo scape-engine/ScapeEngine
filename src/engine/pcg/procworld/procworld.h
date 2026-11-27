@@ -70,6 +70,13 @@ private:
   struct LoadedRegion {
     Entity entity = entt::null;
     std::unique_ptr<Mesh> terrain_mesh;
+    // Its buildings as placed, when it has them (by its level and reach),
+    // the entities made of them and the edits whose building isn't there
+    bool has_buildings = false;
+    std::vector<Worldgen::RegionBuilding> buildings;
+    glm::vec3 origin{0.0f};
+    std::vector<Entity> building_entities;
+    size_t orphan_edits = 0;
   };
   // A region built on a worker, with its buildings' pieces
   struct RegionBuild {
@@ -85,6 +92,10 @@ private:
     // longer place there
     std::optional<PCG::CellEdits> edits;
     size_t orphan_edits = 0;
+    // Whether it gathered buildings, and the edit layer they were gathered
+    // with
+    bool has_buildings = false;
+    std::shared_ptr<const PCG::EditLayer> layer;
   };
   struct PlanetState {
     // Shared with the jobs building from it, so a reload leaves them intact
@@ -99,7 +110,14 @@ private:
     // under them): the herds' content has no objects, the objects' no herds
     // and the terrain's neither
     std::shared_ptr<const Worldgen::RegionContent> herd_content;
-    std::unordered_map<uint64_t, Entity> herds;  // by cell key
+    // A herd cell's entity and the edits whose creature isn't there
+    struct HerdCell {
+      Entity entity = entt::null;
+      size_t orphan_edits = 0;
+    };
+    std::unordered_map<uint64_t, HerdCell> herds;  // by cell key
+    // Cells made again for their edits, each kept until its new one is made
+    std::unordered_map<uint64_t, Entity> old_herds;
     Paging::CellJobs<RegionBuild> herd_building;
     std::shared_ptr<const Worldgen::RegionContent> object_content;
     // The levels some object kind's size is, and how far from the viewer its

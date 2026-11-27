@@ -19,8 +19,8 @@ namespace InstanceEdits {
 // Whether the instance (of the entity's InstancedMeshComponent) takes edits;
 // instance -1: the entity, an object made as an entity of its own (an
 // animated model, a primitive)
-// TODO: edits on buildings and herds, and on a region generator's objects;
-// only a planet's Objects stage objects take them
+// TODO: edits on a region generator's objects; only a planet's objects,
+// buildings and creatures take them
 bool Editable(Entity entity, int instance);
 
 // The instance's fields, as rows of the Inspector's Instance section, marked

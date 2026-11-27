@@ -22,13 +22,15 @@ struct InstanceSourceComponent {
     uint64_t seed = 0;
     // Which point of its cell it is, for edits (PCG::EditLayer)
     PCG::InstanceKey key;
-    glm::mat4 matrix{1.0f};  // where it is, in the entity's space
+    // Where it is, as its stage's edits place it (PCG::InstanceEdit): in the
+    // entity's space, or for a building in its planet's
+    glm::mat4 matrix{1.0f};
+    // The generator's key for the cell it was placed in, in its stage
+    uint64_t cell = 0;
   };
   std::vector<Source> sources_;
-  // The generator's stage and key for the cell they were placed in; an
-  // empty stage: no edits apply to them
+  // The generator's stage that placed them; empty: no edits apply to them
   std::string stage_;
-  uint64_t cell_ = 0;
 
   // The object anchored at `anchor`; null: none
   const Source* Find(const glm::vec3& anchor) const {

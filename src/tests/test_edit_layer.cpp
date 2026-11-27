@@ -80,7 +80,9 @@ void TestEditLayer() {
   // Saved and read back the same; a missing file is an empty layer
   PCG::EditLayer layer;
   layer.Cell("objects", (uint64_t{3} << 60) | 17) = edits;
-  assert((layer.Objects() == std::vector<std::string>{"bush.object"}));
+  assert((layer.Objects("objects") ==
+          std::vector<std::string>{"bush.object"}));
+  assert(layer.Objects("buildings").empty());
   const auto folder =
       std::filesystem::temp_directory_path() / "scape_edit_layer";
   assert(PCG::SaveEditLayer(folder / "planet.edits", layer));

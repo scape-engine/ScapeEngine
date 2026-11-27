@@ -80,6 +80,20 @@ BuildingLibrary::BuildingLibrary(std::vector<Worldgen::BuildingStyle> styles,
   };
 }
 
+std::string BuildingLibrary::Name(int cls) const {
+  if (cls >= 0 && cls < static_cast<int>(styles_.size()) &&
+      !styles_[cls].id.empty())
+    return styles_[cls].id;
+  return "class " + std::to_string(cls);
+}
+
+int BuildingLibrary::ClassOf(const std::string& name) const {
+  for (int cls = 0; cls < static_cast<int>(styles_.size()); ++cls)
+    if (Name(cls) == name)
+      return cls;
+  return -1;
+}
+
 const Worldgen::SceneNode* BuildingLibrary::Scene(const std::string& file) {
   std::lock_guard lock(scenes_mutex_);
   auto it = scenes_.find(file);
