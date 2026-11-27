@@ -4,6 +4,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -32,6 +33,12 @@ public:
 
   // Graph editing
   void Clear();
+
+  // Its graph asset (.pcggraph), project-relative; empty: none
+  std::string graph_path;
+  // Reads the graph asset at `file` and compiles it; false (and an empty
+  // graph) when it can't be read
+  bool Load(const std::string& file);
 
   //
   // Graph access

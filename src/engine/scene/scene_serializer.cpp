@@ -24,6 +24,7 @@
 #include "engine/ecs/world.h"
 #include "engine/pcg/generator_profile.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/graph/generator_graph.h"
 #include "engine/pcg/procworld/generator_settings.h"
 #include "engine/scene/glm_json.h"
 
@@ -56,7 +57,6 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     source_type_, cubemap_path_, source_cubemap_angle_, real_time_capture_,
     lower_hemisphere_is_solid_color_, lower_hemisphere_color_)
 
-// TODO: graph generators (volumes keep only region generators)
 // TODO: material overrides (materials currently come only from the glTF
 // source)
 // TODO: move world settings (sky, post-process) into ECS components so
@@ -163,6 +163,14 @@ static void _ReadVolume(VolumeComponent& volume, const nlohmann::json& in,
   auto generator = ProcWorld::CreateGenerator(settings);
   if (!generator)
     return;
+  if (generator->GetType() == PCG::GeneratorType::Graph) {
+    auto& graph = static_cast<PCG::GeneratorGraph&>(*generator);
+    if (!graph.graph_path.empty() &&
+        !graph.Load(_Absolute(graph.graph_path, root)))
+      Logger::getInstance().Log(
+          LogLevel::Warning,
+          "SceneSerializer: unreadable graph " + graph.graph_path);
+  }
   auto [id, resource] =
       EngineContext::resourceManager().Create<PCG::GeneratorResource>(
           PCG::GetGeneratorTypeName(generator->GetType()));

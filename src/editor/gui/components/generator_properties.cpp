@@ -22,6 +22,8 @@
 #include "engine/ecs/world.h"
 #include "engine/pcg/generator_profile.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/graph/generator_graph.h"
+#include "engine/pcg/graph/graph_serializer.h"
 #include "engine/pcg/points/spawner_generator.h"
 #include "engine/pcg/procworld/generator_settings.h"
 #include "engine/pcg/procworld/craft_generator.h"
@@ -814,6 +816,77 @@ static void _DrawSpawner(ResourceID id) {
     _RequestRebuild(id);
 }
 
+static void _DrawGraph(ResourceID id) {
+  auto resource =
+      EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+          id);
+  if (!resource || !resource->Get() ||
+      resource->GetGeneratorType() != PCG::GeneratorType::Graph) {
+    IMComponents::Label("The generator no longer exists", EditorColor::text_dim);
+    return;
+  }
+  auto& generator = static_cast<PCG::GeneratorGraph&>(*resource->Get());
+
+  static const IMComponents::AssetKind graph = {
+      "PCG Graph", ICON_FA_DIAGRAM_PROJECT, {".pcggraph"}};
+  if (IMComponents::AssetField(
+          "Graph", generator.graph_path, graph,
+          [] { return Runtime::Project().Files(graph.extensions); },
+          "The PCG graph it runs; drop a .pcggraph from the asset browser, "
+          "or pick one")) {
+    if (!generator.graph_path.empty() &&
+        !generator.Load(
+            Runtime::Project().AbsolutePath(generator.graph_path).string()))
+      Logger::getInstance().Log(
+          LogLevel::Error, "Can't read the graph " + generator.graph_path);
+    _RequestRebuild(id);
+  }
+  ImGui::BeginDisabled(generator.graph_path.empty());
+  if (ImGui::Button(ICON_FA_PEN_TO_SQUARE " Edit"))
+    EditorEvents::open_pcg_graph(generator.graph_path);
+  ImGui::EndDisabled();
+  IMComponents::Tooltip("Open the graph in the PCG Graph tab");
+  ImGui::SameLine();
+  if (ImGui::Button(ICON_FA_PLUS " New")) {
+    // graphs/graph.pcggraph, else the first free graphs/graph_<n>.pcggraph
+    std::string path = "graphs/graph.pcggraph";
+    for (int n = 2;
+         std::filesystem::exists(Runtime::Project().AbsolutePath(path)); ++n)
+      path = "graphs/graph_" + std::to_string(n) + ".pcggraph";
+    const std::string file = Runtime::Project().AbsolutePath(path).string();
+    std::error_code ec;
+    std::filesystem::create_directories(
+        std::filesystem::path(file).parent_path(), ec);
+    if (PCG::GraphSerializer::SaveToFile(PCG::ProgramGraph(), file)) {
+      generator.graph_path = path;
+      generator.Load(file);
+      _RequestRebuild(id);
+      EditorEvents::open_pcg_graph(path);
+    } else {
+      Logger::getInstance().Log(LogLevel::Error, "Can't write " + path);
+    }
+  }
+  IMComponents::Tooltip("An empty graph asset for this generator, in graphs/");
+  if (!generator.graph_path.empty() && !generator.IsCompiled())
+    IMComponents::Label("The graph doesn't compile", EditorColor::text_dim);
+}
+
+void ReloadGraph(const std::string& graph) {
+  for (auto [entity, volume] : ECS::Main().View<VolumeComponent>().each()) {
+    auto resource =
+        EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+            volume.generator_id);
+    if (!resource || !resource->Get() ||
+        resource->GetGeneratorType() != PCG::GeneratorType::Graph)
+      continue;
+    auto& generator = static_cast<PCG::GeneratorGraph&>(*resource->Get());
+    if (generator.graph_path != graph)
+      continue;
+    generator.Load(Runtime::Project().AbsolutePath(graph).string());
+    volume.dirty = true;
+  }
+}
+
 void Draw(ResourceID id) {
   auto resource =
       EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
@@ -838,6 +911,9 @@ void Draw(ResourceID id) {
       break;
     case PCG::GeneratorType::Spawner:
       _DrawSpawner(id);
+      break;
+    case PCG::GeneratorType::Graph:
+      _DrawGraph(id);
       break;
     default:
       break;
@@ -869,9 +945,6 @@ void Create(VolumeComponent& volume, PCG::GeneratorType type) {
   }
   volume.generator_id = id;
   volume.dirty = true;
-  // Graphs edit in the PCG tab, the rest in the Inspector
-  if (type == PCG::GeneratorType::Graph)
-    EditorEvents::open_graph_editor(id);
 }
 
 Entity AddGenerator(Entity world, PCG::GeneratorType type) {

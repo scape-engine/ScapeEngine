@@ -19,8 +19,8 @@ inline boost::signals2::signal<void()> game_end_pressed;
 inline boost::signals2::signal<void()> editor_exit_pressed;
 inline boost::signals2::signal<void(InputEvent)> game_inputed;
 
-inline boost::signals2::signal<void(ResourceID)> open_graph_editor;
-inline boost::signals2::signal<void()> close_graph_editor;
+// A PCG graph asset (project-relative) to edit
+inline boost::signals2::signal<void(const std::string&)> open_pcg_graph;
 // A procedural model's descriptor (project-relative) to show as a graph
 inline boost::signals2::signal<void(const std::string&)> open_asset_graph;
 

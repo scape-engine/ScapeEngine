@@ -7,8 +7,8 @@
 #include "engine/pcg/generator_base.h"
 #include "engine/pcg/points/point_source.h"
 
-// Planet, craft and region generator settings as JSON: what scenes and
-// generator profiles store
+// Planet, craft, region, spawner and graph generator settings as JSON: what
+// scenes and generator profiles store
 namespace ProcWorld {
 
 // The generator's settings with its "type"; null for other generators

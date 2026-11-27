@@ -1,5 +1,6 @@
 #include "generator_settings.h"
 
+#include "engine/pcg/graph/generator_graph.h"
 #include "engine/pcg/points/spawner_generator.h"
 #include "engine/pcg/procworld/craft_generator.h"
 #include "engine/pcg/procworld/planet_generator.h"
@@ -228,6 +229,10 @@ nlohmann::json WriteSettings(const PCG::Generator& generator) {
                {{"distance", spawner.activation_distance},
                 {"max_active", spawner.max_active}}}};
     }
+    case PCG::GeneratorType::Graph:
+      return {{"type", "Graph"},
+              {"graph",
+               static_cast<const PCG::GeneratorGraph&>(generator).graph_path}};
     default:
       return nullptr;
   }
@@ -297,6 +302,12 @@ void ReadSettings(PCG::Generator& generator, const nlohmann::json& in) {
       }
       break;
     }
+    case PCG::GeneratorType::Graph: {
+      // The asset itself is loaded by whoever knows the project (Load)
+      auto* graph = static_cast<PCG::GeneratorGraph*>(&generator);
+      graph->graph_path = in.value("graph", graph->graph_path);
+      break;
+    }
     default:
       break;
   }
@@ -313,6 +324,8 @@ std::unique_ptr<PCG::Generator> CreateGenerator(const nlohmann::json& in) {
     generator = std::make_unique<RegionGenerator>();
   else if (type == "Spawner")
     generator = std::make_unique<PCG::SpawnerGenerator>();
+  else if (type == "Graph")
+    generator = std::make_unique<PCG::GeneratorGraph>();
   else
     return nullptr;
   ReadSettings(*generator, in);

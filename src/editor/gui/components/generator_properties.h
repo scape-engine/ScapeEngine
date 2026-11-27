@@ -10,7 +10,8 @@
 // Settings of the generators a volume can use, drawn in the Inspector
 namespace GeneratorProperties {
 
-// A planet, craft or region generator's settings; graphs edit in the PCG tab
+// A generator's settings; a graph generator's graph asset edits in the PCG
+// Graph tab
 void Draw(ResourceID id);
 
 // One stage of the generator (its name in the settings), open, as in Draw
@@ -21,6 +22,10 @@ void Create(VolumeComponent& volume, PCG::GeneratorType type);
 
 // A child of the PCG world: a volume with a new generator of the type
 Entity AddGenerator(Entity world, PCG::GeneratorType type);
+
+// The graph generators using the graph asset (project-relative) read it
+// again, after it was saved
+void ReloadGraph(const std::string& graph);
 
 }  // namespace GeneratorProperties
 

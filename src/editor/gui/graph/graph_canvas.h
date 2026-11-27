@@ -46,8 +46,10 @@ void End();
 
 // A pin: a circle, filled once linked, and its label beside it
 void InputPin(ed::PinId id, const char* label, bool linked);
-// At the node's right edge, after what is on its row (SameLine first)
+// At the node's right edge, after what is on its row (SameLine first);
+// its label, if any, just left of it
 void OutputPin(ed::PinId id, bool linked);
+void OutputPin(ed::PinId id, const char* label, bool linked);
 
 }  // namespace GraphNode
 

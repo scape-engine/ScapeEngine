@@ -880,12 +880,7 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
           std::string(PCG::GetGeneratorTypeName(generator->GetGeneratorType())) +
           " (ID " + std::to_string(volume.generator_id) + ")");
 
-      if (generator->GetGeneratorType() == PCG::GeneratorType::Graph) {
-        if (ImGui::Button("Open in PCG Editor"))
-          EditorEvents::open_graph_editor(volume.generator_id);
-      } else {
-        GeneratorProperties::Draw(volume.generator_id);
-      }
+      GeneratorProperties::Draw(volume.generator_id);
     } else {
       ImGui::TextDisabled("No generator selected");
       for (const auto type :

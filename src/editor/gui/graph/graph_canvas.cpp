@@ -135,9 +135,20 @@ void InputPin(ed::PinId id, const char* label, bool linked) {
 }
 
 void OutputPin(ed::PinId id, bool linked) {
+  OutputPin(id, "", linked);
+}
+
+void OutputPin(ed::PinId id, const char* label, bool linked) {
   ImGui::SameLine();
-  ImGui::SetCursorScreenPos(ImVec2(s_left + s_width - pin_size,
-                                   ImGui::GetCursorScreenPos().y));
+  const float gap = *label ? ImGui::GetStyle().ItemInnerSpacing.x : 0.0f;
+  const float y = ImGui::GetCursorScreenPos().y;
+  ImGui::SetCursorScreenPos(ImVec2(
+      s_left + s_width - pin_size - gap - ImGui::CalcTextSize(label).x, y));
+  if (*label) {
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(label);
+    ImGui::SameLine(0.0f, gap);
+  }
   _Pin(id, ed::PinKind::Output, linked);
 }
 

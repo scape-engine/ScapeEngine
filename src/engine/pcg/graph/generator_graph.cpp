@@ -1,5 +1,6 @@
 #include "generator_graph.h"
 
+#include "graph_serializer.h"
 #include "node_types.h"
 
 namespace PCG {
@@ -20,6 +21,16 @@ void GeneratorGraph::Clear() {
 
   std::unique_lock lock(runtime_mutex_);
   runtime_.reset();
+}
+
+bool GeneratorGraph::Load(const std::string& file) {
+  Clear();
+  if (!GraphSerializer::LoadFromFile(file, graph_)) {
+    graph_.Clear();
+    return false;
+  }
+  Compile();
+  return true;
 }
 
 CompilationResult GeneratorGraph::Compile() {
@@ -125,9 +136,10 @@ Sample GeneratorGraph::Eval(float x, float y) const {
 
 std::unique_ptr<Generator> GeneratorGraph::Clone() const {
   auto clone = std::make_unique<GeneratorGraph>();
+  clone->graph_path = graph_path;
 
-  // Copy graph structure
-  clone->graph_ = graph_;
+  // A deep copy: the graph owns its nodes
+  clone->graph_.CopyFrom(graph_);
 
   // Recompile for the clone - each instance needs its own runtime state
   clone->Compile();

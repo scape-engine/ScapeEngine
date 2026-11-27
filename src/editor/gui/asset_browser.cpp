@@ -3,8 +3,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <filesystem>
 #include <vector>
 
+#include "editor/events.h"
 #include "editor/gui/icons/asset_icons.h"
 #include "editor/gui/utils/asset_drag.h"
 #include "editor/gui/inspectables/asset_inspectable.h"
@@ -610,6 +612,11 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
       const FileSystem::Path path = node->path_;
       SceneModals::RunAfterSaveCheck(
           [path] { Runtime::Project().OpenScene(path); });
+    } else if (node->path_.extension() == ".pcggraph") {
+      EditorEvents::open_pcg_graph(
+          std::filesystem::relative(node->path_,
+                                    Runtime::Project().AbsolutePath(""))
+              .generic_string());
     } else {
       // Open file in application
       OpenNodeInApplication(node);
