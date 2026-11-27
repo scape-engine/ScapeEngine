@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include "engine/pcg/generator_base.h"
+#include "engine/pcg/points/point_source.h"
 
 // Planet, craft and region generator settings as JSON: what scenes and
 // generator profiles store
@@ -18,6 +19,10 @@ void ReadSettings(PCG::Generator& generator, const nlohmann::json& in);
 
 // A new generator of the JSON's "type" with its settings; null if unknown
 std::unique_ptr<PCG::Generator> CreateGenerator(const nlohmann::json& in);
+
+// A new point source of the JSON's "type" with its settings; null if
+// unknown
+std::unique_ptr<PCG::PointSource> CreatePointSource(const nlohmann::json& in);
 
 }  // namespace ProcWorld
 

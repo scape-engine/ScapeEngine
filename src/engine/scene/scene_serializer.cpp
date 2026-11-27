@@ -15,6 +15,7 @@
 
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
+#include "engine/ecs/components/activation_component.h"
 #include "engine/ecs/components/fade_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/pcg_world_component.h"
@@ -43,6 +44,9 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(
     SpotlightComponent, enabled_, color_, intensity_, range_, falloff_,
     inner_angle_, outer_angle_, cast_shadows_, shadow_bias_, shadow_resolution_,
     shadow_softness_)
+// extent is its system's, active_ state
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ActivationComponent, distance,
+                                                max_active)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(FadeComponent, visibility_,
                                                 target_, duration_,
                                                 destroy_when_hidden_)
@@ -90,6 +94,19 @@ static std::string _Absolute(const std::string& path, const fs::path& root) {
   return (root / path).string();
 }
 
+// Writes the volume's generator's hand edits to its edit layer's file
+static void _SaveEdits(const VolumeComponent& volume, const fs::path& root) {
+  auto generator =
+      EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+          volume.generator_id);
+  if (generator && !generator->edits_.empty() && generator->edit_layer_ &&
+      !PCG::SaveEditLayer(_Absolute(generator->edits_, root),
+                          *generator->edit_layer_))
+    Logger::getInstance().Log(
+        LogLevel::Error,
+        "SceneSerializer: can't write edit layer " + generator->edits_);
+}
+
 // A volume and its generator settings (resources are runtime only); a
 // generator with a profile keeps only its overrides
 static nlohmann::json _WriteVolume(const VolumeComponent& volume,
@@ -105,12 +122,7 @@ static nlohmann::json _WriteVolume(const VolumeComponent& volume,
     return out;
   if (!generator->edits_.empty()) {
     out["edits"] = generator->edits_;
-    if (generator->edit_layer_ &&
-        !PCG::SaveEditLayer(_Absolute(generator->edits_, root),
-                            *generator->edit_layer_))
-      Logger::getInstance().Log(
-          LogLevel::Error,
-          "SceneSerializer: can't write edit layer " + generator->edits_);
+    _SaveEdits(volume, root);
   }
   nlohmann::json settings = ProcWorld::WriteSettings(*generator->Get());
   if (settings.is_null())
@@ -176,9 +188,13 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
   // Depth-first, so a parent is always written before its children and
   // children keep their order
   std::function<void(Entity, int)> write = [&](Entity entity, int parent) {
-    // Made by a PCG system: remade from its source on load
-    if (world.Has<ProceduralInstanceComponent>(entity))
+    // Made by a PCG system: remade from its source on load. A generator it
+    // made (a spawner's) keeps its hand edits in its own file
+    if (world.Has<ProceduralInstanceComponent>(entity)) {
+      if (world.Has<VolumeComponent>(entity))
+        _SaveEdits(world.Get<VolumeComponent>(entity), root);
       return;
+    }
     const TransformComponent& transform = world.Get<TransformComponent>(entity);
     const int index = static_cast<int>(entities.size());
 
@@ -192,6 +208,7 @@ nlohmann::json SceneSerializer::Serialize(ECS& world, const fs::path& root) {
     _Write<PointLightComponent>(world, entity, out, "point_light");
     _Write<SpotlightComponent>(world, entity, out, "spotlight");
     _Write<FadeComponent>(world, entity, out, "fade");
+    _Write<ActivationComponent>(world, entity, out, "activation");
 
     if (world.Has<SkyLightComponent>(entity)) {
       SkyLightComponent sky = world.Get<SkyLightComponent>(entity);
@@ -266,6 +283,7 @@ bool SceneSerializer::Deserialize(ECS& world, const nlohmann::json& scene,
       _Read<PointLightComponent>(world, entity, in, "point_light");
       _Read<SpotlightComponent>(world, entity, in, "spotlight");
       _Read<FadeComponent>(world, entity, in, "fade");
+      _Read<ActivationComponent>(world, entity, in, "activation");
 
       if (auto it = in.find("sky_light"); it != in.end()) {
         auto& sky =

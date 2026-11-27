@@ -12,7 +12,9 @@
 #include "engine/context/engine_context.h"
 #include "engine/pcg/pcg_engine.h"
 #include "engine/core/logger.h"
+#include "engine/ecs/components/activation_component.h"
 #include "engine/ecs/components/fade_component.h"
+#include "engine/ecs/components/mesh_renderer_component.h"
 #include "engine/ecs/components/procedural_instance_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/components/wave_field_component.h"
@@ -20,6 +22,8 @@
 #include "engine/paging/frame_budget.h"
 #include "engine/paging/jobs.h"
 #include "engine/paging/viewers.h"
+#include "engine/renderer/material/material_registry.h"
+#include "engine/scene/model_entity_factory.h"
 #include "engine/pcg/generator_resource.h"
 #include "engine/time/time.h"
 
@@ -302,13 +306,13 @@ void Subsystem::Update() {
   });
   std::erase_if(planets_, [&](const auto& entry) {
     const Entity volume = entry.first;
-    if (!ecs.Reg().valid(volume))
-      return true;
-    if (ecs.Has<VolumeComponent>(volume) &&
+    if (ecs.Reg().valid(volume) && ecs.Has<VolumeComponent>(volume) &&
         is_type(generator_of(ecs.Get<VolumeComponent>(volume)),
                 PCG::GeneratorType::Planet))
       return false;
-    Clear(volume);
+    if (ecs.Reg().valid(volume))
+      Clear(volume);
+    MaterialRegistry::Instance().Unregister(entry.second.proxy_material);
     return true;
   });
 
@@ -325,6 +329,15 @@ void Subsystem::Update() {
       Diagnostics::ScopedSection section("Planets");
       auto& planet = static_cast<PlanetGenerator&>(*generator);
       PlanetState& state = planets_[entity];
+      // Switching reloads it: streaming, or only its content and stand-in
+      // TODO: an inactive planet loads its whole content (its object and
+      // creature models too) for a radius and colours; read only those
+      const bool active = !ecs.Has<ActivationComponent>(entity) ||
+                          ecs.Get<ActivationComponent>(entity).active_;
+      if (active != state.active) {
+        state.active = active;
+        volume.dirty = true;
+      }
       // A reload's colours apply from the next frame on, the look then
       // switching the terrain over
       TerrainMaterialData look = planet.look;
@@ -336,8 +349,15 @@ void Subsystem::Update() {
              resource_mgr
                  .GetResourceAs<PCG::GeneratorResource>(volume.generator_id)
                  ->edit_layer_);
-      Weather(planet, state, now);
-      Water(planet, state, now);
+      if (ecs.Has<ActivationComponent>(entity))
+        ecs.Get<ActivationComponent>(entity).extent =
+            state.content ? state.content->radius : 0.0f;
+      if (active) {
+        Weather(planet, state, now);
+        Water(planet, state, now);
+      } else {
+        Proxy(entity, state);
+      }
       volume.dirty = false;
     } else if (is_type(generator, PCG::GeneratorType::Craft)) {
       auto& craft = static_cast<CraftGenerator&>(*generator);
@@ -442,6 +462,35 @@ void Subsystem::Water(PlanetGenerator& generator, const PlanetState& state,
   if (field.state != generator.water_state)
     Worldgen::SetWaterState(field, generator.water_state,
                             field.state < 0 ? 0.0f : rules.blend_time);
+}
+
+void Subsystem::Proxy(Entity volume, PlanetState& state) {
+  auto& ecs = ECS::Main();
+  if (ecs.Reg().valid(state.proxy) || !state.content)
+    return;
+  // The mean of its tile colours (sRGB), grey when it has none
+  glm::vec3 sum(0.0f);
+  int count = 0;
+  for (const glm::vec4& colour : state.tile_colours)
+    if (colour.a > 0.0f) {
+      sum += glm::pow(glm::vec3(colour), glm::vec3(2.2f));
+      ++count;
+    }
+  Content::MaterialData material;
+  material.is_pbr = true;
+  material.roughness = 0.9f;
+  material.base_color =
+      glm::vec4(count ? sum / static_cast<float>(count) : glm::vec3(0.5f), 1);
+  auto& registry = MaterialRegistry::Instance();
+  registry.Unregister(state.proxy_material);
+  state.proxy_material = registry.Register(material);
+
+  auto [proxy, transform] = ecs.CreateEntity("Proxy", volume);
+  ecs.Add<ProceduralInstanceComponent>(proxy, volume, "proxy");
+  transform.scale_ = glm::vec3(state.content->radius);
+  ModelEntityFactory::AttachPrimitive(ecs, proxy, "sphere");
+  ecs.Get<MeshRendererComponent>(proxy).material_ = state.proxy_material;
+  state.proxy = proxy;
 }
 
 void Subsystem::Clear(Entity volume) {
@@ -800,7 +849,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
         content->terrain = built.terrain;
       if (generator.planet_radius > 0.0f)
         content->radius = generator.planet_radius;
-      if (content->terrain.sea_level > 0.0f &&
+      if (state.active && content->terrain.sea_level > 0.0f &&
           !planet.water_waves.states.empty()) {
         state.water_waves =
             std::make_shared<Worldgen::WaterWaveSettings>(planet.water_waves);
@@ -908,7 +957,7 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
       state.edit_objects = nullptr;
     }
   }
-  if (!state.content) {
+  if (!state.content || !state.active) {
     generator.loaded_regions = generator.queued_regions =
         generator.building_regions = 0;
     return;

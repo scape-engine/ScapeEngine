@@ -2,24 +2,32 @@
 
 #include <imgui.h>
 
+#include <algorithm>
+#include <cstdio>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "editor/events.h"
 #include "editor/gui/components/im_components.h"
 #include "editor/gui/components/inspectable_components.h"
 #include "editor/gui/components/instance_edits.h"
+#include "editor/gui/utils/asset_drag.h"
 #include "editor/runtime/runtime.h"
+#include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "engine/context/engine_context.h"
 #include "engine/core/logger.h"
 #include "engine/ecs/world.h"
 #include "engine/pcg/generator_profile.h"
 #include "engine/pcg/generator_resource.h"
+#include "engine/pcg/points/spawner_generator.h"
 #include "engine/pcg/procworld/generator_settings.h"
 #include "engine/pcg/procworld/craft_generator.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
+#include "engine/pcg/procworld/star_system_source.h"
 #include "engine/pcg/stage.h"
 
 namespace GeneratorProperties {
@@ -264,10 +272,8 @@ static void _DrawStage(ProcWorld::PlanetGenerator& planet,
     }
     // Or dropped from the asset browser
     if (ImGui::BeginDragDropTarget()) {
-      if (const ImGuiPayload* payload =
-              ImGui::AcceptDragDropPayload("OBJECT_ASSET")) {
-        planet.objects.assets.emplace_back(
-            static_cast<const char*>(payload->Data));
+      if (const ImGuiPayload* payload = AssetDrag::Accept({".object"})) {
+        planet.objects.assets.push_back(AssetDrag::Path(*payload));
         changed = true;
       }
       ImGui::EndDragDropTarget();
@@ -627,6 +633,187 @@ void DrawStage(ResourceID id, const std::string& stage) {
     _RequestRebuild(id);
 }
 
+//
+//  SPAWNER PROPERTIES
+//
+
+
+static void _DrawSource(PCG::SpawnerGenerator& spawner, bool& changed) {
+  static const char* const types[] = {"Grid", "StarSystem"};
+  static const char* const names[] = {"Grid", "Star System"};
+  int type = spawner.source->Type() == "StarSystem" ? 1 : 0;
+  if (IMComponents::Choice("Source", type, names, 2,
+                           "Where the points come from")) {
+    spawner.source = ProcWorld::CreatePointSource({{"type", types[type]}});
+    // A system's points carry a planet's inputs: bound to a planet
+    // template's settings of the same names unless set already
+    if (type == 1 && spawner.bindings.empty())
+      for (const char* input : {"seed", "biome", "subtype", "size"})
+        spawner.bindings.push_back({input, std::string("/") + input});
+    changed = true;
+  }
+  if (auto* grid = dynamic_cast<PCG::GridSource*>(spawner.source.get())) {
+    changed |= IMComponents::Row(
+        "Count",
+        [&] {
+          return ImGui::InputInt2("##count", &grid->count.x,
+                                  ImGuiInputTextFlags_EnterReturnsTrue);
+        },
+        "Points across x and z");
+    changed |= IMComponents::Drag("Spacing", grid->spacing, 1.0f, 0.0f,
+                                  100000.0f, "%.1f", "Metres between points");
+    changed |= _Seed(grid->seed);
+  } else if (auto* system = dynamic_cast<ProcWorld::StarSystemSource*>(
+                 spawner.source.get())) {
+    changed |= _Path("Content", system->content_path,
+                     "JSON system content, relative to the project");
+    Worldgen::SystemAddress& address = system->address;
+    changed |= IMComponents::Row(
+        "Region",
+        [&] {
+          return ImGui::InputInt3("##region", &address.x,
+                                  ImGuiInputTextFlags_EnterReturnsTrue);
+        },
+        "The galaxy region: x and z in -2047..2047, y in -127..127");
+    changed |= IMComponents::Row("Galaxy", [&] {
+      return ImGui::InputInt("##galaxy", &address.galaxy, 1, 1,
+                             ImGuiInputTextFlags_EnterReturnsTrue);
+    });
+    changed |= IMComponents::Row(
+        "System",
+        [&] {
+          return ImGui::InputInt("##system", &address.index, 1, 1,
+                                 ImGuiInputTextFlags_EnterReturnsTrue);
+        },
+        "The system's index in its region, from 1");
+  }
+}
+
+static void _DrawBindings(PCG::SpawnerGenerator& spawner, bool& changed) {
+  if (!IMComponents::Foldout("Bindings", true))
+    return;
+  int remove = -1;
+  for (size_t i = 0; i < spawner.bindings.size(); ++i) {
+    PCG::SpawnerGenerator::Binding& binding = spawner.bindings[i];
+    ImGui::PushID(static_cast<int>(i));
+    changed |= IMComponents::InputText("Attribute", binding.attribute, "seed",
+                                       "The point's attribute");
+    changed |= IMComponents::InputText(
+        "Setting", binding.setting, "/seed",
+        "The setting it sets, a JSON pointer into the template's settings");
+    std::string table = binding.table.is_null() ? "" : binding.table.dump();
+    if (IMComponents::InputText(
+            "Table", table, "{\"0\": \"worldgen/lush.json\"}",
+            "Optional: the setting's value for each of the attribute's "
+            "(JSON object); one it doesn't list keeps the template's")) {
+      const nlohmann::json parsed =
+          nlohmann::json::parse(table, nullptr, false);
+      if (table.empty() || parsed.is_object()) {
+        binding.table = table.empty() ? nlohmann::json() : parsed;
+        changed = true;
+      }
+    }
+    if (ImGui::SmallButton("Remove"))
+      remove = static_cast<int>(i);
+    ImGui::Separator();
+    ImGui::PopID();
+  }
+  if (remove >= 0) {
+    spawner.bindings.erase(spawner.bindings.begin() + remove);
+    changed = true;
+  }
+  if (ImGui::SmallButton("Add Binding")) {
+    spawner.bindings.emplace_back();
+    changed = true;
+  }
+}
+
+static void _DrawPoints(ResourceID id, const PCG::SpawnerGenerator& spawner) {
+  if (!IMComponents::Foldout("Points") || spawner.points.empty())
+    return;
+  // The spawner's volume: its spawned generators are its children
+  auto& ecs = ECS::Main();
+  Entity volume = entt::null;
+  for (auto [entity, component] : ecs.View<VolumeComponent>().each())
+    if (component.generator_id == id)
+      volume = entity;
+  constexpr ImGuiTableFlags flags = ImGuiTableFlags_RowBg |
+                                    ImGuiTableFlags_BordersInnerV |
+                                    ImGuiTableFlags_SizingStretchProp;
+  if (!ImGui::BeginTable("##points", 2, flags))
+    return;
+  ImGui::TableSetupColumn("Point", ImGuiTableColumnFlags_WidthFixed);
+  ImGui::TableSetupColumn("Attributes");
+  ImGui::TableHeadersRow();
+  for (const PCG::Point& point : spawner.points) {
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    // Selects what was spawned there
+    if (ImGui::Selectable(point.name.c_str()) && volume != entt::null)
+      for (const Entity child : ecs.Get<TransformComponent>(volume).children_)
+        if (ecs.Get<TransformComponent>(child).name_ == point.name)
+          Runtime::State().SelectEntity(child);
+    ImGui::TableNextColumn();
+    ImGui::TextUnformatted(point.attributes.dump().c_str());
+  }
+  ImGui::EndTable();
+}
+
+static void _DrawSpawner(ResourceID id) {
+  auto resource =
+      EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
+          id);
+  if (!resource || !resource->Get() ||
+      resource->GetGeneratorType() != PCG::GeneratorType::Spawner) {
+    IMComponents::Label("The generator no longer exists", EditorColor::text_dim);
+    return;
+  }
+  auto& spawner = static_cast<PCG::SpawnerGenerator&>(*resource->Get());
+
+  bool changed = false;
+  _DrawSource(spawner, changed);
+  static const IMComponents::AssetKind profile = {
+      "Generator", ICON_FA_DIAGRAM_PROJECT, {".generator"}};
+  changed |= IMComponents::AssetField(
+      "Template", spawner.template_profile, profile,
+      [] { return Runtime::Project().Files(profile.extensions); },
+      "The generator profile each point's generator starts from; drop a "
+      ".generator from the asset browser, or pick one");
+  changed |= _Path("Edits Folder", spawner.edits_folder,
+                   "Where each spawned generator keeps its hand edits, one "
+                   "file per point (project-relative); empty: "
+                   "edits/<this volume's name>");
+  _DrawBindings(spawner, changed);
+  // Applied to the spawned generators as they are, without a respawn
+  bool activation = IMComponents::Drag(
+      "Active Within", spawner.activation_distance, 10.0f, 0.0f, 1.0e7f,
+      "%.0f m",
+      "A spawned generator works fully (a planet streams) only with a "
+      "viewer this near its surface, else it shows a stand-in; 0: always");
+  int max_active = static_cast<int>(spawner.max_active);
+  activation |= IMComponents::Row(
+      "Max Active",
+      [&] {
+        return ImGui::InputInt("##max_active", &max_active, 1, 1,
+                               ImGuiInputTextFlags_EnterReturnsTrue);
+      },
+      "At most this many active at once, the nearest; 0: no cap");
+  spawner.max_active = static_cast<uint32_t>(std::max(max_active, 0));
+  if (activation)
+    Runtime::Project().MarkSceneDirty();
+  changed |= ImGui::Button("Regenerate");
+
+  char timing[32];
+  std::snprintf(timing, sizeof(timing), "%.1f", spawner.build_ms);
+  _Status(spawner.error, std::to_string(spawner.points.size()) + " points, " +
+                             std::to_string(spawner.spawned) + " spawned (" +
+                             timing + " ms)");
+  _DrawPoints(id, spawner);
+
+  if (changed)
+    _RequestRebuild(id);
+}
+
 void Draw(ResourceID id) {
   auto resource =
       EngineContext::resourceManager().GetResourceAs<PCG::GeneratorResource>(
@@ -649,6 +836,9 @@ void Draw(ResourceID id) {
     case PCG::GeneratorType::Planet:
       _DrawPlanet(id);
       break;
+    case PCG::GeneratorType::Spawner:
+      _DrawSpawner(id);
+      break;
     default:
       break;
   }
@@ -669,6 +859,9 @@ void Create(VolumeComponent& volume, PCG::GeneratorType type) {
       break;
     case PCG::GeneratorType::Planet:
       resource->SetGenerator(std::make_unique<ProcWorld::PlanetGenerator>());
+      break;
+    case PCG::GeneratorType::Spawner:
+      resource->SetGenerator(std::make_unique<PCG::SpawnerGenerator>());
       break;
     default:
       resource->SetGenerator(PCG::CreateGenerator(type));

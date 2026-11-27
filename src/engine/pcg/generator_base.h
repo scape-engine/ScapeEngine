@@ -18,6 +18,7 @@ enum class GeneratorType {
   Region,  // Worldgen region: terrain and objects (ProcWorld)
   Planet,  // Worldgen planet: regions around the viewer (ProcWorld)
   Craft,   // Worldgen craft: a fleet in the volume's bounds (ProcWorld)
+  Spawner,  // A generator at each point of a source (SpawnerGenerator)
 };
 
 inline const char* GetGeneratorTypeName(GeneratorType type) {
@@ -32,6 +33,8 @@ inline const char* GetGeneratorTypeName(GeneratorType type) {
       return "Planet";
     case GeneratorType::Craft:
       return "Craft";
+    case GeneratorType::Spawner:
+      return "Spawner";
     default:
       return "Unknown";
   }

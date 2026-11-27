@@ -8,7 +8,7 @@
 
 namespace EditorIcons {
 
-AssetKind GetAssetKind(const std::string& extension) {
+static const std::unordered_map<std::string, AssetKind>& _Kinds() {
   static const std::unordered_map<std::string, AssetKind> kinds = {
       {".gltf", AssetKind::Model},        {".glb", AssetKind::Model},
       {".fbx", AssetKind::Model},         {".obj", AssetKind::Model},
@@ -19,12 +19,24 @@ AssetKind GetAssetKind(const std::string& extension) {
       {".ogg", AssetKind::Audio},         {".ttf", AssetKind::Font},
       {".json", AssetKind::Data},
   };
+  return kinds;
+}
 
+AssetKind GetAssetKind(const std::string& extension) {
+  const auto& kinds = _Kinds();
   std::string key = extension;
   std::transform(key.begin(), key.end(), key.begin(),
                  [](unsigned char c) { return std::tolower(c); });
   const auto it = kinds.find(key);
   return it != kinds.end() ? it->second : AssetKind::Unknown;
+}
+
+std::vector<std::string> GetAssetExtensions(AssetKind kind) {
+  std::vector<std::string> extensions;
+  for (const auto& [extension, of] : _Kinds())
+    if (of == kind)
+      extensions.push_back(extension);
+  return extensions;
 }
 
 const char* GetAssetIcon(AssetKind kind) {

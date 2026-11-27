@@ -7,6 +7,7 @@
 #include <unordered_set>
 
 #include "engine/pcg/graph/program_graph.h"
+#include "engine/pcg/points/spawner_system.h"
 #include "engine/pcg/procmodel/procmodel.h"
 #include "engine/pcg/procworld/procworld.h"
 #include "engine/pcg/water/water_subsystem.h"
@@ -54,6 +55,7 @@ private:
   std::unordered_set<uint32_t> cancelled_;
 
   ProcModel::Subsystem procmodel_;
+  PCG::SpawnerSystem spawner_;
   ProcWorld::Subsystem procworld_;
   Water::Subsystem water_;
 

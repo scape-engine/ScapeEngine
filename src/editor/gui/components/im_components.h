@@ -6,6 +6,7 @@
 #include <functional>
 #include <glm/glm.hpp>
 #include <string>
+#include <vector>
 
 #include "editor/gui/styles/editor_styles.h"
 
@@ -68,6 +69,22 @@ bool DragRange(std::string label, float& low, float& high, float speed,
 // used; true then
 bool InputText(std::string label, std::string& value, const char* hint = "",
                const char* tooltip = "");
+// A kind of asset an AssetField takes: its name ("None (<name>)" when
+// empty), its icon before an asset's name, and its files' extensions
+struct AssetKind {
+  const char* name;
+  const char* icon;
+  std::vector<std::string> extensions;
+};
+// An asset reference, as Unity's object field: the asset's name (its path
+// on hover) and a picker listing `list()`'s paths (called when the picker
+// opens) with a search; takes a file of its kind dropped on it (AssetDrag).
+// Paths are project-relative; true once one is chosen
+// TODO: clicking it highlights the asset in the asset browser (Unity's
+// ping), and an asset shows its thumbnail, not its kind's icon
+bool AssetField(std::string label, std::string& path, const AssetKind& kind,
+                const std::function<std::vector<std::string>()>& list,
+                const char* tooltip = "");
 // Any other field (`field` draws it, full width, and says whether to act)
 bool Row(std::string label, const std::function<bool()>& field,
          const char* tooltip = "");

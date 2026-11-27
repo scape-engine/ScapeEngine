@@ -1,8 +1,10 @@
 #include "generator_settings.h"
 
+#include "engine/pcg/points/spawner_generator.h"
 #include "engine/pcg/procworld/craft_generator.h"
 #include "engine/pcg/procworld/planet_generator.h"
 #include "engine/pcg/procworld/region_generator.h"
+#include "engine/pcg/procworld/star_system_source.h"
 #include "engine/scene/glm_json.h"
 
 namespace ProcWorld {
@@ -206,6 +208,26 @@ nlohmann::json WriteSettings(const PCG::Generator& generator) {
               {"lawless", craft.lawless},
               {"legacy_colours", craft.legacy_colours}};
     }
+    case PCG::GeneratorType::Spawner: {
+      const auto& spawner =
+          static_cast<const PCG::SpawnerGenerator&>(generator);
+      nlohmann::json bindings = nlohmann::json::array();
+      for (const auto& binding : spawner.bindings) {
+        nlohmann::json out = {{"attribute", binding.attribute},
+                              {"setting", binding.setting}};
+        if (!binding.table.is_null())
+          out["table"] = binding.table;
+        bindings.push_back(std::move(out));
+      }
+      return {{"type", "Spawner"},
+              {"source", spawner.source->Write()},
+              {"template", spawner.template_profile},
+              {"bindings", std::move(bindings)},
+              {"edits_folder", spawner.edits_folder},
+              {"activation",
+               {{"distance", spawner.activation_distance},
+                {"max_active", spawner.max_active}}}};
+    }
     default:
       return nullptr;
   }
@@ -246,6 +268,35 @@ void ReadSettings(PCG::Generator& generator, const nlohmann::json& in) {
       craft->legacy_colours = in.value("legacy_colours", craft->legacy_colours);
       break;
     }
+    case PCG::GeneratorType::Spawner: {
+      auto* spawner = static_cast<PCG::SpawnerGenerator*>(&generator);
+      // Another type of source starts from its defaults
+      if (const auto source = in.find("source"); source != in.end()) {
+        if (source->value("type", std::string()) != spawner->source->Type()) {
+          if (auto made = CreatePointSource(*source))
+            spawner->source = std::move(made);
+        } else {
+          spawner->source->Read(*source);
+        }
+      }
+      spawner->template_profile =
+          in.value("template", spawner->template_profile);
+      if (const auto bindings = in.find("bindings"); bindings != in.end()) {
+        spawner->bindings.clear();
+        for (const auto& binding : *bindings)
+          spawner->bindings.push_back(
+              {binding.value("attribute", std::string()),
+               binding.value("setting", std::string()),
+               binding.value("table", nlohmann::json())});
+      }
+      spawner->edits_folder = in.value("edits_folder", spawner->edits_folder);
+      if (const auto it = in.find("activation"); it != in.end()) {
+        spawner->activation_distance =
+            it->value("distance", spawner->activation_distance);
+        spawner->max_active = it->value("max_active", spawner->max_active);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -260,10 +311,25 @@ std::unique_ptr<PCG::Generator> CreateGenerator(const nlohmann::json& in) {
     generator = std::make_unique<CraftGenerator>();
   else if (type == "Region")
     generator = std::make_unique<RegionGenerator>();
+  else if (type == "Spawner")
+    generator = std::make_unique<PCG::SpawnerGenerator>();
   else
     return nullptr;
   ReadSettings(*generator, in);
   return generator;
+}
+
+std::unique_ptr<PCG::PointSource> CreatePointSource(const nlohmann::json& in) {
+  const std::string type = in.value("type", std::string());
+  std::unique_ptr<PCG::PointSource> source;
+  if (type == "Grid")
+    source = std::make_unique<PCG::GridSource>();
+  else if (type == "StarSystem")
+    source = std::make_unique<StarSystemSource>();
+  else
+    return nullptr;
+  source->Read(in);
+  return source;
 }
 
 }  // namespace ProcWorld

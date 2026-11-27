@@ -676,15 +676,45 @@ void HierarchyPanel::RenderPopupMenu() {
     }
 
     if (PopupMenu::Menu(ICON_FA_DIAGRAM_PROJECT, "PCG")) {
-      // A PCG world and the generator it starts with
-      if (PopupMenu::Menu(ICON_FA_GLOBE, "PCG World")) {
-        for (const auto type :
-             {PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
-              PCG::GeneratorType::Region, PCG::GeneratorType::Graph}) {
+      static constexpr PCG::GeneratorType generator_types[] = {
+          PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
+          PCG::GeneratorType::Region, PCG::GeneratorType::Spawner,
+          PCG::GeneratorType::Graph};
+      // Over a PCG world (or something in one): its new generators
+      auto& ecs = ECS::Main();
+      Entity world = popup_target_;
+      while (ecs.Reg().valid(world) && !ecs.Has<PCGWorldComponent>(world))
+        world = ecs.Get<TransformComponent>(world).parent_;
+      if (ecs.Reg().valid(world)) {
+        for (const auto type : generator_types)
           if (PopupMenu::ItemLight(PCG::GetGeneratorTypeName(type)))
-            CreateEntity("PCG World", [type](Entity e) {
-              ECS::Main().Add<PCGWorldComponent>(e);
-              GeneratorProperties::AddGenerator(e, type);
+            Defer([this, world, type] {
+              const Entity generator =
+                  GeneratorProperties::AddGenerator(world, type);
+              expanded_.insert(world);
+              Select(generator, false);
+              Runtime::Project().MarkSceneDirty();
+            });
+        PopupMenu::Separator();
+      }
+      // A new PCG world and the generator it starts with, selected
+      if (PopupMenu::Menu(ICON_FA_GLOBE, "PCG World")) {
+        for (const auto type : generator_types) {
+          if (PopupMenu::ItemLight(PCG::GetGeneratorTypeName(type)))
+            Defer([this, parent = popup_target_, type] {
+              auto& ecs = ECS::Main();
+              const Entity world =
+                  ecs.Has<TransformComponent>(parent)
+                      ? std::get<0>(ecs.CreateEntity("PCG World", parent))
+                      : std::get<0>(ecs.CreateEntity("PCG World"));
+              ecs.Add<PCGWorldComponent>(world);
+              const Entity generator =
+                  GeneratorProperties::AddGenerator(world, type);
+              if (ecs.Has<TransformComponent>(parent))
+                expanded_.insert(parent);
+              expanded_.insert(world);
+              Select(generator, false);
+              Runtime::Project().MarkSceneDirty();
             });
         }
         if (PopupMenu::ItemLight("Empty"))

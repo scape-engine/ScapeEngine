@@ -73,6 +73,7 @@ add_files(
 	"pcg/procmodel/generator/operations/*.cpp",
 	"pcg/procmodel/instantiator/*.cpp",
 	"pcg/procmodel/validation/*.cpp",
+	"pcg/points/*.cpp",
 	"pcg/procworld/*.cpp",
 	"pcg/procworld/instancing/*.cpp",
 	"pcg/water/*.cpp",

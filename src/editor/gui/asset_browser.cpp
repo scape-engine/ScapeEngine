@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "editor/gui/icons/asset_icons.h"
+#include "editor/gui/utils/asset_drag.h"
 #include "editor/gui/inspectables/asset_inspectable.h"
 #include "editor/gui/modals/scene_modals.h"
 #include "editor/runtime/runtime.h"
@@ -620,50 +621,13 @@ bool AssetBrowserPanel::RenderNode(ImDrawList& draw_list, NodeRef node,
     OpenNodeInExplorer(node);
   }
 
-  if (!node->IsFolder()) {
-    auto file = std::static_pointer_cast<const ProjectObserver::File>(node);
-    const std::string extension = node->path_.extension().string();
-    const bool is_gltf = (extension == ".gltf" || extension == ".glb");
-
-    // Drag operation for glTF files
-    // TODO: refactor to handle other file types dynamically
-    if (is_gltf &&
-        ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-      // Set payload as file path
-      std::string path_str = node->path_.string();
-
-      ImGui::SetDragDropPayload("GLTF_FILE", path_str.c_str(),
-                                path_str.size() + 1);
-      Logger::getInstance().Log(LogLevel::Debug, "Drag payload = " + path_str);
-
-      // Preview content while dragging
-      ImGui::Text("Import %s", node->path_.filename().string().c_str());
-      ImGui::EndDragDropSource();
-    }
-
-    // Drag operation for textures (e.g. a sky light cubemap)
-    const bool is_texture = EditorIcons::GetAssetKind(extension) ==
-                            EditorIcons::AssetKind::Texture;
-    if (is_texture &&
-        ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-      std::string path_str = node->path_.string();
-      ImGui::SetDragDropPayload("TEXTURE_FILE", path_str.c_str(),
-                                path_str.size() + 1);
-
-      ImGui::Text("%s", node->path_.filename().string().c_str());
-      ImGui::EndDragDropSource();
-    }
-
-    // Drag operation for .object assets: onto a planet, or its Objects list
-    if (extension == ".object" &&
-        ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-      const std::string path_str = node->path_.generic_string();
-      ImGui::SetDragDropPayload("OBJECT_ASSET", path_str.c_str(),
-                                path_str.size() + 1);
-      ImGui::Text("%s", node->path_.filename().string().c_str());
-      ImGui::EndDragDropSource();
-    }
-  }
+  // Any file drags, project-relative; drop targets take the kinds they
+  // handle
+  if (!node->IsFolder())
+    AssetDrag::Source(
+        std::filesystem::relative(node->path_,
+                                  Runtime::Project().AbsolutePath(""))
+            .generic_string());
 
   return true;
 }

@@ -3,6 +3,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -14,7 +15,9 @@
 #include "editor/editor_ui.h"
 #include "editor/events.h"
 #include "editor/runtime/runtime.h"
+#include "editor/gui/icons/asset_icons.h"
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/gui/utils/asset_drag.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 
 #include "generator_properties.h"
@@ -388,10 +391,11 @@ void DrawSkylightComponent(Entity entity, SkyLightComponent& skylight) {
 
       if (ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload =
-                ImGui::AcceptDragDropPayload("TEXTURE_FILE")) {
-          std::string relative(static_cast<const char*>(payload->Data));
+                AssetDrag::Accept(EditorIcons::GetAssetExtensions(
+                    EditorIcons::AssetKind::Texture))) {
           skylight.cubemap_path_ =
-              Runtime::Project().AbsolutePath(relative).string();
+              Runtime::Project().AbsolutePath(AssetDrag::Path(*payload))
+                  .string();
           source_changed = true;
         }
         ImGui::EndDragDropTarget();
@@ -739,6 +743,37 @@ void DrawViewerComponent(Entity entity, ViewerComponent&) {
     _EcsRemove<ViewerComponent>(entity);
 }
 
+void DrawActivationComponent(Entity entity, ActivationComponent& activation) {
+  bool removed = false;
+
+  if (_BeginComponent("Activation", 0, nullptr, &removed)) {
+    // A spawned generator's are its spawner's
+    const bool generated =
+        ECS::Main().Has<ProceduralInstanceComponent>(entity);
+    ImGui::BeginDisabled(generated);
+    IMComponents::Drag("Distance", activation.distance, 10.0f, 0.0f, 1.0e7f,
+                       "%.0f m",
+                       "It works fully (a generator streams) only with a "
+                       "viewer this near its extent; 0: always");
+    int max_active = static_cast<int>(activation.max_active);
+    if (IMComponents::Row(
+            "Max Active",
+            [&] { return ImGui::InputInt("##max_active", &max_active); },
+            "At most this many of its parent's children are active at "
+            "once, the nearest; 0: no cap"))
+      activation.max_active = static_cast<uint32_t>(std::max(max_active, 0));
+    ImGui::EndDisabled();
+    char extent[32];
+    std::snprintf(extent, sizeof(extent), "%.0f m", activation.extent);
+    const std::string state = activation.active_ ? "Active" : "Inactive";
+    IMComponents::Label(state + ", extent " + extent, EditorColor::text_dim);
+    _EndComponent();
+  }
+
+  if (removed)
+    _EcsRemove<ActivationComponent>(entity);
+}
+
 void DrawFadeComponent(Entity entity, FadeComponent& fade) {
   // A generated entity's fades are its generator's paging and its stage's
   // on/off
@@ -791,14 +826,22 @@ void DrawPCGWorldComponent(Entity entity, PCGWorldComponent&) {
     _Headline("Add Generator");
     for (const auto type :
          {PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
-            PCG::GeneratorType::Region, PCG::GeneratorType::Graph}) {
-      if (ImGui::Button(PCG::GetGeneratorTypeName(type))) {
+            PCG::GeneratorType::Region, PCG::GeneratorType::Spawner,
+            PCG::GeneratorType::Graph}) {
+      // On the row while it fits, else on the next
+      const char* name = PCG::GetGeneratorTypeName(type);
+      const ImGuiStyle& style = ImGui::GetStyle();
+      const float width =
+          ImGui::CalcTextSize(name).x + style.FramePadding.x * 2.0f;
+      if (type != PCG::GeneratorType::Planet &&
+          ImGui::GetItemRectMax().x + style.ItemSpacing.x + width <=
+              ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x)
+        ImGui::SameLine();
+      if (ImGui::Button(name)) {
         GeneratorProperties::AddGenerator(entity, type);
         Runtime::Project().MarkSceneDirty();
       }
-      ImGui::SameLine();
     }
-    ImGui::NewLine();
     _EndComponent();
   }
 
@@ -847,7 +890,8 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume) {
       ImGui::TextDisabled("No generator selected");
       for (const auto type :
            {PCG::GeneratorType::Planet, PCG::GeneratorType::Craft,
-            PCG::GeneratorType::Region, PCG::GeneratorType::Graph}) {
+            PCG::GeneratorType::Region, PCG::GeneratorType::Spawner,
+            PCG::GeneratorType::Graph}) {
         if (ImGui::Button(PCG::GetGeneratorTypeName(type)))
           GeneratorProperties::Create(volume, type);
         ImGui::SameLine();

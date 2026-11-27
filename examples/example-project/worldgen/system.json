@@ -1,0 +1,92 @@
+{
+  "galaxy": {
+    "half_width": 2048,
+    "half_height": 128
+  },
+  "stars": {
+    "coloured_chance": 30,
+    "coloured_types": 3,
+    "max_planets": 5,
+    "races": 4,
+    "trading_levels": 3,
+    "conflict_levels": 3,
+    "abandoned": [
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "empty": [
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "pirate": [
+      0.1,
+      0.1,
+      0.1,
+      0.1,
+      0.1
+    ],
+    "special_type": 4,
+    "planet_sizes": 3,
+    "moon_size": 3,
+    "giant_size": 2
+  },
+  "orbits": {
+    "radius": [
+      100,
+      200,
+      400,
+      30
+    ],
+    "moon_size": 3,
+    "max_distance": 200000,
+    "height": 20000,
+    "first_orbit": 20,
+    "angle_step_min": 0.5,
+    "angle_step_max": 1.0,
+    "gap": 5
+  },
+  "biomes": [
+    {
+      "weights": [
+        1,
+        1
+      ],
+      "prime_weights": [
+        1,
+        1
+      ],
+      "start_biomes": [
+        0
+      ],
+      "giant_size": -1,
+      "moon_size": -1,
+      "prime_skip_range": 1,
+      "subtypes": [
+        {
+          "subtypes": [
+            0
+          ],
+          "weights": [
+            1
+          ]
+        },
+        {
+          "subtypes": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

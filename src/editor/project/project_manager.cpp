@@ -1,6 +1,8 @@
 #include "project_manager.h"
 
 #include <nlohmann/json.hpp>
+#include <algorithm>
+#include <cctype>
 #include <sstream>
 
 #include "editor/events.h"
@@ -104,6 +106,30 @@ std::filesystem::path ProjectManager::AbsolutePath(
 std::filesystem::path ProjectManager::RelativePath(
     const std::filesystem::path& path) const {
   return path.is_absolute() ? path.lexically_relative(project_.path_) : path;
+}
+
+std::vector<std::string> ProjectManager::Files(
+    const std::vector<std::string>& extensions) const {
+  const auto lower = [](std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return text;
+  };
+  std::vector<std::string> found;
+  std::error_code error;
+  for (const auto& entry :
+       std::filesystem::recursive_directory_iterator(project_.path_, error)) {
+    const std::string extension = lower(entry.path().extension().string());
+    for (const std::string& wanted : extensions)
+      if (lower(wanted) == extension) {
+        found.push_back(entry.path()
+                            .lexically_relative(project_.path_)
+                            .generic_string());
+        break;
+      }
+  }
+  std::sort(found.begin(), found.end());
+  return found;
 }
 
 bool ProjectManager::EnsureConfig() {

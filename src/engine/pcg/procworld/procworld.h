@@ -183,6 +183,11 @@ private:
     uint64_t picked_warning = UINT64_MAX;
     int picked_kind = -1;
     float picked_intensity = 0.0f;
+    // Whether it streams (its ActivationComponent's, true without one);
+    // inactive, it keeps its content and shows a stand-in sphere
+    bool active = true;
+    Entity proxy = entt::null;
+    MaterialHandle proxy_material = INVALID_MATERIAL;
   };
 
   // A craft volume's fleet: picked on a worker, then made a few craft per
@@ -210,6 +215,9 @@ private:
               bool reload, std::shared_ptr<const PCG::EditLayer> edits);
   // The weather event at `now` (seconds on the world clock)
   void Weather(PlanetGenerator& generator, PlanetState& state, double now);
+  // An inactive planet's stand-in: a sphere of its radius in its tile
+  // colours
+  void Proxy(Entity volume, PlanetState& state);
   // The water's state at `now`, blending into a new one; the sea's waves
   // move towards it
   void Water(PlanetGenerator& generator, const PlanetState& state, double now);

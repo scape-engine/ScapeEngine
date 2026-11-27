@@ -511,6 +511,8 @@ void TestShapes();
 void TestSceneSerializer();
 void TestGeneratorProfile();
 void TestEditLayer();
+void TestSpawner();
+void TestActivation();
 void TestTerrainTiles();
 void TestModelGenerator();
 void TestModelOperations();
@@ -531,6 +533,8 @@ int main(int argc, char** argv) {
   Tests::TestSceneSerializer();
   Tests::TestGeneratorProfile();
   Tests::TestEditLayer();
+  Tests::TestSpawner();
+  Tests::TestActivation();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
   Tests::TestModelOperations();

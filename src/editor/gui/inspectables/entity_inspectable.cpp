@@ -129,7 +129,11 @@ void EntityInspectable::RenderDynamicContent(ImDrawList& draw_list) {
   for (const auto& key : keys_ordered) {
     auto it = registry.find(key);
     if (it != registry.end()) {
-      const bool locked = generated && key == "Transform";
+      // A spawned generator's settings are its template's and its point's
+      // TODO: per-point overrides on a spawned generator's settings, kept
+      // with its spawner (the Edits foldout is locked with them for now)
+      const bool locked =
+          generated && (key == "Transform" || key == "Volume");
       ImGui::BeginDisabled(locked);
       it->second.try_draw_inspectable(item.entity.Handle());
       ImGui::EndDisabled();

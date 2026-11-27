@@ -160,6 +160,10 @@ void Create() {
       "Viewer", InspectableComponents::DrawViewerComponent, std::nullopt,
       false);
 
+  RegisterComponent<ActivationComponent>(
+      "Activation", InspectableComponents::DrawActivationComponent,
+      std::nullopt, false);
+
   RegisterComponent<ProceduralInstanceComponent>(
       "Generated", InspectableComponents::DrawProceduralInstanceComponent,
       std::nullopt, false);

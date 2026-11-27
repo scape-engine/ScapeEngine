@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 #include "project_assets.h"
 #include "project_observer.h"
 
@@ -40,6 +41,10 @@ public:
   std::filesystem::path AbsolutePath(const std::filesystem::path& path);
   // Path relative to the project root (relative paths are returned as is)
   std::filesystem::path RelativePath(const std::filesystem::path& path) const;
+  // The project's files with one of the extensions (".glb"; any case),
+  // project-relative and sorted; reads the disk, so not every frame
+  std::vector<std::string> Files(
+      const std::vector<std::string>& extensions) const;
 
   const Project::Config& Config() const { return project_.config; }
 

@@ -5,6 +5,7 @@
 #include "engine/ecs/components/mesh_renderer_component.h"
 #include "engine/ecs/components/volume_component.h"
 #include "engine/ecs/world.h"
+#include "engine/paging/activation.h"
 
 #include "generator_resource.h"
 
@@ -23,7 +24,10 @@ void PCGEngine::ProcessQueued() {
   auto& ecs = ECS::Main();  // should not be called directly (tight coupling)
   auto& resource_mgr = EngineContext::resourceManager();
 
-  // Region volumes
+  // Which volumes do their full work this frame
+  Activation::Update(ecs);
+  // Spawners' volumes, then the region volumes, some spawned by them
+  spawner_.Update();
   procworld_.Update();
   // Water surfaces, some made by the planets above
   water_.Update(ecs);
@@ -62,6 +66,7 @@ void PCGEngine::ProcessQueued() {
 }
 
 PCGEngine::~PCGEngine() {
+  spawner_.Shutdown();
   procworld_.Shutdown();
   water_.Shutdown();
   procmodel_.Shutdown();

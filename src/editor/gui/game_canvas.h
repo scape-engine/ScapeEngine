@@ -11,6 +11,7 @@
 #include "editor/gui/components/inspectable_components.h"
 #include "editor/gui/components/instance_edits.h"
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/gui/utils/asset_drag.h"
 #include "editor/gui/viewport/action_overlay.h"
 #include "editor/gui/viewport/axis_gizmo.h"
 #include "editor/gui/viewport/camera_menu.h"
@@ -326,10 +327,9 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
         // An .object asset stands on a planet where it's dropped: a marker
         // shows where, on the planet's surface under the cursor
         // TODO: show the object itself while it is dragged
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(
-                "OBJECT_ASSET",
-                ImGuiDragDropFlags_AcceptBeforeDelivery |
-                    ImGuiDragDropFlags_AcceptNoDrawDefaultRect)) {
+        if (const ImGuiPayload* payload = AssetDrag::Accept(
+                {".object"}, ImGuiDragDropFlags_AcceptBeforeDelivery |
+                                 ImGuiDragDropFlags_AcceptNoDrawDefaultRect)) {
           if (!drop_pending || !drop_picking) {
             const ImVec2 at = ImGui::GetMousePos() - pos;
             drop_picking = drop_pending = true;
@@ -359,7 +359,7 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
             draw->AddCircleFilled(base, 4.0f, EditorColor::accent);
           }
           if (payload->IsDelivery()) {
-            const std::string object(static_cast<const char*>(payload->Data));
+            const std::string object = AssetDrag::Path(*payload);
             if (volume == entt::null ||
                 !InstanceEdits::Place(volume, object, drop_hit->position))
               Logger::getInstance().Log(
@@ -369,29 +369,15 @@ inline void GameCanvas(bool isGameRunning, bool& hovered, bool& focused,
           }
         }
 
-        const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GLTF_FILE");
-        if (payload) {
-          // Get file path from payload
-          std::string rel(static_cast<const char*>(payload->Data));
-
-          // Convert to absolute path
-          std::filesystem::path abs_path = Runtime::Project().AbsolutePath(rel);
-
-          // Check extension before importing
-          if (!FileSystem::HasExtension(abs_path, ".gltf") &&
-              !FileSystem::HasExtension(abs_path, ".glb")) {
-            Logger::getInstance().Log(
-                LogLevel::Warning,
-                "Dropped file is not a glTF model: " + abs_path.string());
-          } else {
-            Logger::getInstance().Log(
-                LogLevel::Info, "Importing glTF model: " + abs_path.string());
-
-            const Entity entity = ModelEntityFactory::InstanceModel(
-                ECS::Main(), rel, Runtime::Project().GetProject().path_);
-            if (entity != entt::null)
-              Runtime::Project().MarkSceneDirty();
-          }
+        if (const ImGuiPayload* payload =
+                AssetDrag::Accept({".gltf", ".glb"})) {
+          const std::string model = AssetDrag::Path(*payload);
+          Logger::getInstance().Log(LogLevel::Info,
+                                    "Importing glTF model: " + model);
+          const Entity entity = ModelEntityFactory::InstanceModel(
+              ECS::Main(), model, Runtime::Project().GetProject().path_);
+          if (entity != entt::null)
+            Runtime::Project().MarkSceneDirty();
         }
         ImGui::EndDragDropTarget();
       }

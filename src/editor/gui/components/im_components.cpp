@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -16,6 +17,7 @@
 
 #include "editor/editor_ui.h"
 #include "editor/gui/styles/editor_styles.h"
+#include "editor/gui/utils/asset_drag.h"
 #include "editor/gui/utils/gui_utils.h"
 #include "editor/vendor/IconFontCppHeaders/IconsFontAwesome6.h"
 #include "engine/renderer/icons/icon_loader.h"
@@ -474,6 +476,112 @@ bool DragRange(std::string label, float& low, float& high, float speed,
 bool Row(std::string label, const std::function<bool()>& field,
          const char* tooltip) {
   return _Row(std::move(label), field, tooltip);
+}
+
+bool AssetField(std::string label, std::string& path, const AssetKind& kind,
+                const std::function<std::vector<std::string>()>& list,
+                const char* tooltip) {
+  return _Row(std::move(label), [&] {
+    bool changed = false;
+    const float height = ImGui::GetFrameHeight();
+    const float width = std::max(ImGui::GetContentRegionAvail().x, height);
+    const ImVec2 min = ImGui::GetCursorScreenPos();
+    const ImVec2 max(min.x + width, min.y + height);
+    // The picker: a square segment at the field's right end
+    const ImVec2 picker_min(max.x - height, min.y);
+
+    // The whole field is one item; a click anywhere opens the picker
+    bool open = ImGui::InvisibleButton("##asset", ImVec2(width, height));
+    const bool hovered = ImGui::IsItemHovered();
+    const bool picker_hovered =
+        hovered && ImGui::IsMouseHoveringRect(picker_min, max);
+    bool dropping = false;
+    if (ImGui::BeginDragDropTarget()) {
+      dropping = AssetDrag::Peek(kind.extensions) != nullptr;
+      if (const ImGuiPayload* dropped = AssetDrag::Accept(kind.extensions)) {
+        path = AssetDrag::Path(*dropped);
+        changed = true;
+      }
+      ImGui::EndDragDropTarget();
+    }
+    const bool picking = ImGui::IsPopupOpen("##assets");
+
+    ImDrawList& draw_list = *ImGui::GetWindowDrawList();
+    const float rounding = EditorSizes::control_radius;
+    draw_list.AddRectFilled(min, max, EditorColor::surface_1, rounding);
+    draw_list.AddRectFilled(
+        picker_min, max,
+        picker_hovered ? EditorColor::surface_5 : EditorColor::surface_3,
+        rounding, ImDrawFlags_RoundCornersRight);
+    draw_list.AddRect(min, max,
+                      dropping || picking ? EditorColor::accent_border
+                      : hovered           ? EditorColor::line_dim
+                                          : EditorColor::line_strong,
+                      rounding);
+
+    // "None (<kind>)", or the kind's icon and the asset's name
+    const ImVec2 padding = ImGui::GetStyle().FramePadding;
+    ImVec2 at(min.x + padding.x, min.y + padding.y);
+    ImGui::PushClipRect(min, ImVec2(picker_min.x - padding.x, max.y), true);
+    if (path.empty()) {
+      const std::string none = std::string("None (") + kind.name + ")";
+      draw_list.AddText(at, EditorColor::text_dim, none.c_str());
+    } else {
+      if (kind.icon && kind.icon[0] != '\0') {
+        draw_list.AddText(at, EditorColor::accent_border, kind.icon);
+        at.x += ImGui::CalcTextSize(kind.icon).x + padding.x;
+      }
+      draw_list.AddText(at, EditorColor::text,
+                        std::filesystem::path(path).stem().string().c_str());
+    }
+    ImGui::PopClipRect();
+    const ImVec2 dot = ImGui::CalcTextSize(ICON_FA_CIRCLE_DOT);
+    draw_list.AddText(ImVec2(picker_min.x + (height - dot.x) * 0.5f,
+                             min.y + (height - dot.y) * 0.5f),
+                      EditorColor::text, ICON_FA_CIRCLE_DOT);
+    if (hovered && !picker_hovered && !path.empty())
+      ImGui::SetTooltip("%s", path.c_str());
+
+    // Listed when it opens, not every frame
+    static std::vector<std::string> found;
+    static std::array<char, 128> search;
+    if (open) {
+      found = list();
+      search.fill('\0');
+      ImGui::OpenPopup("##assets");
+    }
+    ImGui::SetNextWindowPos(ImVec2(min.x, max.y + 2.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(width, 0.0f),
+                                        ImVec2(FLT_MAX, 300.0f));
+    if (ImGui::BeginPopup("##assets")) {
+      if (ImGui::IsWindowAppearing())
+        ImGui::SetKeyboardFocusHere();
+      ImGui::SetNextItemWidth(-1.0f);
+      ImGui::InputTextWithHint("##search", "Search", search.data(),
+                               search.size());
+      std::string needle = search.data();
+      std::transform(needle.begin(), needle.end(), needle.begin(), ::tolower);
+      if (ImGui::Selectable((std::string("None (") + kind.name + ")").c_str(),
+                            path.empty())) {
+        changed = !path.empty();
+        path.clear();
+      }
+      for (const std::string& entry : found) {
+        std::string lower = entry;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        if (!needle.empty() && lower.find(needle) == std::string::npos)
+          continue;
+        if (ImGui::Selectable(entry.c_str(), entry == path)) {
+          changed = entry != path;
+          path = entry;
+        }
+      }
+      if (found.empty())
+        ImGui::TextDisabled("None in the project");
+      ImGui::EndPopup();
+    }
+    return changed;
+  }, tooltip);
 }
 
 bool InputText(std::string label, std::string& value, const char* hint,

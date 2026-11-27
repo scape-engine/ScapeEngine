@@ -24,6 +24,7 @@ void DrawVolumeComponent(Entity entity, VolumeComponent& volume);
 void DrawAnimatorComponent(Entity entity, AnimatorComponent& animator);
 void DrawFadeComponent(Entity entity, FadeComponent& fade);
 void DrawViewerComponent(Entity entity, ViewerComponent& viewer);
+void DrawActivationComponent(Entity entity, ActivationComponent& activation);
 void DrawProceduralInstanceComponent(Entity entity,
                                      ProceduralInstanceComponent& instance);
 

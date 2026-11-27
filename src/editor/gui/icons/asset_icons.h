@@ -3,6 +3,7 @@
 
 #include <imgui.h>
 #include <string>
+#include <vector>
 
 namespace EditorIcons {
 
@@ -10,6 +11,8 @@ namespace EditorIcons {
 enum class AssetKind { Unknown, Model, Texture, Material, Audio, Font, Data };
 
 AssetKind GetAssetKind(const std::string& extension);
+// The extensions of a kind (".png", ...)
+std::vector<std::string> GetAssetExtensions(AssetKind kind);
 
 // Presentation of each kind: font icon (rows, fields) and accent color (cards)
 const char* GetAssetIcon(AssetKind kind);
