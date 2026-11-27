@@ -18,6 +18,9 @@ using HeightSampleFn = std::function<HeightSample(float x, float y)>;
 
 struct MesherParams {
   uint16_t size = 256;
+  // Where sample (0, 0) sits on the xz plane, and how far apart samples are
+  glm::vec2 origin{0.0f};
+  glm::vec2 spacing{1.0f};
   bool with_normals = true;
   bool with_colors = true;
   bool with_uvs = true;

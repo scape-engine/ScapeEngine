@@ -10,6 +10,7 @@ HeightmapMesher::HeightmapMesher(HeightSampleFn sample_fn,
 
 MeshData HeightmapMesher::Generate() const {
   MeshData mesh;
+  mesh.material_index = 0;
 
   const uint16_t size = params_.size;
   const size_t vcount = static_cast<size_t>(size) * size;
@@ -26,8 +27,9 @@ MeshData HeightmapMesher::Generate() const {
     for (uint16_t x = 0; x < size; ++x) {
       HeightSample s = sample_fn_(static_cast<float>(x), static_cast<float>(y));
       size_t idx = y * size + x;
-      positions_temp[idx] =
-          glm::vec3(static_cast<float>(x), s.height, static_cast<float>(y));
+      const glm::vec2 at =
+          params_.origin + glm::vec2(x, y) * params_.spacing;
+      positions_temp[idx] = glm::vec3(at.x, s.height, at.y);
 
       if (params_.with_uvs) {
         uvs_temp[idx] = glm::vec2(x / static_cast<float>(size - 1), s.slope);

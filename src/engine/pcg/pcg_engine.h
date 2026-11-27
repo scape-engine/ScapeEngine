@@ -6,6 +6,7 @@
 #include <queue>
 #include <unordered_set>
 
+#include "engine/pcg/graph/graph_volumes.h"
 #include "engine/pcg/graph/program_graph.h"
 #include "engine/pcg/points/spawner_system.h"
 #include "engine/pcg/procmodel/procmodel.h"
@@ -58,6 +59,7 @@ private:
   PCG::SpawnerSystem spawner_;
   ProcWorld::Subsystem procworld_;
   Water::Subsystem water_;
+  PCG::GraphVolumes graph_volumes_;
 
   // TODO:
   // ProcTerrain::Subsystem terrain_;

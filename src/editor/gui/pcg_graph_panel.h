@@ -15,8 +15,6 @@
 // nodes, Save writes the asset and reloads the generators using it. Opened
 // from a Graph generator's Inspector or the asset browser
 // (EditorEvents::open_pcg_graph), in the bottom panels while one is open
-// TODO: a Graph volume makes nothing yet: it should evaluate its graph into
-// a heightfield mesh (PCGEngine::Update)
 // TODO: node previews showing the graph's output, once it makes some
 // TODO: a details panel (Unreal's) for the selected node; search in the
 // add-node menu; undo

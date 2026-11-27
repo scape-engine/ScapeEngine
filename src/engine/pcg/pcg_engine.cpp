@@ -29,6 +29,8 @@ void PCGEngine::ProcessQueued() {
   // Spawners' volumes, then the region volumes, some spawned by them
   spawner_.Update();
   procworld_.Update();
+  // Graph generators' terrain
+  graph_volumes_.Update(ecs);
   // Water surfaces, some made by the planets above
   water_.Update(ecs);
 
@@ -67,6 +69,7 @@ void PCGEngine::ProcessQueued() {
 
 PCGEngine::~PCGEngine() {
   spawner_.Shutdown();
+  graph_volumes_.Shutdown();
   procworld_.Shutdown();
   water_.Shutdown();
   procmodel_.Shutdown();

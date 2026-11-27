@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "engine/pcg/graph/generator_graph.h"
+#include "engine/pcg/graph/graph_volumes.h"
 #include "engine/pcg/graph/graph_serializer.h"
 #include "engine/pcg/graph/node_types.h"
 #include "engine/pcg/procworld/generator_settings.h"
@@ -162,6 +163,33 @@ void TestGraphNodes() {
     graph.Connect({divide.id, 0}, {out.id, 0});
     assert(_Height(graph, {0.0f, 0.0f}) == 0.0f);
     assert(_Height(graph, {4.0f, 0.0f}) == 0.25f);
+  }
+  {
+    // A graph volume's terrain: the height x + 2y over its bounds, up y
+    PCG::GeneratorGraph generator;
+    PCG::ProgramGraph& graph = *generator.GetGraph();
+    auto& x = _Add(graph, ID::InputX);
+    auto& y = _Add(graph, ID::InputY);
+    auto& twice = _Add(graph, ID::Multiply);
+    auto& plus = _Add(graph, ID::Add);
+    auto& out = _Add(graph, ID::OutputHeight);
+    twice.default_inputs[1] = 2.0f;
+    graph.Connect({y.id, 0}, {twice.id, 0});
+    graph.Connect({x.id, 0}, {plus.id, 0});
+    graph.Connect({twice.id, 0}, {plus.id, 1});
+    graph.Connect({plus.id, 0}, {out.id, 0});
+    assert(generator.Compile().success);
+    const Geometry::MeshData mesh = PCG::GraphVolumes::Heightfield(
+        generator, {0.0f, 10.0f}, {4.0f, 14.0f}, 5);
+    assert(mesh.vertices.size() == 25 && mesh.indices.size() == 16 * 6);
+    assert(mesh.vertices[6].position == glm::vec3(1.0f, 23.0f, 11.0f));
+    assert(mesh.vertices.back().position == glm::vec3(4.0f, 32.0f, 14.0f));
+    for (const auto& vertex : mesh.vertices)
+      assert(vertex.normal.y > 0.0f);
+    // Nothing from a graph that doesn't compile
+    PCG::GeneratorGraph empty;
+    assert(PCG::GraphVolumes::Heightfield(empty, {}, {1.0f, 1.0f}, 4)
+               .vertices.empty());
   }
 
   std::cout << "Graph node tests passed\n";

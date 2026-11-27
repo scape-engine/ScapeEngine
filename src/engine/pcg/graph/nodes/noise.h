@@ -1,6 +1,7 @@
 #include "../node_types.h"
 
 #include <FastNoise/FastNoise.h>
+#include <string>
 
 #include "../../operators/fbm.h"
 #include "engine/math/noise/OpenSimplex2S.hpp"
@@ -40,7 +41,9 @@ inline void RegisterNoiseNodes(std::span<NodeType> types) {
       };
       const Params& p = ctx.GetParams<Params>();
 
-      auto* simplex = ctx.GetOrCreateResource<OpenSimplex2S>("simplex", p.seed);
+      // One per seed: nodes and graphs on a thread share the cache
+      auto* simplex = ctx.GetOrCreateResource<OpenSimplex2S>(
+          "simplex" + std::to_string(p.seed), p.seed);
 
       float x = ctx.GetInput(0) * p.frequency;
       float y = ctx.GetInput(1) * p.frequency;
@@ -158,7 +161,8 @@ inline void RegisterNoiseNodes(std::span<NodeType> types) {
       };
       const Params& p = ctx.GetParams<Params>();
 
-      auto* uber = ctx.GetOrCreateResource<UberFBM>("uber_fbm", p.seed);
+      auto* uber = ctx.GetOrCreateResource<UberFBM>(
+          "uber_fbm" + std::to_string(p.seed), p.seed);
 
       UberFBMParams params;
       params.octaves = p.octaves;
