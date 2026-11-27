@@ -15,9 +15,6 @@
 // nodes, Save writes the asset and reloads the generators using it. Opened
 // from a Graph generator's Inspector or the asset browser
 // (EditorEvents::open_pcg_graph), in the bottom panels while one is open
-// TODO: the engine's node library holds only noise nodes (graph/nodes: the
-// input, output and math files are empty, unregistered), so no graph
-// compiles yet: "Graph has no output nodes"
 // TODO: a Graph volume makes nothing yet: it should evaluate its graph into
 // a heightfield mesh (PCGEngine::Update)
 // TODO: node previews showing the graph's output, once it makes some

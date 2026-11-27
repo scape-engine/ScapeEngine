@@ -2,6 +2,7 @@
 
 #include "nodes/curves.h"
 #include "nodes/inputs.h"
+#include "nodes/math_funcs.h"
 #include "nodes/math_ops.h"
 #include "nodes/noise.h"
 #include "nodes/outputs.h"
@@ -126,9 +127,10 @@ void NodeTypeDB::RegisterAllNodes() {
 
   std::span<NodeType> types(_types);
 
-  // RegisterInputNodes();
-  // RegisterOutputNodes();
-  // RegisterMathOpsNodes();
+  RegisterInputNodes(types);
+  RegisterOutputNodes(types);
+  RegisterMathOpsNodes(types);
+  RegisterMathFuncsNodes(types);
   RegisterNoiseNodes(types);
   // RegisterSdfNodes();
 }

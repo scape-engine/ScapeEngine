@@ -170,6 +170,7 @@ CompilationResult GraphRuntime::Compile(const ProgramGraph& graph) {
         } else {
           addr = mem.AddBinding();
           input_type_to_address[node.type_id] = addr;
+          program_.inputs.push_back({addr, node.type_id});
         }
       }
 
@@ -187,6 +188,7 @@ CompilationResult GraphRuntime::Compile(const ProgramGraph& graph) {
     program_.operations.push_back(static_cast<uint16_t>(node.type_id));
 
     // Encode input addresses
+    const size_t inputs_at = program_.operations.size();
     for (size_t i = 0; i < node.inputs.size(); ++i) {
       const ProgramGraph::Port& input = node.inputs[i];
       uint16_t addr;
@@ -215,6 +217,7 @@ CompilationResult GraphRuntime::Compile(const ProgramGraph& graph) {
     }
 
     // Compile params into operations array
+    const size_t params_at = program_.operations.size();
     if (type.compile_func != nullptr) {
       CompileContext ctx(program_.operations, program_.heap_resources,
                          node.params);
@@ -224,27 +227,23 @@ CompilationResult GraphRuntime::Compile(const ProgramGraph& graph) {
         return CompilationResult::MakeError(ctx.GetErrorMessage().c_str(),
                                             node.id);
       }
-    } else {
-      // ! No compile func - add placeholder for params size (0)
-      program_.operations.push_back(0);
+    }
+    if (program_.operations.size() == params_at) {
+      program_.operations.push_back(0);  // no params
     }
 
     // Track output nodes
     if (type.category == Category::OUTPUT) {
-      assert(program_.outputs_count < MAX_OUTPUTS);
+      if (program_.outputs_count == MAX_OUTPUTS) {
+        return CompilationResult::MakeError("Too many output nodes", node.id);
+      }
 
       OutputInfo& out_info = program_.outputs[program_.outputs_count];
       out_info.node_id = node_id;
 
-      // Output reads from its first input
-      if (!node.inputs.empty() && !node.inputs[0].connections.empty()) {
-        const ProgramGraph::PortLocation& src = node.inputs[0].connections[0];
-        uint64_t key = MakePortKey(src.node_id, src.port_index);
-        auto it = port_to_address.find(key);
-        if (it != port_to_address.end()) {
-          out_info.buffer_address = it->second;
-        }
-      }
+      // Output reads its first input: linked, or its default value
+      assert(!node.inputs.empty());
+      out_info.buffer_address = program_.operations[inputs_at];
       program_.outputs_count++;
     }
   }
@@ -309,15 +308,12 @@ void GraphRuntime::GenerateSingle(State& state, glm::vec2 position,
                                   Sample& out_sample) const {
   const NodeTypeDB& type_db = NodeTypeDB::Instance();
 
-  // Set input bindings (X, Y positions)
-  int binding_index = 0;
-  for (size_t i = 0; i < program_.buffer_specs.size(); ++i) {
-    const BufferSpec& spec = program_.buffer_specs[i];
-    if (spec.is_binding) {
-      state.buffers_[spec.address].data[0] =
-          (binding_index == 0) ? position.x : position.y;
-      binding_index++;
-    }
+  // Set input bindings by what they hold
+  for (const InputInfo& input : program_.inputs) {
+    state.buffers_[input.buffer_address].data[0] =
+        input.type_id == static_cast<uint32_t>(NodeTypeID::InputY)
+            ? position.y
+            : position.x;
   }
 
   // Execute operations using the execution map

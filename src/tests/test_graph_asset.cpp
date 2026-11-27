@@ -2,6 +2,7 @@
 #undef NDEBUG
 #include <cassert>
 
+#include <cmath>
 #include <filesystem>
 #include <iostream>
 
@@ -81,6 +82,89 @@ void TestGraphAsset() {
   std::filesystem::remove(file);
 
   std::cout << "Graph asset tests passed\n";
+}
+
+// The height a graph makes at `at`, or NaN if it doesn't compile
+static float _Height(const PCG::ProgramGraph& graph, glm::vec2 at) {
+  PCG::GraphRuntime runtime;
+  if (!runtime.Compile(graph).success)
+    return std::nanf("");
+  PCG::GraphRuntime::State state;
+  runtime.PrepareState(state, 1);
+  PCG::Sample sample;
+  runtime.GenerateSingle(state, at, sample);
+  return sample.height;
+}
+
+// The input, output and math nodes compile and run, folded or not
+void TestGraphNodes() {
+  using ID = PCG::NodeTypeID;
+  {
+    // y * 2 + x, Y reached first: inputs bind by type, not by order
+    PCG::ProgramGraph graph;
+    auto& y = _Add(graph, ID::InputY);
+    auto& x = _Add(graph, ID::InputX);
+    auto& times = _Add(graph, ID::Multiply);
+    auto& plus = _Add(graph, ID::Add);
+    auto& out = _Add(graph, ID::OutputHeight);
+    times.default_inputs[1] = 2.0f;
+    graph.Connect({y.id, 0}, {times.id, 0});
+    graph.Connect({times.id, 0}, {plus.id, 0});
+    graph.Connect({x.id, 0}, {plus.id, 1});
+    graph.Connect({plus.id, 0}, {out.id, 0});
+    assert(_Height(graph, {3.0f, 4.0f}) == 11.0f);
+  }
+  {
+    // Params read back whatever padding they took: (x - 1)^3 remapped
+    PCG::ProgramGraph graph;
+    auto& x = _Add(graph, ID::InputX);
+    auto& minus = _Add(graph, ID::Subtract);
+    auto& cube = _Add(graph, ID::PowerInt);
+    auto& remap = _Add(graph, ID::Remap);
+    auto& out = _Add(graph, ID::OutputHeight);
+    minus.default_inputs[1] = 1.0f;
+    cube.params[0] = 3;
+    remap.params = {0.0f, 8.0f, 0.0f, 1.0f};
+    graph.Connect({x.id, 0}, {minus.id, 0});
+    graph.Connect({minus.id, 0}, {cube.id, 0});
+    graph.Connect({cube.id, 0}, {remap.id, 0});
+    graph.Connect({remap.id, 0}, {out.id, 0});
+    assert(_Height(graph, {3.0f, 0.0f}) == 1.0f);
+    // An unlinked chain folds to a constant at compile time
+    graph.Disconnect({x.id, 0}, {minus.id, 0});
+    minus.default_inputs[0] = 2.0f;
+    assert(_Height(graph, {9.0f, 0.0f}) == 0.125f);
+    // A param a node rejects is the compile error, on that node
+    remap.params[1] = 0.0f;
+    PCG::GraphRuntime runtime;
+    const PCG::CompilationResult result = runtime.Compile(graph);
+    assert(!result.success && result.node_id == static_cast<int>(remap.id));
+  }
+  {
+    // An unlinked output is its default; noise with unlinked inputs folds
+    PCG::ProgramGraph graph;
+    auto& out = _Add(graph, ID::OutputHeight);
+    out.default_inputs[0] = 7.0f;
+    assert(_Height(graph, {}) == 7.0f);
+    auto& noise = _Add(graph, ID::FN2_Simplex2D);
+    graph.Connect({noise.id, 0}, {out.id, 0});
+    const float folded = _Height(graph, {});
+    assert(!std::isnan(folded) && folded == _Height(graph, {5.0f, 5.0f}));
+  }
+  {
+    // No NaN from a zero divisor
+    PCG::ProgramGraph graph;
+    auto& x = _Add(graph, ID::InputX);
+    auto& divide = _Add(graph, ID::Divide);
+    auto& out = _Add(graph, ID::OutputHeight);
+    divide.default_inputs[0] = 1.0f;
+    graph.Connect({x.id, 0}, {divide.id, 1});
+    graph.Connect({divide.id, 0}, {out.id, 0});
+    assert(_Height(graph, {0.0f, 0.0f}) == 0.0f);
+    assert(_Height(graph, {4.0f, 0.0f}) == 0.25f);
+  }
+
+  std::cout << "Graph node tests passed\n";
 }
 
 }  // namespace Tests

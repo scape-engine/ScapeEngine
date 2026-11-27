@@ -28,6 +28,8 @@ const char* _CategoryName(PCG::Category category) {
       return "Output";
     case PCG::Category::MATH:
       return "Math";
+    case PCG::Category::CONVERT:
+      return "Convert";
     case PCG::Category::NOISE:
       return "Noise";
     case PCG::Category::FILTER:
@@ -49,6 +51,7 @@ ImU32 _Header(PCG::Category category) {
     case PCG::Category::NOISE:
       return EditorStyles::WithAlpha(EditorColor::orange_dim, 160);
     case PCG::Category::MATH:
+    case PCG::Category::CONVERT:
       return EditorColor::accent_deep;
     default:
       return EditorColor::surface_4;

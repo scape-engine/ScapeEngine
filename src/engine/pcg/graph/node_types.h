@@ -20,6 +20,7 @@ enum class Category {
   INPUT,
   OUTPUT,
   MATH,
+  CONVERT,  // godot_voxel's: clamping, remapping, snapping
   NOISE,
   FILTER,
   EROSION,
@@ -93,6 +94,16 @@ enum class NodeTypeID : uint32_t {
   Power,
   Min,
   Max,
+  Sin,
+  Floor,
+  Sqrt,
+  Fract,
+  Wrap,
+  PowerInt,  // godot_voxel's Powi
+  Stepify,
+  ClampConstant,  // godot_voxel's ClampC: bounds as params
+  Remap,
+  Smoothstep,
 
   // Noise generators
   OpenSimplex2,        // OpenSimplex2S

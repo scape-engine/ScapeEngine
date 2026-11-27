@@ -213,30 +213,40 @@ CompilationResult EvaluateSingleNode(const ProgramGraph::Node& node,
     return CompilationResult::MakeSuccess();
   }
 
-  // Skip nodes that require compile_func (they have params that need baking)
-  // These cannot be evaluated at compile time without param serialization
-  if (node_type.compile_func != nullptr) {
-    return CompilationResult::MakeError(
-        "Cannot fold node with compile-time params", node.id);
-  }
-
   if (node_type.process_buffer_func == nullptr) {
     return CompilationResult::MakeError(
         "Node has no buffer processing function", node.id);
   }
 
+  // Bake the params as GraphRuntime::Compile does
+  std::vector<uint16_t> operations;
+  std::vector<GraphRuntime::HeapResource> heap_resources;
+  if (node_type.compile_func != nullptr) {
+    CompileContext context(operations, heap_resources, node.params);
+    node_type.compile_func(context);
+    if (context.HasError()) {
+      for (GraphRuntime::HeapResource& resource : heap_resources)
+        resource.Free();
+      return CompilationResult::MakeError(context.GetErrorMessage().c_str(),
+                                          node.id);
+    }
+  }
+  if (operations.empty())
+    operations.push_back(0);  // no params
+  unsigned int pc = 0;
+  const std::span<const uint8_t> params =
+      GraphRuntime::ReadParams(operations, pc);
+
   // Build minimal execution context for single evaluation
-  std::vector<float> values;
+  // Sized first: the buffers point into it
+  std::vector<float> values(node.inputs.size() + node.outputs.size());
   std::vector<GraphRuntime::Buffer> buffers;
   std::vector<uint32_t> input_addresses;
   std::vector<uint32_t> output_addresses;
 
   // Set up input buffers with default values
   for (size_t i = 0; i < node.inputs.size(); ++i) {
-    values.push_back(node.default_inputs[i]);
-  }
-
-  for (size_t i = 0; i < node.inputs.size(); ++i) {
+    values[i] = node.default_inputs[i];
     GraphRuntime::Buffer buffer;
     buffer.data = &values[i];
     buffer.is_constant = true;
@@ -246,7 +256,6 @@ CompilationResult EvaluateSingleNode(const ProgramGraph::Node& node,
   }
 
   // Set up output buffers
-  values.resize(values.size() + node.outputs.size());
   for (size_t i = 0; i < node.outputs.size(); ++i) {
     const size_t value_index = node.inputs.size() + i;
     GraphRuntime::Buffer buffer;
@@ -258,10 +267,11 @@ CompilationResult EvaluateSingleNode(const ProgramGraph::Node& node,
 
   // Execute node
   std::unordered_map<std::string, std::shared_ptr<void>> resources;
-  std::span<const uint8_t> empty_params;
-  GraphRuntime::ProcessContext ctx(input_addresses, output_addresses,
-                                   empty_params, buffers, resources);
+  GraphRuntime::ProcessContext ctx(input_addresses, output_addresses, params,
+                                   buffers, resources);
   node_type.process_buffer_func(ctx);
+  for (GraphRuntime::HeapResource& resource : heap_resources)
+    resource.Free();
 
   // Extract outputs
   for (uint32_t oi : output_addresses) {

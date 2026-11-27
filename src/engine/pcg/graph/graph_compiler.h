@@ -74,26 +74,23 @@ public:
     assert(!params_added_);
 
     const size_t params_alignment = std::max(alignof(T), alignof(uint16_t));
-    const size_t params_offset_index = program_.size();
+    const size_t size_index = program_.size();
 
-    program_.push_back(1);
+    // [size in words, words to the aligned params, padding..., params],
+    // read back by GraphRuntime::ReadParams
+    program_.push_back(0);
+    program_.push_back(0);
 
     const size_t struct_offset =
-
-        // TODO: check helper function
         AlignUp(program_.size() * sizeof(uint16_t), params_alignment) /
         sizeof(uint16_t);
 
-    if (struct_offset > program_.size()) {
-      program_.resize(struct_offset);
-    }
-
-    program_[params_offset_index] =
-        static_cast<uint16_t>(struct_offset - params_offset_index);
-
     params_size_in_words_ =
         (sizeof(T) + sizeof(uint16_t) - 1) / sizeof(uint16_t);
-    program_.resize(program_.size() + params_size_in_words_);
+    program_[size_index] = static_cast<uint16_t>(params_size_in_words_);
+    program_[size_index + 1] =
+        static_cast<uint16_t>(struct_offset - (size_index + 1));
+    program_.resize(struct_offset + params_size_in_words_);
 
     T& p = *reinterpret_cast<T*>(&program_[struct_offset]);
     p = params;

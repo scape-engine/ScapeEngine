@@ -515,6 +515,7 @@ void TestSpawner();
 void TestActivation();
 void TestDescriptorEdits();
 void TestGraphAsset();
+void TestGraphNodes();
 void TestTerrainTiles();
 void TestModelGenerator();
 void TestModelOperations();
@@ -539,6 +540,7 @@ int main(int argc, char** argv) {
   Tests::TestActivation();
   Tests::TestDescriptorEdits();
   Tests::TestGraphAsset();
+  Tests::TestGraphNodes();
   Tests::TestTerrainTiles();
   Tests::TestModelGenerator();
   Tests::TestModelOperations();

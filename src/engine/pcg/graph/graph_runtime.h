@@ -86,6 +86,7 @@ public:
   struct InputInfo {
     // ? The buffer are allocated by the user and is mapped temporarily
     unsigned int buffer_address = 0;
+    uint32_t type_id = 0;  // the input node: what the binding holds
   };
 
   struct OutputInfo {
@@ -144,10 +145,12 @@ public:
 
   static inline std::span<const uint8_t> ReadParams(
       std::span<const uint16_t> operations, unsigned int& pc) {
+    // As CompileContext::SetParams writes them
     const uint16_t params_size_in_words = operations[pc++];
     if (params_size_in_words == 0) {
       return {};
     }
+    pc += operations[pc];  // to the aligned params
     const uint8_t* params_ptr =
         reinterpret_cast<const uint8_t*>(&operations[pc]);
     pc += params_size_in_words;
@@ -248,6 +251,7 @@ private:
     void Clear() {
       operations.clear();
       buffer_specs.clear();
+      inputs.clear();
       default_execution_map.Clear();
       outputs_count = 0;
 
