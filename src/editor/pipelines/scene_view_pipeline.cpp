@@ -236,7 +236,7 @@ void SceneViewPipeline::RenderReflectionNode(const Node::Context& context) {
   bgfx::setViewRect(ViewID::REFLECTION_PASS, 0, 0, fbw, fbh);
   bgfx::setViewFrameBuffer(ViewID::REFLECTION_PASS, reflection_fb);
   bgfx::setViewClear(ViewID::REFLECTION_PASS,
-                     BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 1.0f, 0);
+                     BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x303030ff, 0.0f, 0);
 
   // Get camera matrices
   TransformComponent& camera_transform = std::get<0>(god_camera_);
@@ -332,7 +332,7 @@ void SceneViewPipeline::RenderForwardNode(const Node::Context& context) {
 
   bgfx::setViewClear(ViewID::SCENE_FORWARD,
                      BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL,
-                     wireframe_ ? 0xffffffff : 0x303030ff, 1.0f, 0);
+                     wireframe_ ? 0xffffffff : 0x303030ff, 0.0f, 0);
 
   // Submission order matters: the selection stencil write must precede the
   // outline draw (default sort mode orders by program, not submit order)
@@ -737,9 +737,9 @@ void SceneViewPipeline::SubmitOutline(const Mesh& mesh, const glm::mat4& model,
                    BGFX_STENCIL_FUNC_RMASK(0xFF) | BGFX_STENCIL_OP_FAIL_S_KEEP |
                    BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP);
 
-  // Pass depth test if less or equal, with blending
+  // Pass depth test if as near or nearer, with blending
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                 BGFX_STATE_DEPTH_TEST_LEQUAL | cull | BGFX_STATE_BLEND_ALPHA);
+                 BGFX_STATE_DEPTH_TEST_GEQUAL | cull | BGFX_STATE_BLEND_ALPHA);
   bgfx::submit(ViewID::SCENE_OVERLAY, selection_program_);
 }
 
@@ -803,7 +803,9 @@ void SceneViewPipeline::SubmitLit(const Mesh& mesh, MaterialHandle material,
 
   // Set culling/state; blended surfaces test depth without writing it
   uint64_t render_state =
-      (BGFX_STATE_DEFAULT & ~BGFX_STATE_CULL_MASK) |
+      (BGFX_STATE_DEFAULT &
+       ~(BGFX_STATE_CULL_MASK | BGFX_STATE_DEPTH_TEST_MASK)) |
+      BGFX_STATE_DEPTH_TEST_GREATER |
       DrawList::Cull(material, model ? DrawList::Mirrored(*model) : mirrored);
   switch (DrawList::BlendOf(material)) {
     case Content::MaterialBlend::Blend:
@@ -910,7 +912,7 @@ void SceneViewPipeline::RenderGridNode(const Node::Context& context) {
 
   grid_mesh_->Bind();
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                 BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_BLEND_ALPHA);
+                 BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_BLEND_ALPHA);
   bgfx::submit(ViewID::SCENE_OVERLAY, debug_program_);
 }
 

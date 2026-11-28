@@ -853,6 +853,8 @@ void Subsystem::Stream(Entity volume, PlanetGenerator& generator,
           !planet.water_waves.states.empty()) {
         state.water_waves =
             std::make_shared<Worldgen::WaterWaveSettings>(planet.water_waves);
+        // TODO: coarse terrain LODs move the coastline where they cross sea
+        // level; keep the shore height across LOD switches
         auto [sea, transform] = ecs.CreateEntity("Sea", volume);
         ecs.Add<ProceduralInstanceComponent>(sea, volume, "sea");
         EngineContext::PCG().GetWater().Make(

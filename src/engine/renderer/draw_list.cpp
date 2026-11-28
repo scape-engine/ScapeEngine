@@ -58,13 +58,12 @@ void WriteInstance(uint8_t* out, const glm::mat4& world,
 // TODO: mesh LODs, so distant instances thin out instead of popping
 constexpr float min_screen_size = 0.01f;
 
-// The frustum's planes (inside where dot(xyz, p) + w >= 0). The near plane
-// takes depth from -1, so it holds for 0..1 and -1..1 projections alike (a
-// little loose for 0..1)
+// The frustum's planes (inside where dot(xyz, p) + w >= 0). Depth 0..1, in
+// either order: the camera's is reversed, the light's is not
 std::array<glm::vec4, 6> FrustumPlanes(const glm::mat4& m) {
   const glm::mat4 t = glm::transpose(m);  // rows of m
   std::array<glm::vec4, 6> planes = {t[3] + t[0], t[3] - t[0], t[3] + t[1],
-                                     t[3] - t[1], t[3] + t[2], t[3] - t[2]};
+                                     t[3] - t[1], t[2],        t[3] - t[2]};
   for (glm::vec4& plane : planes)
     plane /= glm::length(glm::vec3(plane));
   return planes;

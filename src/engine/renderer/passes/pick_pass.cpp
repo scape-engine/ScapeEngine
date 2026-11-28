@@ -34,7 +34,7 @@ void PickPass::Create() {
                                    BGFX_TEXTURE_RT | BGFX_SAMPLER_POINT);
   const bgfx::TextureHandle attachments[3] = {
       colour_, surface_,
-      bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::D24S8,
+      bgfx::createTexture2D(1, 1, false, 1, bgfx::TextureFormat::D32F,
                             BGFX_TEXTURE_RT | BGFX_TEXTURE_RT_WRITE_ONLY)};
   target_ = bgfx::createFrameBuffer(3, attachments, true);
   read_ = bgfx::createTexture2D(
@@ -92,7 +92,7 @@ void PickPass::Request(const glm::vec2& pixel, uint16_t width, uint16_t height,
   bgfx::setViewRect(ViewID::PICK, 0, 0, 1, 1);
   bgfx::setViewFrameBuffer(ViewID::PICK, target_);
   bgfx::setViewClear(ViewID::PICK, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-                     0x00000000, 1.0f, 0);
+                     0x00000000, 0.0f, 0);
   bgfx::setViewTransform(ViewID::PICK, glm::value_ptr(view),
                          glm::value_ptr(pick_projection));
   bgfx::touch(ViewID::PICK);
@@ -101,7 +101,7 @@ void PickPass::Request(const glm::vec2& pixel, uint16_t width, uint16_t height,
   // by its matrix's place among the component's
   drawn_.clear();
   const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
+                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER;
   auto& ecs = ECS::Main();
   for (const DrawList::Single& single : draws.singles) {
     Hit hit{single.entity, -1};

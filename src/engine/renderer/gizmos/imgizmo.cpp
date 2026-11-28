@@ -148,7 +148,7 @@ void IMGizmo::RenderPrimitives(const glm::mat4& view_projection) {
   // Set vertex buffer and render state
   bgfx::setVertexBuffer(0, &tvb);
   bgfx::setState(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                 BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_PT_LINES);
+                 BGFX_STATE_DEPTH_TEST_GREATER | BGFX_STATE_PT_LINES);
 
   bgfx::submit(current_view_id_, static_data_.line_shader);
 }
@@ -191,7 +191,7 @@ void IMGizmo::RenderIcons(const glm::mat4& view_projection) {
         BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A | BGFX_STATE_BLEND_ALPHA;
 
     if (!icon.state.foreground) {
-      render_state |= BGFX_STATE_DEPTH_TEST_LESS;
+      render_state |= BGFX_STATE_DEPTH_TEST_GREATER;
     }
 
     bgfx::setState(render_state);

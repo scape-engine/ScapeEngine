@@ -24,6 +24,8 @@ glm::mat4 Model(const glm::vec3& position, const glm::quat& rotation,
 }
 
 // Left-handed view matrix (Y-up, Z-forward, X-right)
+// TODO: render camera-relative (subtract the camera position in double before
+// the float matrices); world-space floats snap by ~0.5 m at Earth radius
 glm::mat4 View(const glm::vec3& camera_position,
                const glm::quat& camera_rotation) {
   glm::quat rotation = glm::normalize(camera_rotation);
@@ -68,9 +70,12 @@ glm::mat4 Projection(float fov, float aspect, float near_plane,
   glm::mat4 result(0.0f);
   result[0][0] = 1.0f / (aspect * tanHalfFov);
   result[1][1] = yDir / tanHalfFov;  // Flip based on backend
-  result[2][2] = far_plane / (far_plane - near_plane);
+  // Reversed depth, near at 1 and far at 0: float depth's precision near 0
+  // offsets the projection's loss far away, so coasts a metre under the sea
+  // stay apart at km distances. Depth tests are GREATER, clears are 0
+  result[2][2] = near_plane / (near_plane - far_plane);
   result[2][3] = 1.0f;
-  result[3][2] = -(near_plane * far_plane) / (far_plane - near_plane);
+  result[3][2] = (near_plane * far_plane) / (far_plane - near_plane);
 
   return result;
 }

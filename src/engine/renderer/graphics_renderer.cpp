@@ -238,7 +238,7 @@ void GraphicsRenderer::PrepareFrame() {
 
     // Optional: clear reflection buffer
     bgfx::setViewClear(ViewID::REFLECTION_PASS,
-                       BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 1.0f,
+                       BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x000000ff, 0.0f,
                        0);
   }
 
@@ -276,8 +276,10 @@ void GraphicsRenderer::CreateFramebuffers(uint16_t w, uint16_t h) {
                                    : "INVALID"));
   Logger::getInstance().Log(LogLevel::Debug, log_buffer);
 
+  // TODO: fall back to D24S8 where the GPU can't render to D32FS8 (check
+  // bgfx::getCaps()->formats); no scene framebuffer is made there now
   bgfx::TextureHandle new_depth_th =
-      bgfx::createTexture2D(w, h, false, 1, bgfx::TextureFormat::D24S8,
+      bgfx::createTexture2D(w, h, false, 1, bgfx::TextureFormat::D32FS8,
                             BGFX_TEXTURE_RT | BGFX_TEXTURE_RT_WRITE_ONLY);
   snprintf(
       log_buffer, sizeof(log_buffer),

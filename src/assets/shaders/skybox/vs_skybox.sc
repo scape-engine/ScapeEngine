@@ -26,6 +26,6 @@ void main() {
     v_viewDir = viewDir_world;
 
     // --- Output final clip-space position ---
-    // Z=1.0 to render at far plane, W=1.0 for rasterizer
-    gl_Position = float4(ndc, 1.0, 1.0);
+    // Z=0.0 to render at the (reversed) far plane, W=1.0 for rasterizer
+    gl_Position = float4(ndc, 0.0, 1.0);
 }

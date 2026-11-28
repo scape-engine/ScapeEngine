@@ -258,7 +258,7 @@ void Skybox::Submit(bgfx::ViewId viewId, const float* viewMatrix,
   // Capture targets have no depth attachment
   uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
   if (!capture) {
-    state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
+    state |= BGFX_STATE_DEPTH_TEST_GEQUAL;
   }
 
   bgfx::setState(state);

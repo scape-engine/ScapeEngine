@@ -55,14 +55,14 @@ void PrePass::Render(const DrawList& draws, const glm::mat4& view,
   bgfx::setViewRect(ViewID::PRE_PASS, 0, 0, width, height);
   bgfx::setViewFrameBuffer(ViewID::PRE_PASS, fbo_);
   bgfx::setViewClear(ViewID::PRE_PASS, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-                     0x00000000, 1.0f, 0);
+                     0x00000000, 0.0f, 0);
   bgfx::setViewTransform(ViewID::PRE_PASS, glm::value_ptr(view),
                          glm::value_ptr(projection));
   bgfx::touch(ViewID::PRE_PASS);
 
   // Render every mesh
   const uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A |
-                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_LESS;
+                         BGFX_STATE_WRITE_Z | BGFX_STATE_DEPTH_TEST_GREATER;
   for (const DrawList::Batch& batch : draws.batches) {
     if (DrawList::BlendOf(batch.material) != Content::MaterialBlend::Opaque)
       continue;
@@ -111,7 +111,7 @@ void PrePass::CreateTargets(uint16_t width, uint16_t height) {
   depth_output_ = bgfx::createTexture2D(width, height, false, 1,
                                         bgfx::TextureFormat::R32F, flags);
   bgfx::TextureHandle depth_buffer =
-      bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::D24S8,
+      bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::D32F,
                             BGFX_TEXTURE_RT | BGFX_TEXTURE_RT_WRITE_ONLY);
 
   // Destroys its textures with it

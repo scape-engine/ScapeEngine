@@ -84,7 +84,7 @@ void PreviewPipeline::Render() {
             BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
 
         output.depth_texture = bgfx::createTexture2D(
-            output.width, output.height, false, 1, bgfx::TextureFormat::D24S8,
+            output.width, output.height, false, 1, bgfx::TextureFormat::D32F,
             BGFX_TEXTURE_RT | BGFX_TEXTURE_RT_WRITE_ONLY);
 
         const bgfx::TextureHandle attachments[2] = {output.color_texture,
@@ -112,7 +112,7 @@ void PreviewPipeline::Render() {
             (uint32_t(instruction->background_color.b * 255) << 8) |
             (uint32_t(instruction->background_color.a * 255));
         bgfx::setViewClear(view_id, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH,
-                           clear_color, 1.0f, 0);
+                           clear_color, 0.0f, 0);
         bgfx::touch(view_id);
       }
 
@@ -161,7 +161,9 @@ void PreviewPipeline::Render() {
         auto* graphics = static_cast<GraphicsRenderer*>(Runtime::Renderer());
         bgfx::setTexture(0, graphics->GetAlbedoSamplerUniform(),
                          graphics->GetWhiteTexture());
-        bgfx::setState((BGFX_STATE_DEFAULT & ~BGFX_STATE_CULL_MASK) |
+        bgfx::setState((BGFX_STATE_DEFAULT & ~(BGFX_STATE_CULL_MASK |
+                                               BGFX_STATE_DEPTH_TEST_MASK)) |
+                       BGFX_STATE_DEPTH_TEST_GREATER |
                        (glm::determinant(glm::mat3(transform)) < 0.0f
                             ? BGFX_STATE_CULL_CCW
                             : BGFX_STATE_CULL_CW));
@@ -226,7 +228,7 @@ size_t PreviewPipeline::CreateOutput() {
       BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP);
 
   output.depth_texture = bgfx::createTexture2D(
-      output.width, output.height, false, 1, bgfx::TextureFormat::D24S8,
+      output.width, output.height, false, 1, bgfx::TextureFormat::D32F,
       BGFX_TEXTURE_RT | BGFX_TEXTURE_RT_WRITE_ONLY);
 
   // Create framebuffer from attachments

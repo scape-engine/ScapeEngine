@@ -22,7 +22,7 @@ void CameraMenu(GodCameraState& state, TransformComponent& transform,
                             "%.0f°");
   IMComponents::PopupSlider("Near Plane", &camera.near_plane_, 0.01f, 10.0f,
                             "%.2f", true, ImGuiSliderFlags_Logarithmic);
-  IMComponents::PopupSlider("Far Plane", &camera.far_plane_, 10.0f, 10000.0f,
+  IMComponents::PopupSlider("Far Plane", &camera.far_plane_, 10.0f, 1.0e7f,
                             "%.0f", true, ImGuiSliderFlags_Logarithmic);
 
   // Keep the depth range valid: near must stay well below far
